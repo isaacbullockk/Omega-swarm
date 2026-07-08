@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/select";
 import { Rocket, Bot, Terminal, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { trpc } from "@/lib/trpc";
 
 /* ───────── Types ───────── */
 interface LogEntry {
@@ -119,26 +120,53 @@ export default function MissionControl() {
     );
   }, []);
 
+  /* tRPC mutation for real mission execution */
+  const executeMission = trpc.agent.executeMission.useMutation({
+    onSuccess: (data) => {
+      setLogs((prev) => [
+        ...prev,
+        { timestamp: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }), agent: "Orchestrator", agentColor: "#9333EA", message: `Mission ${data.campaignId} complete — ${data.agentsExecuted} agents executed` },
+      ]);
+      setIsDeploying(false);
+      refCampaign.refetch();
+    },
+    onError: (err) => {
+      setLogs((prev) => [
+        ...prev,
+        { timestamp: new Date().toLocaleTimeString("en-US", { hour12: false }), agent: "System", agentColor: "#EF4444", message: `Error: ${err.message}` },
+      ]);
+      setIsDeploying(false);
+    },
+  });
+
+  const refCampaign = trpc.agent.getCampaigns.useQuery();
+
   /* Deploy handler */
   const handleDeploy = useCallback(() => {
     if (!objective.trim() || !budget || !timeline) return;
     setIsDeploying(true);
     setLogs((prev) => [
       ...prev,
-      { timestamp: "09:15:00", agent: "Orchestrator", agentColor: "#9333EA", message: "─── DEPLOYMENT INITIATED ───" },
+      { timestamp: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }), agent: "Orchestrator", agentColor: "#9333EA", message: "─── DEPLOYMENT INITIATED ───" },
     ]);
 
     let i = 0;
     const interval = setInterval(() => {
       if (i >= DEPLOY_LOGS.length) {
         clearInterval(interval);
-        setIsDeploying(false);
+        // Now execute the REAL mission via tRPC
+        executeMission.mutate({
+          objective,
+          budget,
+          timeline,
+          mode: swarmMode,
+        });
         return;
       }
       setLogs((prev) => [...prev, DEPLOY_LOGS[i]]);
       i++;
     }, 600);
-  }, [objective, budget, timeline]);
+  }, [objective, budget, timeline, swarmMode, executeMission]);
 
   /* SVG Topology dimensions */
   const svgSize = 420;
