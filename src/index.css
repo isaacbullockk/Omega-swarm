@@ -4,72 +4,126 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
-    --radius: 0.625rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --background: 240 33% 3%;
+    --foreground: 213 47% 96%;
+    --card: 216 28% 7%;
+    --card-foreground: 213 47% 96%;
+    --popover: 216 28% 7%;
+    --popover-foreground: 213 47% 96%;
+    --primary: 270 83% 56%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 270 76% 47%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 215 14% 20%;
+    --muted-foreground: 214 8% 58%;
+    --accent: 270 83% 56%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 14% 15%;
+    --input: 215 14% 15%;
+    --ring: 270 83% 56%;
+    --radius: 0.5rem;
+    --sidebar-background: 216 28% 7%;
+    --sidebar-foreground: 213 47% 96%;
+    --sidebar-primary: 270 83% 56%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 14% 20%;
+    --sidebar-accent-foreground: 213 47% 96%;
+    --sidebar-border: 215 14% 15%;
+    --sidebar-ring: 270 83% 56%;
+
+    /* Omega Swarm Design Tokens */
+    --swarm-void: #0A0A0F;
+    --swarm-void-navy: #0D1117;
+    --swarm-elevated: #161B22;
+    --swarm-elevated-hover: #1C2128;
+    --swarm-border: #21262D;
+    --swarm-border-light: #30363D;
+    --swarm-purple: #9333EA;
+    --swarm-purple-dark: #7E22CE;
+    --swarm-purple-light: #A855F7;
+    --swarm-purple-glow: rgba(147, 51, 234, 0.4);
+    --swarm-success: #22C55E;
+    --swarm-warning: #F59E0B;
+    --swarm-error: #EF4444;
+    --swarm-info: #3B82F6;
+    --swarm-text-primary: #F0F6FC;
+    --swarm-text-secondary: #8B949E;
+    --swarm-text-muted: #484F58;
   }
 
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    background-color: #0A0A0F;
+    color: #F0F6FC;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0A0A0F;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #30363D;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #484F58;
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: rgba(147, 51, 234, 0.3);
+    color: #F0F6FC;
+  }
+
+  /* Focus styles */
+  *:focus-visible {
+    outline: 2px solid #9333EA;
+    outline-offset: 2px;
+  }
+
+  /* Mono font utility for data/code */
+  .font-data {
+    font-family: "JetBrains Mono", monospace;
   }
 }
 
-@layer base {
-  * {
-    @apply border-border;
+@layer utilities {
+  /* Gradient text utility */
+  .gradient-text {
+    background: linear-gradient(135deg, #A855F7, #9333EA, #7E22CE);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
-  body {
-    @apply bg-background text-foreground;
+
+  /* Purple glow border */
+  .glow-border {
+    box-shadow: 0 0 0 1px #21262D, 0 0 20px rgba(147, 51, 234, 0.15);
+  }
+
+  /* Card hover lift */
+  .card-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(147, 51, 234, 0.1);
   }
 }

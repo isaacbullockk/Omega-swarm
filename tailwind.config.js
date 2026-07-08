@@ -48,6 +48,34 @@ module.exports = {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // Omega Swarm Design System
+        void: "#0A0A0F",
+        "void-navy": "#0D1117",
+        elevated: "#161B22",
+        "elevated-hover": "#1C2128",
+        "border-dark": "#21262D",
+        "border-darker": "#30363D",
+        purple: {
+          400: "#A855F7",
+          500: "#9333EA",
+          600: "#7E22CE",
+          glow: "rgba(147, 51, 234, 0.4)",
+        },
+        swarm: {
+          success: "#22C55E",
+          warning: "#F59E0B",
+          error: "#EF4444",
+          info: "#3B82F6",
+        },
+        txt: {
+          primary: "#F0F6FC",
+          secondary: "#8B949E",
+          muted: "#484F58",
+        },
+      },
+      fontFamily: {
+        inter: ["Inter", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "monospace"],
       },
       borderRadius: {
         xl: "calc(var(--radius) + 4px)",
@@ -58,6 +86,11 @@ module.exports = {
       },
       boxShadow: {
         xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+        glow: "0 0 20px rgba(147, 51, 234, 0.4)",
+        "glow-lg": "0 0 40px rgba(147, 51, 234, 0.5)",
+        "glow-sm": "0 0 10px rgba(147, 51, 234, 0.3)",
+        card: "0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2)",
+        "card-hover": "0 8px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(147, 51, 234, 0.1)",
       },
       keyframes: {
         "accordion-down": {
@@ -72,11 +105,30 @@ module.exports = {
           "0%,70%,100%": { opacity: "1" },
           "20%,50%": { opacity: "0" },
         },
+        "pulse-glow": {
+          "0%, 100%": {
+            boxShadow: "0 0 20px rgba(147, 51, 234, 0.4)",
+          },
+          "50%": {
+            boxShadow: "0 0 40px rgba(147, 51, 234, 0.7)",
+          },
+        },
+        "fade-in": {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
+        },
+        "slide-up": {
+          from: { opacity: "0", transform: "translateY(16px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "caret-blink": "caret-blink 1.25s ease-out infinite",
+        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+        "fade-in": "fade-in 0.3s ease-out forwards",
+        "slide-up": "slide-up 0.4s ease-out forwards",
       },
     },
   },
