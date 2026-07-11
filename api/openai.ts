@@ -11,15 +11,21 @@ export async function generateWithAgent(
   agentRole: string,
   campaignObjective: string,
   budget: string,
-  timeline: string
+  timeline: string,
+  brandVoice?: { tone: string; description: string } | null
 ): Promise<string> {
   if (!openai) {
-    return `[SIMULATED] ${agentName} output for: "${campaignObjective}"\n\nThis is a simulated response. Add OPENAI_API_KEY to your .env file to get real AI-generated content.\n\n${agentRole}\nBudget: ${budget} | Timeline: ${timeline}`;
+    const brandVoiceNote = brandVoice ? `\n\nBrand Voice: ${brandVoice.tone}. ${brandVoice.description}` : "";
+    return `[SIMULATED] ${agentName} output for: "${campaignObjective}"\n\nThis is a simulated response. Add OPENAI_API_KEY to your .env file to get real AI-generated content.\n\n${agentRole}\nBudget: ${budget} | Timeline: ${timeline}${brandVoiceNote}`;
   }
 
-  const systemPrompt = `You are ${agentName}, an expert AI marketing agent. ${agentRole}. 
+  let systemPrompt = `You are ${agentName}, an expert AI marketing agent. ${agentRole}. 
 Generate high-quality, actionable marketing content based on the campaign brief.
 Be specific, creative, and data-driven. Format your response with clear sections and bullet points.`;
+
+  if (brandVoice) {
+    systemPrompt += `\n\nWrite in this brand voice: ${brandVoice.tone}. ${brandVoice.description}`;
+  }
 
   const userPrompt = `Campaign Brief:
 - Objective: ${campaignObjective}

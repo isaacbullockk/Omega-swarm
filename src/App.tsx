@@ -7,6 +7,10 @@ import Pipeline from "@/pages/Pipeline";
 import Evolution from "@/pages/Evolution";
 import MemoryBank from "@/pages/MemoryBank";
 import BattleArena from "@/pages/BattleArena";
+import BrandVoice from "@/pages/BrandVoice";
+import ContentLibrary from "@/pages/ContentLibrary";
+import SocialConnections from "@/pages/SocialConnections";
+import ViralStudio from "@/pages/ViralStudio";
 import Login from "@/pages/Login";
 
 /**
@@ -28,6 +32,10 @@ export default function App() {
         <Route path="/evolution" element={<Evolution />} />
         <Route path="/memory-bank" element={<MemoryBank />} />
         <Route path="/battle-arena" element={<BattleArena />} />
+        <Route path="/brand-voice" element={<BrandVoice />} />
+        <Route path="/content-library" element={<ContentLibrary />} />
+        <Route path="/social-connections" element={<SocialConnections />} />
+        <Route path="/viral-studio" element={<ViralStudio />} />
       </Route>
     </Routes>
   );

@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
+import { Link } from "react-router";
 import {
   Area,
   AreaChart,
@@ -25,6 +26,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   TrendingUp,
   CheckCircle2,
@@ -44,7 +46,9 @@ import {
   Lock,
   ChevronRight,
   Workflow,
+  Rocket,
 } from "lucide-react";
+import { trpc } from "@/lib/trpc";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -79,41 +83,6 @@ interface Agent {
 /*  Demo Data                                                          */
 /* ------------------------------------------------------------------ */
 
-const CAMPAIGNS: Campaign[] = [
-  {
-    id: "1",
-    name: "Eco Bottle Launch",
-    status: "Running",
-    progress: 73,
-    agents: 8,
-    lastActivity: "2 min ago",
-  },
-  {
-    id: "2",
-    name: "Summer Sale 2025",
-    status: "Review",
-    progress: 45,
-    agents: 5,
-    lastActivity: "18 min ago",
-  },
-  {
-    id: "3",
-    name: "B2B Lead Gen",
-    status: "Running",
-    progress: 91,
-    agents: 6,
-    lastActivity: "1 hr ago",
-  },
-  {
-    id: "4",
-    name: "Brand Awareness Q3",
-    status: "Planning",
-    progress: 12,
-    agents: 3,
-    lastActivity: "3 hr ago",
-  },
-];
-
 const ACTIVITIES: ActivityItem[] = [
   {
     id: "a1",
@@ -133,7 +102,7 @@ const ACTIVITIES: ActivityItem[] = [
     id: "a3",
     icon: <Zap className="size-4" />,
     color: "#F59E0B",
-    description: "Budget RL shifted $320 from LinkedIn to TikTok",
+    description: "Budget RL shifted €30 from LinkedIn to TikTok",
     timestamp: "32 min ago",
   },
   {
@@ -215,9 +184,9 @@ function generateChartData(days: number) {
 
 function useGreeting() {
   const hour = new Date().getHours();
-  if (hour < 12) return "Good morning, Commander";
-  if (hour < 18) return "Good afternoon, Commander";
-  return "Good evening, Commander";
+  if (hour < 12) return "Good morning, Isaac";
+  if (hour < 18) return "Good afternoon, Isaac";
+  return "Good evening, Isaac";
 }
 
 function StatusBadge({ status }: { status: Campaign["status"] }) {
@@ -558,6 +527,9 @@ export default function Dashboard() {
   const greeting = useGreeting();
   const [timeRange, setTimeRange] = useState<"7D" | "30D" | "90D">("30D");
 
+  /* ── Fetch real campaign data ── */
+  const { data: campaignsData, isLoading: campaignsLoading } = trpc.agent.getCampaigns.useQuery();
+
   const chartData = useMemo(
     () => generateChartData(timeRange === "7D" ? 7 : timeRange === "30D" ? 30 : 90),
     [timeRange]
@@ -569,6 +541,23 @@ export default function Dashboard() {
   const totalConversions = chartData.reduce((s, d) => s + d.conversions, 0);
   const avgCTR = ((totalConversions / totalImpressions) * 100).toFixed(2);
   const costPerConv = (42.5).toFixed(2);
+
+  /* ── Map real campaigns to display format ── */
+  const campaigns: Campaign[] = useMemo(() => {
+    if (!campaignsData || campaignsData.length === 0) return [];
+    return campaignsData.map((c) => ({
+      id: c.id,
+      name: c.title || c.objective.slice(0, 50) + (c.objective.length > 50 ? "..." : ""),
+      status: c.status === "running" ? "Running" : c.status === "completed" ? "Review" : "Planning",
+      progress: c.status === "completed" ? 100 : c.status === "running" ? 65 : 25,
+      agents: c.outputs?.length || 12,
+      lastActivity: c.createdAt
+        ? new Date(c.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+        : "Recently",
+    }));
+  }, [campaignsData]);
+
+  const activeCampaignsCount = campaigns.filter((c) => c.status === "Running").length;
 
   return (
     <div
@@ -594,13 +583,15 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button
-            className="gap-2 rounded-lg border-none font-medium"
-            style={{ background: "#9333EA", color: "#F0F6FC" }}
-          >
-            <Plus className="size-4" />
-            New Mission
-          </Button>
+          <Link to="/mission-control">
+            <Button
+              className="gap-2 rounded-lg border-none font-medium"
+              style={{ background: "#9333EA", color: "#F0F6FC" }}
+            >
+              <Plus className="size-4" />
+              New Mission
+            </Button>
+          </Link>
           <Button
             variant="outline"
             className="gap-2 rounded-lg font-medium"
@@ -644,7 +635,11 @@ export default function Dashboard() {
                 className="mt-2 text-3xl font-bold"
                 style={{ color: "#F0F6FC", fontFamily: "JetBrains Mono, monospace" }}
               >
-                8
+                {campaignsLoading ? (
+                  <Skeleton className="h-8 w-12" style={{ background: "#21262D" }} />
+                ) : (
+                  activeCampaignsCount
+                )}
               </p>
               <p className="mt-1 flex items-center gap-1 text-xs" style={{ color: "#22C55E" }}>
                 <TrendingUp className="size-3" />+2 this week
@@ -838,7 +833,9 @@ export default function Dashboard() {
                   Active Campaigns
                 </CardTitle>
                 <CardDescription className="mt-1 text-sm">
-                  {CAMPAIGNS.length} campaigns currently running
+                  {campaignsLoading
+                    ? "Loading campaigns..."
+                    : `${campaigns.length} campaign${campaigns.length !== 1 ? "s" : ""} currently running`}
                 </CardDescription>
               </div>
               <Button
@@ -852,89 +849,140 @@ export default function Dashboard() {
             </div>
           </CardHeader>
           <CardContent className="px-6 pb-6">
-            <div className="space-y-4">
-              {CAMPAIGNS.map((campaign) => (
-                <div
-                  key={campaign.id}
-                  className="group rounded-lg p-4 transition-colors duration-150"
-                  style={{ background: "#161B22" }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "#1C2128")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "#161B22")
-                  }
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {/* Loading state */}
+            {campaignsLoading && (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="rounded-lg p-4"
+                    style={{ background: "#161B22" }}
+                  >
                     <div className="flex items-center gap-3">
-                      <div
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-                        style={{ background: "#9333EA15" }}
-                      >
-                        <Target
-                          className="size-5"
-                          style={{ color: "#A855F7" }}
-                        />
-                      </div>
-                      <div>
-                        <p
-                          className="text-sm font-semibold"
-                          style={{ color: "#F0F6FC" }}
-                        >
-                          {campaign.name}
-                        </p>
-                        <p className="text-xs" style={{ color: "#484F58" }}>
-                          Last activity {campaign.lastActivity}
-                        </p>
+                      <Skeleton className="h-10 w-10 rounded-lg" style={{ background: "#21262D" }} />
+                      <div className="flex-1">
+                        <Skeleton className="h-4 w-48 mb-2" style={{ background: "#21262D" }} />
+                        <Skeleton className="h-3 w-32" style={{ background: "#21262D" }} />
                       </div>
                     </div>
-                    <div className="flex items-center gap-6">
-                      <StatusBadge status={campaign.status} />
-                      <div className="flex items-center gap-2">
-                        <Users
-                          className="size-3.5"
-                          style={{ color: "#8B949E" }}
-                        />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!campaignsLoading && campaigns.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div
+                  className="flex h-16 w-16 items-center justify-center rounded-2xl mb-4"
+                  style={{ background: "#161B22" }}
+                >
+                  <Rocket className="h-8 w-8" style={{ color: "#484F58" }} />
+                </div>
+                <p className="text-base font-medium" style={{ color: "#F0F6FC" }}>
+                  No missions yet
+                </p>
+                <p className="mt-1 text-sm" style={{ color: "#8B949E" }}>
+                  Deploy your first mission to see results here.
+                </p>
+                <Link to="/mission-control" className="mt-4">
+                  <Button
+                    className="gap-2 rounded-lg font-medium"
+                    style={{ background: "#9333EA", color: "#fff" }}
+                  >
+                    <Rocket className="size-4" />
+                    Deploy Mission
+                  </Button>
+                </Link>
+              </div>
+            )}
+
+            {/* Campaign list */}
+            {!campaignsLoading && campaigns.length > 0 && (
+              <div className="space-y-4">
+                {campaigns.map((campaign) => (
+                  <div
+                    key={campaign.id}
+                    className="group rounded-lg p-4 transition-colors duration-150"
+                    style={{ background: "#161B22" }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = "#1C2128")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "#161B22")
+                    }
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                          style={{ background: "#9333EA15" }}
+                        >
+                          <Target
+                            className="size-5"
+                            style={{ color: "#A855F7" }}
+                          />
+                        </div>
+                        <div>
+                          <p
+                            className="text-sm font-semibold"
+                            style={{ color: "#F0F6FC" }}
+                          >
+                            {campaign.name}
+                          </p>
+                          <p className="text-xs" style={{ color: "#484F58" }}>
+                            Last activity {campaign.lastActivity}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <StatusBadge status={campaign.status} />
+                        <div className="flex items-center gap-2">
+                          <Users
+                            className="size-3.5"
+                            style={{ color: "#8B949E" }}
+                          />
+                          <span
+                            className="text-xs font-medium"
+                            style={{
+                              color: "#8B949E",
+                              fontFamily: "JetBrains Mono, monospace",
+                            }}
+                          >
+                            {campaign.agents} agents
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="text-[11px]" style={{ color: "#484F58" }}>
+                          Progress
+                        </span>
                         <span
-                          className="text-xs font-medium"
+                          className="text-[11px] font-semibold"
                           style={{
-                            color: "#8B949E",
+                            color: "#F0F6FC",
                             fontFamily: "JetBrains Mono, monospace",
                           }}
                         >
-                          {campaign.agents} agents
+                          {campaign.progress}%
                         </span>
                       </div>
+                      <Progress
+                        value={campaign.progress}
+                        className="h-1.5"
+                        style={
+                          {
+                            "--progress-bg": "#21262D",
+                          } as React.CSSProperties
+                        }
+                      />
                     </div>
                   </div>
-                  <div className="mt-3">
-                    <div className="mb-1.5 flex items-center justify-between">
-                      <span className="text-[11px]" style={{ color: "#484F58" }}>
-                        Progress
-                      </span>
-                      <span
-                        className="text-[11px] font-semibold"
-                        style={{
-                          color: "#F0F6FC",
-                          fontFamily: "JetBrains Mono, monospace",
-                        }}
-                      >
-                        {campaign.progress}%
-                      </span>
-                    </div>
-                    <Progress
-                      value={campaign.progress}
-                      className="h-1.5"
-                      style={
-                        {
-                          "--progress-bg": "#21262D",
-                        } as React.CSSProperties
-                      }
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -1170,7 +1218,7 @@ export default function Dashboard() {
                 },
                 {
                   label: "Cost/Conv",
-                  value: `$${costPerConv}`,
+                  value: `€${costPerConv}`,
                   icon: <DollarSign className="size-4 text-amber-400" />,
                 },
               ].map((m) => (

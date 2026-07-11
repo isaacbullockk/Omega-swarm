@@ -7,9 +7,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Rocket, Bot, Terminal, Activity } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Rocket, Bot, Terminal, Activity, Copy, Check, ExternalLink, Image, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
+import { Link } from "react-router";
 
 /* ───────── Types ───────── */
 interface LogEntry {
@@ -35,6 +37,8 @@ interface AgentTooltip {
   color: string;
 }
 
+// Agent result type comes from tRPC campaign query
+
 /* ───────── Constants ───────── */
 const AGENTS: AgentNode[] = [
   { id: "copywriter", name: "Copywriter", emoji: "✍️", color: "#F59E0B", bgColor: "bg-amber-500/20", role: "Ad copy, emails, landing pages", angle: 0 },
@@ -55,10 +59,10 @@ const INITIAL_LOGS: LogEntry[] = [
   { timestamp: "09:14:32", agent: "System", agentColor: "#8B949E", message: "Omega Swarm v4.0 initialized — 12 agents standing by" },
   { timestamp: "09:14:33", agent: "Sentinel", agentColor: "#EF4444", message: "14 competitor feeds connected" },
   { timestamp: "09:14:34", agent: "GEO", agentColor: "#6366F1", message: "Optimizing content for ChatGPT, Perplexity, Gemini, Claude" },
-  { timestamp: "09:14:35", agent: "Budget RL", agentColor: "#EAB308", message: "$4,832 allocated across 8 channels" },
+  { timestamp: "09:14:35", agent: "Budget RL", agentColor: "#EAB308", message: "Auto-budget allocation module active" },
   { timestamp: "09:14:36", agent: "Privacy Agent", agentColor: "#22C55E", message: "Zero-party data collection framework active" },
   { timestamp: "09:14:37", agent: "Orchestrator", agentColor: "#9333EA", message: "Swarm topology online — awaiting mission parameters" },
-  { timestamp: "09:14:38", agent: "Creative Director", agentColor: "#A855F7", message: "Brand voice module loaded — 3 personas available" },
+  { timestamp: "09:14:38", agent: "Creative Director", agentColor: "#A855F7", message: "Brand voice module loaded — customizable in Brand Voice Studio" },
   { timestamp: "09:14:39", agent: "SEO Strategist", agentColor: "#06B6D4", message: "Keyword index refreshed — 2.4M terms indexed" },
 ];
 
@@ -104,6 +108,10 @@ export default function MissionControl() {
   const [isDeploying, setIsDeploying] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>(INITIAL_LOGS);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; data: AgentTooltip } | null>(null);
+  const [generateVisuals, setGenerateVisuals] = useState(false);
+  const [completedCampaignId, setCompletedCampaignId] = useState<string | null>(null);
+  const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set());
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const consoleRef = useRef<HTMLDivElement>(null);
 
   /* Auto-scroll console */
@@ -120,6 +128,41 @@ export default function MissionControl() {
     );
   }, []);
 
+  /* Toggle result expansion */
+  const toggleResult = useCallback((agentId: string) => {
+    setExpandedResults((prev) => {
+      const next = new Set(prev);
+      if (next.has(agentId)) {
+        next.delete(agentId);
+      } else {
+        next.add(agentId);
+      }
+      return next;
+    });
+  }, []);
+
+  /* Copy to clipboard */
+  const handleCopy = useCallback(async (text: string, agentId: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(agentId);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      // Fallback
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setCopiedId(agentId);
+      setTimeout(() => setCopiedId(null), 2000);
+    }
+  }, []);
+
+  /* Brand voice query */
+  const { data: brandVoiceData } = trpc.brandVoice.get.useQuery();
+
   /* tRPC mutation for real mission execution */
   const executeMission = trpc.agent.executeMission.useMutation({
     onSuccess: (data) => {
@@ -128,6 +171,7 @@ export default function MissionControl() {
         { timestamp: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }), agent: "Orchestrator", agentColor: "#9333EA", message: `Mission ${data.campaignId} complete — ${data.agentsExecuted} agents executed` },
       ]);
       setIsDeploying(false);
+      setCompletedCampaignId(data.campaignId);
       refCampaign.refetch();
     },
     onError: (err) => {
@@ -141,10 +185,20 @@ export default function MissionControl() {
 
   const refCampaign = trpc.agent.getCampaigns.useQuery();
 
+  /* Fetch campaign results when completed */
+  const campaignQuery = trpc.agent.getCampaign.useQuery(
+    { id: completedCampaignId ?? "" },
+    { enabled: !!completedCampaignId }
+  );
+
+  const campaignResults = campaignQuery.data?.outputs ?? [];
+
   /* Deploy handler */
   const handleDeploy = useCallback(() => {
     if (!objective.trim() || !budget || !timeline) return;
     setIsDeploying(true);
+    setCompletedCampaignId(null);
+    setExpandedResults(new Set());
     setLogs((prev) => [
       ...prev,
       { timestamp: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }), agent: "Orchestrator", agentColor: "#9333EA", message: "─── DEPLOYMENT INITIATED ───" },
@@ -173,6 +227,11 @@ export default function MissionControl() {
   const cx = svgSize / 2;
   const cy = svgSize / 2;
   const radius = 155;
+
+  /* Brand voice display */
+  const brandVoiceDisplay = brandVoiceData
+    ? `${brandVoiceData.tone}`
+    : "Soulful, confident, community-driven";
 
   return (
     <div className="min-h-screen bg-[#0A0A0F] text-[#F0F6FC] p-6 font-[Inter]">
@@ -205,7 +264,7 @@ export default function MissionControl() {
                     Mission Objective
                   </label>
                   <Textarea
-                    placeholder="e.g., Launch eco-friendly water bottle targeting Gen Z fitness enthusiasts, $5K budget, 2-week sprint"
+                    placeholder="e.g., Launch eco-friendly water bottle targeting Gen Z fitness enthusiasts, €200 budget, 2-week sprint"
                     value={objective}
                     onChange={(e) => setObjective(e.target.value)}
                     className="bg-[#161B22] border-[#21262D] text-[#F0F6FC] placeholder:text-[#484F58] focus:border-[#9333EA] focus:ring-purple-500/20 min-h-[100px] resize-none"
@@ -221,10 +280,10 @@ export default function MissionControl() {
                         <SelectValue placeholder="Select budget" />
                       </SelectTrigger>
                       <SelectContent className="bg-[#161B22] border-[#21262D]">
-                        <SelectItem value="1k-5k" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">$1K - $5K</SelectItem>
-                        <SelectItem value="5k-20k" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">$5K - $20K</SelectItem>
-                        <SelectItem value="20k-100k" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">$20K - $100K</SelectItem>
-                        <SelectItem value="100k+" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">$100K+</SelectItem>
+                        <SelectItem value="50-100" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">€50 - €100</SelectItem>
+                        <SelectItem value="100-250" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">€100 - €250</SelectItem>
+                        <SelectItem value="250-500" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">€250 - €500</SelectItem>
+                        <SelectItem value="custom" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">Custom</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -241,6 +300,51 @@ export default function MissionControl() {
                         <SelectItem value="3m" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">3 Months</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                </div>
+
+                {/* Brand Voice */}
+                <div className="rounded-xl border border-[#21262D] bg-[#161B22] p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-[#8B949E]">Brand Voice</label>
+                    <Link
+                      to="/brand-voice"
+                      className="text-xs text-[#9333EA] hover:text-[#A855F7] transition-colors flex items-center gap-1"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      Customize
+                    </Link>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-[#22C55E]" />
+                    <span className="text-sm font-medium text-[#F0F6FC]">
+                      {brandVoiceDisplay}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#484F58] mt-2">
+                    Omega Swarm will write in this voice. Go to{" "}
+                    <Link to="/brand-voice" className="text-[#9333EA] hover:underline">Brand Voice Studio</Link>{" "}
+                    to customize.
+                  </p>
+                </div>
+
+                {/* Generate Visual Assets Toggle */}
+                <div className="rounded-xl border border-[#21262D] bg-[#161B22] p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                        <Image className="w-4 h-4 text-[#9333EA]" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-[#F0F6FC]">Generate Visual Assets</label>
+                        <p className="text-xs text-[#484F58]">Creates DALL-E images and AI video clips for your campaign</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={generateVisuals}
+                      onCheckedChange={setGenerateVisuals}
+                      className="data-[state=checked]:bg-[#9333EA]"
+                    />
                   </div>
                 </div>
 
@@ -312,6 +416,107 @@ export default function MissionControl() {
                 </>
               )}
             </button>
+
+            {/* ═══ Section 6: Mission Results ═══ */}
+            {campaignResults.length > 0 && (
+              <div className="rounded-2xl border border-[#21262D] bg-[#0D1117] p-6">
+                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-[#9333EA]" />
+                  Mission Results
+                  <span className="text-xs font-normal text-[#484F58] ml-2">
+                    {campaignResults.filter((o) => o.status === "completed").length} / {campaignResults.length} agents
+                  </span>
+                </h2>
+
+                <div className="space-y-3 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#21262D] scrollbar-track-transparent pr-1">
+                  {campaignResults.map((output) => {
+                    const isExpanded = expandedResults.has(output.agentId);
+                    const isSocialAgent = output.agentId === "social";
+                    const isCompleted = output.status === "completed";
+                    const isRunning = output.status === "running";
+
+                    return (
+                      <div
+                        key={output.agentId}
+                        className="rounded-xl border border-[#21262D] bg-[#161B22] overflow-hidden transition-all"
+                      >
+                        {/* Header - always visible */}
+                        <button
+                          onClick={() => output.output && toggleResult(output.agentId)}
+                          className="w-full flex items-center justify-between p-4 text-left hover:bg-[#1C2128] transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg">{output.agentEmoji}</span>
+                            <span className="text-sm font-semibold text-[#F0F6FC]">{output.agentName}</span>
+                            <span
+                              className={cn(
+                                "px-2 py-0.5 rounded-full text-[10px] font-medium uppercase",
+                                isCompleted
+                                  ? "bg-emerald-500/10 text-emerald-400"
+                                  : isRunning
+                                    ? "bg-amber-500/10 text-amber-400"
+                                    : "bg-[#21262D] text-[#484F58]"
+                              )}
+                            >
+                              {output.status}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {output.output && (
+                              <>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCopy(output.output, output.agentId);
+                                  }}
+                                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-[#8B949E] hover:text-[#F0F6FC] hover:bg-[#21262D] transition-all"
+                                  title="Copy output"
+                                >
+                                  {copiedId === output.agentId ? (
+                                    <Check className="w-3 h-3 text-emerald-400" />
+                                  ) : (
+                                    <Copy className="w-3 h-3" />
+                                  )}
+                                  {copiedId === output.agentId ? "Copied" : "Copy"}
+                                </button>
+                                {isExpanded ? (
+                                  <ChevronUp className="w-4 h-4 text-[#484F58]" />
+                                ) : (
+                                  <ChevronDown className="w-4 h-4 text-[#484F58]" />
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </button>
+
+                        {/* Expandable content */}
+                        {isExpanded && output.output && (
+                          <div className="px-4 pb-4 border-t border-[#21262D]">
+                            <pre className="mt-3 p-3 rounded-lg bg-[#0D1117] border border-[#21262D] text-xs text-[#C9D1D9] font-mono whitespace-pre-wrap leading-relaxed max-h-[300px] overflow-y-auto">
+                              {output.output}
+                            </pre>
+                            {isSocialAgent && (
+                              <div className="mt-3 flex items-center gap-2">
+                                <Link
+                                  to="/social-connections"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gradient-to-r from-[#9333EA] to-[#7E22CE] text-white hover:shadow-[0_0_16px_rgba(147,51,234,0.3)] transition-all"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  Post to Instagram
+                                </Link>
+                                <span className="text-[10px] text-[#484F58]">
+                                  Connects to your linked Instagram accounts
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ═══ Right Column: Console + Topology ═══ */}

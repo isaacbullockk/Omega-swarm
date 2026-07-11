@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../trpc";
 import { generateWithAgent } from "../openai";
-import { addCampaign, updateCampaign, getCampaigns, getCampaign } from "../../db/store";
+import { addCampaign, updateCampaign, getCampaigns, getCampaign, getBrandVoice } from "../../db/store";
 
 const AGENTS = [
   { id: "copywriter", name: "Copywriter GPT", emoji: "✍️", role: "You write compelling ad copy, email sequences, landing pages, and product descriptions that convert" },
@@ -163,6 +163,17 @@ async function runAgent(
   const campaign = getCampaign(campaignId);
   if (!campaign) return;
 
+  // Fetch brand voice (wrapped in try/catch in case store isn't ready)
+  let brandVoice: { tone: string; description: string } | null = null;
+  try {
+    const savedVoice = getBrandVoice();
+    if (savedVoice) {
+      brandVoice = { tone: savedVoice.tone, description: savedVoice.description };
+    }
+  } catch {
+    // ignore — brand voice store may not exist yet
+  }
+
   // Update to running
   const out = campaign.outputs.find((o) => o.agentId === agent.id);
   if (out) {
@@ -176,7 +187,8 @@ async function runAgent(
     agent.role,
     input.objective,
     input.budget,
-    input.timeline
+    input.timeline,
+    brandVoice
   );
 
   // Update to completed
