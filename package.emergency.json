@@ -1,0 +1,12 @@
+{
+  "name": "omega-swarm-emergency",
+  "private": true,
+  "version": "4.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server-emergency.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
