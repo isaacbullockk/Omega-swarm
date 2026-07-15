@@ -1,6 +1,6 @@
 import { serve } from "@hono/node-server";
-import app from "./api";
-import { db } from "./db/connection";
+import app from "./api.ts";
+import { db } from "./db/connection.ts";
 import { sql } from "drizzle-orm";
 
 const port = process.env.PORT ? parseInt(process.env.PORT) : 3001;
