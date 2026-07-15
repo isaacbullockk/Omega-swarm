@@ -1,9 +1,9 @@
-import { router } from "./trpc";
-import { agentRouter } from "./routers/agent";
-import { brandVoiceRouter } from "./routers/brandVoice";
-import { socialRouter } from "./routers/social";
-import { viralRouter } from "./routers/viral";
-import { contentLibraryRouter } from "./routers/contentLibrary";
+import { router } from "./trpc.ts";
+import { agentRouter } from "./routers/agent.ts";
+import { brandVoiceRouter } from "./routers/brandVoice.ts";
+import { socialRouter } from "./routers/social.ts";
+import { viralRouter } from "./routers/viral.ts";
+import { contentLibraryRouter } from "./routers/contentLibrary.ts";
 
 export const appRouter = router({
   agent: agentRouter,
