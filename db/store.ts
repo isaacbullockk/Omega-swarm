@@ -1,5 +1,5 @@
-import { db } from "./connection";
-import { campaigns, campaignOutputs, brandVoices, contentAssets, viralVideos, socialAccounts } from "./schema";
+import { db } from "./connection.ts";
+import { campaigns, campaignOutputs, brandVoices, contentAssets, viralVideos, socialAccounts } from "./schema.ts";
 import { eq } from "drizzle-orm";
 
 /* ─── Campaigns ─── */
