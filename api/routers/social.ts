@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { publicProcedure, router } from "../trpc";
-import { getSocialAccounts, createSocialAccount, deleteSocialAccount } from "../../db/store";
+import { publicProcedure, router } from "../trpc.ts";
+import { getSocialAccounts, createSocialAccount, deleteSocialAccount } from "../../db/store.ts";
 
 export const socialRouter = router({
   list: publicProcedure.query(async () => {
