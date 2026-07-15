@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { publicProcedure, router } from "../trpc";
-import { getBrandVoice, saveBrandVoice } from "../../db/store";
+import { publicProcedure, router } from "../trpc.ts";
+import { getBrandVoice, saveBrandVoice } from "../../db/store.ts";
 
 export const brandVoiceRouter = router({
   get: publicProcedure.query(async () => {
