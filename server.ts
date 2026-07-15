@@ -1,5 +1,5 @@
 import { serve } from "@hono/node-server";
-import app from "./api.ts";
+import app from "./api/index.ts";
 import { db } from "./db/connection.ts";
 import { sql } from "drizzle-orm";
 
