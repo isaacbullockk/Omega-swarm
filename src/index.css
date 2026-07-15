@@ -1,56 +1,70 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 @layer base {
   :root {
-    --background: 240 33% 3%;
-    --foreground: 213 47% 96%;
-    --card: 216 28% 7%;
-    --card-foreground: 213 47% 96%;
-    --popover: 216 28% 7%;
-    --popover-foreground: 213 47% 96%;
-    --primary: 270 83% 56%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 270 76% 47%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 215 14% 20%;
-    --muted-foreground: 214 8% 58%;
-    --accent: 270 83% 56%;
-    --accent-foreground: 0 0% 100%;
+    --background: 20 14% 4%;
+    --foreground: 30 33% 96%;
+    --card: 20 12% 11%;
+    --card-foreground: 30 33% 96%;
+    --popover: 20 12% 11%;
+    --popover-foreground: 30 33% 96%;
+    --primary: 38 92% 50%;
+    --primary-foreground: 20 14% 4%;
+    --secondary: 25 95% 53%;
+    --secondary-foreground: 20 14% 4%;
+    --muted: 20 10% 18%;
+    --muted-foreground: 30 18% 56%;
+    --accent: 38 92% 50%;
+    --accent-foreground: 20 14% 4%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 215 14% 15%;
-    --input: 215 14% 15%;
-    --ring: 270 83% 56%;
+    --border: 20 16% 14%;
+    --input: 20 14% 13%;
+    --ring: 38 92% 50%;
     --radius: 0.5rem;
-    --sidebar-background: 216 28% 7%;
-    --sidebar-foreground: 213 47% 96%;
-    --sidebar-primary: 270 83% 56%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 14% 20%;
-    --sidebar-accent-foreground: 213 47% 96%;
-    --sidebar-border: 215 14% 15%;
-    --sidebar-ring: 270 83% 56%;
+    --sidebar-background: 20 12% 7%;
+    --sidebar-foreground: 30 33% 96%;
+    --sidebar-primary: 38 92% 50%;
+    --sidebar-primary-foreground: 20 14% 4%;
+    --sidebar-accent: 20 10% 18%;
+    --sidebar-accent-foreground: 30 33% 96%;
+    --sidebar-border: 20 16% 14%;
+    --sidebar-ring: 38 92% 50%;
 
-    /* Omega Swarm Design Tokens */
-    --swarm-void: #0A0A0F;
-    --swarm-void-navy: #0D1117;
-    --swarm-elevated: #161B22;
-    --swarm-elevated-hover: #1C2128;
-    --swarm-border: #21262D;
-    --swarm-border-light: #30363D;
-    --swarm-purple: #9333EA;
-    --swarm-purple-dark: #7E22CE;
-    --swarm-purple-light: #A855F7;
-    --swarm-purple-glow: rgba(147, 51, 234, 0.4);
+    /* Savannah Summer tokens */
+    --savannah-void: #0C0A09;
+    --savannah-card: #1C1917;
+    --savannah-input: #231F1E;
+    --savannah-border: #29221D;
+    --savannah-border-light: #3D3229;
+    --savannah-amber: #F59E0B;
+    --savannah-amber-dark: #D97706;
+    --savannah-amber-light: #FBBF24;
+    --savannah-amber-glow: rgba(245, 158, 11, 0.35);
+    --savannah-sunset: #F97316;
+    --savannah-cream: #FAF5EF;
+    --savannah-cream-secondary: #C4B5A0;
+    --savannah-cream-muted: #7A6E5F;
+    --savannah-sage: #84CC16;
+
+    /* Legacy Omega Swarm tokens (preserved for compatibility) */
+    --swarm-void: #0C0A09;
+    --swarm-void-navy: #1C1917;
+    --swarm-elevated: #231F1E;
+    --swarm-elevated-hover: #2A2422;
+    --swarm-border: #29221D;
+    --swarm-border-light: #3D3229;
+    --swarm-purple: #F59E0B;
+    --swarm-purple-dark: #D97706;
+    --swarm-purple-light: #FBBF24;
+    --swarm-purple-glow: rgba(245, 158, 11, 0.4);
     --swarm-success: #22C55E;
     --swarm-warning: #F59E0B;
     --swarm-error: #EF4444;
     --swarm-info: #3B82F6;
-    --swarm-text-primary: #F0F6FC;
-    --swarm-text-secondary: #8B949E;
-    --swarm-text-muted: #484F58;
+    --swarm-text-primary: #FAF5EF;
+    --swarm-text-secondary: #C4B5A0;
+    --swarm-text-muted: #7A6E5F;
   }
 
   html {
@@ -59,8 +73,8 @@
 
   body {
     font-family: "Inter", system-ui, -apple-system, sans-serif;
-    background-color: #0A0A0F;
-    color: #F0F6FC;
+    background-color: #0C0A09;
+    color: #FAF5EF;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
@@ -73,27 +87,27 @@
   }
 
   ::-webkit-scrollbar-track {
-    background: #0A0A0F;
+    background: #0C0A09;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #30363D;
+    background: #3D3229;
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #484F58;
+    background: #7A6E5F;
   }
 
   /* Selection */
   ::selection {
-    background-color: rgba(147, 51, 234, 0.3);
-    color: #F0F6FC;
+    background-color: rgba(245, 158, 11, 0.3);
+    color: #FAF5EF;
   }
 
   /* Focus styles */
   *:focus-visible {
-    outline: 2px solid #9333EA;
+    outline: 2px solid #F59E0B;
     outline-offset: 2px;
   }
 
@@ -106,15 +120,15 @@
 @layer utilities {
   /* Gradient text utility */
   .gradient-text {
-    background: linear-gradient(135deg, #A855F7, #9333EA, #7E22CE);
+    background: linear-gradient(135deg, #FBBF24, #F59E0B, #F97316);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-  /* Purple glow border */
+  /* Amber glow border */
   .glow-border {
-    box-shadow: 0 0 0 1px #21262D, 0 0 20px rgba(147, 51, 234, 0.15);
+    box-shadow: 0 0 0 1px #29221D, 0 0 20px rgba(245, 158, 11, 0.15);
   }
 
   /* Card hover lift */
@@ -124,6 +138,102 @@
 
   .card-lift:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(147, 51, 234, 0.1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(245, 158, 11, 0.1);
+  }
+
+  /* Glassmorphism card */
+  .glass-card {
+    background: rgba(28, 25, 23, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(245, 158, 11, 0.12);
+  }
+
+  .glass-card-hover:hover {
+    border-color: rgba(245, 158, 11, 0.25);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(245, 158, 11, 0.1);
+  }
+
+  /* Warm glow border */
+  .glow-border-amber {
+    box-shadow: 0 0 0 1px #29221D, 0 0 20px rgba(245, 158, 11, 0.15);
+  }
+
+  /* Animations */
+  .animate-fade-slide-up {
+    animation: fade-slide-up 0.6s ease-out forwards;
+    opacity: 0;
+  }
+
+  .animate-fade-slide-in-left {
+    animation: fade-slide-in-left 0.5s ease-out forwards;
+    opacity: 0;
+  }
+
+  .animate-scale-in {
+    animation: scale-in 0.4s ease-out forwards;
+    opacity: 0;
+  }
+
+  .animate-shimmer {
+    background-size: 200% 100%;
+    animation: shimmer 3s ease-in-out infinite;
+  }
+
+  .animate-pulse-amber {
+    animation: pulse-amber 2s ease-in-out infinite;
+  }
+
+  @keyframes fade-slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-slide-in-left {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes shimmer {
+    0%,
+    100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  @keyframes pulse-amber {
+    0%,
+    100% {
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.35);
+    }
+    50% {
+      box-shadow: 0 0 40px rgba(245, 158, 11, 0.55);
+    }
   }
 }

@@ -4,12 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Instagram,
-  Youtube,
-  Facebook,
+  Camera,
+  Video,
+  Globe,
   Link2,
   Unlink,
-  Globe,
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
@@ -28,21 +27,21 @@ interface AccountCardProps {
 /* ───────── Platform Config ───────── */
 const PLATFORM_CONFIG = {
   instagram: {
-    icon: Instagram,
+    icon: Camera,
     color: "#EC4899",
     bgColor: "bg-pink-500/10",
     borderColor: "border-pink-500/20",
     label: "Instagram",
   },
   youtube: {
-    icon: Youtube,
+    icon: Video,
     color: "#EF4444",
     bgColor: "bg-red-500/10",
     borderColor: "border-red-500/20",
     label: "YouTube",
   },
   facebook: {
-    icon: Facebook,
+    icon: Globe,
     color: "#3B82F6",
     bgColor: "bg-blue-500/10",
     borderColor: "border-blue-500/20",

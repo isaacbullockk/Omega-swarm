@@ -48,18 +48,18 @@ module.exports = {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        // Omega Swarm Design System
-        void: "#0A0A0F",
-        "void-navy": "#0D1117",
-        elevated: "#161B22",
-        "elevated-hover": "#1C2128",
-        "border-dark": "#21262D",
-        "border-darker": "#30363D",
+        // Omega Swarm Design System (updated for Savannah Summer)
+        void: "#0C0A09",
+        "void-navy": "#1C1917",
+        elevated: "#231F1E",
+        "elevated-hover": "#2A2422",
+        "border-dark": "#29221D",
+        "border-darker": "#3D3229",
         purple: {
-          400: "#A855F7",
-          500: "#9333EA",
-          600: "#7E22CE",
-          glow: "rgba(147, 51, 234, 0.4)",
+          400: "#FBBF24",
+          500: "#F59E0B",
+          600: "#D97706",
+          glow: "rgba(245, 158, 11, 0.4)",
         },
         swarm: {
           success: "#22C55E",
@@ -68,9 +68,26 @@ module.exports = {
           info: "#3B82F6",
         },
         txt: {
-          primary: "#F0F6FC",
-          secondary: "#8B949E",
-          muted: "#484F58",
+          primary: "#FAF5EF",
+          secondary: "#C4B5A0",
+          muted: "#7A6E5F",
+        },
+        // Savannah Summer palette
+        savannah: {
+          void: "#0C0A09",
+          card: "#1C1917",
+          input: "#231F1E",
+          border: "#29221D",
+          "border-light": "#3D3229",
+          amber: "#F59E0B",
+          "amber-dark": "#D97706",
+          "amber-light": "#FBBF24",
+          "amber-glow": "rgba(245, 158, 11, 0.35)",
+          sunset: "#F97316",
+          cream: "#FAF5EF",
+          "cream-secondary": "#C4B5A0",
+          "cream-muted": "#7A6E5F",
+          sage: "#84CC16",
         },
       },
       fontFamily: {
@@ -86,11 +103,14 @@ module.exports = {
       },
       boxShadow: {
         xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-        glow: "0 0 20px rgba(147, 51, 234, 0.4)",
-        "glow-lg": "0 0 40px rgba(147, 51, 234, 0.5)",
-        "glow-sm": "0 0 10px rgba(147, 51, 234, 0.3)",
+        glow: "0 0 20px rgba(245, 158, 11, 0.4)",
+        "glow-lg": "0 0 40px rgba(245, 158, 11, 0.5)",
+        "glow-sm": "0 0 10px rgba(245, 158, 11, 0.3)",
         card: "0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2)",
-        "card-hover": "0 8px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(147, 51, 234, 0.1)",
+        "card-hover": "0 8px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(245, 158, 11, 0.1)",
+        "amber-glow": "0 0 20px rgba(245, 158, 11, 0.35)",
+        "amber-glow-lg": "0 0 40px rgba(245, 158, 11, 0.5)",
+        "amber-glow-sm": "0 0 10px rgba(245, 158, 11, 0.3)",
       },
       keyframes: {
         "accordion-down": {
@@ -107,10 +127,10 @@ module.exports = {
         },
         "pulse-glow": {
           "0%, 100%": {
-            boxShadow: "0 0 20px rgba(147, 51, 234, 0.4)",
+            boxShadow: "0 0 20px rgba(245, 158, 11, 0.4)",
           },
           "50%": {
-            boxShadow: "0 0 40px rgba(147, 51, 234, 0.7)",
+            boxShadow: "0 0 40px rgba(245, 158, 11, 0.7)",
           },
         },
         "fade-in": {
@@ -121,6 +141,26 @@ module.exports = {
           from: { opacity: "0", transform: "translateY(16px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        "fade-slide-up": {
+          from: { opacity: "0", transform: "translateY(24px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "fade-slide-in-left": {
+          from: { opacity: "0", transform: "translateX(-20px)" },
+          to: { opacity: "1", transform: "translateX(0)" },
+        },
+        "scale-in": {
+          from: { opacity: "0", transform: "scale(0.95)" },
+          to: { opacity: "1", transform: "scale(1)" },
+        },
+        shimmer: {
+          "0%, 100%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
+        },
+        "pulse-amber": {
+          "0%, 100%": { boxShadow: "0 0 20px rgba(245, 158, 11, 0.35)" },
+          "50%": { boxShadow: "0 0 40px rgba(245, 158, 11, 0.55)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -129,6 +169,11 @@ module.exports = {
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         "fade-in": "fade-in 0.3s ease-out forwards",
         "slide-up": "slide-up 0.4s ease-out forwards",
+        "fade-slide-up": "fade-slide-up 0.6s ease-out forwards",
+        "fade-slide-in-left": "fade-slide-in-left 0.5s ease-out forwards",
+        "scale-in": "scale-in 0.4s ease-out forwards",
+        shimmer: "shimmer 3s ease-in-out infinite",
+        "pulse-amber": "pulse-amber 2s ease-in-out infinite",
       },
     },
   },

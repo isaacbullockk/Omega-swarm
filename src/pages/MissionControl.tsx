@@ -12,6 +12,7 @@ import { Rocket, Bot, Terminal, Activity, Copy, Check, ExternalLink, Image, Spar
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
 import { Link } from "react-router";
+import SavannahBackground from "@/components/SavannahBackground";
 
 /* ───────── Types ───────── */
 interface LogEntry {
@@ -234,16 +235,17 @@ export default function MissionControl() {
     : "Soulful, confident, community-driven";
 
   return (
-    <div className="min-h-screen bg-[#0A0A0F] text-[#F0F6FC] p-6 font-[Inter]">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#0C0A09] text-[#FAF5EF] p-6 font-[Inter] relative">
+      <SavannahBackground />
+      <div className="max-w-7xl mx-auto space-y-6 relative z-10">
         {/* ═══ Section 1: Page Header ═══ */}
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center">
-            <Rocket className="w-6 h-6 text-[#9333EA]" />
+        <div className="flex items-center gap-4 animate-fade-slide-up" style={{ animationDelay: "0s" }}>
+          <div className="w-12 h-12 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center">
+            <Rocket className="w-6 h-6 text-[#F59E0B]" />
           </div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Deploy Mission</h1>
-            <p className="text-[#8B949E] text-sm mt-0.5">Configure your AI marketing campaign</p>
+            <p className="text-[#C4B5A0] text-sm mt-0.5">Configure your AI marketing campaign</p>
           </div>
         </div>
 
@@ -251,106 +253,106 @@ export default function MissionControl() {
           {/* ═══ Left Column: Form + Deploy ═══ */}
           <div className="space-y-6">
             {/* Section 2: Mission Configuration Form */}
-            <div className="rounded-2xl border border-[#21262D] bg-[#0D1117] p-6">
+            <div className="rounded-2xl border border-[#29221D] bg-[#1C1917]/80 backdrop-blur-xl p-6 animate-fade-slide-up glass-card-hover transition-all" style={{ animationDelay: "0s" }}>
               <h2 className="text-lg font-semibold mb-5 flex items-center gap-2">
-                <Bot className="w-5 h-5 text-[#9333EA]" />
+                <Bot className="w-5 h-5 text-[#F59E0B]" />
                 Mission Configuration
               </h2>
 
               <div className="space-y-5">
                 {/* Objective */}
                 <div>
-                  <label className="block text-sm font-medium text-[#8B949E] mb-2">
+                  <label className="block text-sm font-medium text-[#C4B5A0] mb-2">
                     Mission Objective
                   </label>
                   <Textarea
                     placeholder="e.g., Launch eco-friendly water bottle targeting Gen Z fitness enthusiasts, €200 budget, 2-week sprint"
                     value={objective}
                     onChange={(e) => setObjective(e.target.value)}
-                    className="bg-[#161B22] border-[#21262D] text-[#F0F6FC] placeholder:text-[#484F58] focus:border-[#9333EA] focus:ring-purple-500/20 min-h-[100px] resize-none"
+                    className="bg-[#231F1E] border-[#29221D] text-[#FAF5EF] placeholder:text-[#7A6E5F] focus:border-[#F59E0B] focus:ring-amber-500/20 min-h-[100px] resize-none"
                   />
                 </div>
 
                 {/* Budget + Timeline row */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-[#8B949E] mb-2">Budget</label>
+                    <label className="block text-sm font-medium text-[#C4B5A0] mb-2">Budget</label>
                     <Select value={budget} onValueChange={setBudget}>
-                      <SelectTrigger className="bg-[#161B22] border-[#21262D] text-[#F0F6FC] focus:ring-purple-500/20">
+                      <SelectTrigger className="bg-[#231F1E] border-[#29221D] text-[#FAF5EF] focus:ring-amber-500/20">
                         <SelectValue placeholder="Select budget" />
                       </SelectTrigger>
-                      <SelectContent className="bg-[#161B22] border-[#21262D]">
-                        <SelectItem value="50-100" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">€50 - €100</SelectItem>
-                        <SelectItem value="100-250" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">€100 - €250</SelectItem>
-                        <SelectItem value="250-500" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">€250 - €500</SelectItem>
-                        <SelectItem value="custom" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">Custom</SelectItem>
+                      <SelectContent className="bg-[#231F1E] border-[#29221D]">
+                        <SelectItem value="50-100" className="text-[#FAF5EF] focus:bg-amber-500/10 focus:text-[#FAF5EF]">€50 - €100</SelectItem>
+                        <SelectItem value="100-250" className="text-[#FAF5EF] focus:bg-amber-500/10 focus:text-[#FAF5EF]">€100 - €250</SelectItem>
+                        <SelectItem value="250-500" className="text-[#FAF5EF] focus:bg-amber-500/10 focus:text-[#FAF5EF]">€250 - €500</SelectItem>
+                        <SelectItem value="custom" className="text-[#FAF5EF] focus:bg-amber-500/10 focus:text-[#FAF5EF]">Custom</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#8B949E] mb-2">Timeline</label>
+                    <label className="block text-sm font-medium text-[#C4B5A0] mb-2">Timeline</label>
                     <Select value={timeline} onValueChange={setTimeline}>
-                      <SelectTrigger className="bg-[#161B22] border-[#21262D] text-[#F0F6FC] focus:ring-purple-500/20">
+                      <SelectTrigger className="bg-[#231F1E] border-[#29221D] text-[#FAF5EF] focus:ring-amber-500/20">
                         <SelectValue placeholder="Select timeline" />
                       </SelectTrigger>
-                      <SelectContent className="bg-[#161B22] border-[#21262D]">
-                        <SelectItem value="1w" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">1 Week</SelectItem>
-                        <SelectItem value="2w" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">2 Weeks</SelectItem>
-                        <SelectItem value="1m" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">1 Month</SelectItem>
-                        <SelectItem value="3m" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">3 Months</SelectItem>
+                      <SelectContent className="bg-[#231F1E] border-[#29221D]">
+                        <SelectItem value="1w" className="text-[#FAF5EF] focus:bg-amber-500/10 focus:text-[#FAF5EF]">1 Week</SelectItem>
+                        <SelectItem value="2w" className="text-[#FAF5EF] focus:bg-amber-500/10 focus:text-[#FAF5EF]">2 Weeks</SelectItem>
+                        <SelectItem value="1m" className="text-[#FAF5EF] focus:bg-amber-500/10 focus:text-[#FAF5EF]">1 Month</SelectItem>
+                        <SelectItem value="3m" className="text-[#FAF5EF] focus:bg-amber-500/10 focus:text-[#FAF5EF]">3 Months</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
                 {/* Brand Voice */}
-                <div className="rounded-xl border border-[#21262D] bg-[#161B22] p-4">
+                <div className="rounded-xl border border-[#29221D] bg-[#231F1E] p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-[#8B949E]">Brand Voice</label>
+                    <label className="block text-sm font-medium text-[#C4B5A0]">Brand Voice</label>
                     <Link
                       to="/brand-voice"
-                      className="text-xs text-[#9333EA] hover:text-[#A855F7] transition-colors flex items-center gap-1"
+                      className="text-xs text-[#F59E0B] hover:text-[#FBBF24] transition-colors flex items-center gap-1"
                     >
                       <Sparkles className="w-3 h-3" />
                       Customize
                     </Link>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-[#22C55E]" />
-                    <span className="text-sm font-medium text-[#F0F6FC]">
+                    <div className="w-2 h-2 rounded-full bg-[#84CC16]" />
+                    <span className="text-sm font-medium text-[#FAF5EF]">
                       {brandVoiceDisplay}
                     </span>
                   </div>
-                  <p className="text-xs text-[#484F58] mt-2">
+                  <p className="text-xs text-[#7A6E5F] mt-2">
                     Omega Swarm will write in this voice. Go to{" "}
-                    <Link to="/brand-voice" className="text-[#9333EA] hover:underline">Brand Voice Studio</Link>{" "}
+                    <Link to="/brand-voice" className="text-[#F59E0B] hover:underline">Brand Voice Studio</Link>{" "}
                     to customize.
                   </p>
                 </div>
 
                 {/* Generate Visual Assets Toggle */}
-                <div className="rounded-xl border border-[#21262D] bg-[#161B22] p-4">
+                <div className="rounded-xl border border-[#29221D] bg-[#231F1E] p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                        <Image className="w-4 h-4 text-[#9333EA]" />
+                      <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                        <Image className="w-4 h-4 text-[#F59E0B]" />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-[#F0F6FC]">Generate Visual Assets</label>
-                        <p className="text-xs text-[#484F58]">Creates DALL-E images and AI video clips for your campaign</p>
+                        <label className="block text-sm font-medium text-[#FAF5EF]">Generate Visual Assets</label>
+                        <p className="text-xs text-[#7A6E5F]">Creates DALL-E images and AI video clips for your campaign</p>
                       </div>
                     </div>
                     <Switch
                       checked={generateVisuals}
                       onCheckedChange={setGenerateVisuals}
-                      className="data-[state=checked]:bg-[#9333EA]"
+                      className="data-[state=checked]:bg-[#F59E0B]"
                     />
                   </div>
                 </div>
 
                 {/* Swarm Mode */}
                 <div>
-                  <label className="block text-sm font-medium text-[#8B949E] mb-2">Swarm Mode</label>
+                  <label className="block text-sm font-medium text-[#C4B5A0] mb-2">Swarm Mode</label>
                   <div className="grid grid-cols-4 gap-2">
                     {SWARM_MODES.map((mode) => (
                       <button
@@ -359,8 +361,8 @@ export default function MissionControl() {
                         className={cn(
                           "flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-sm font-medium transition-all",
                           swarmMode === mode.id
-                            ? "bg-purple-500/15 border-[#9333EA] text-[#F0F6FC] shadow-[0_0_12px_rgba(147,51,234,0.15)]"
-                            : "bg-[#161B22] border-[#21262D] text-[#8B949E] hover:border-[#30363D] hover:text-[#F0F6FC]"
+                            ? "bg-amber-500/15 border-[#F59E0B] text-[#FAF5EF] shadow-[0_0_12px_rgba(245,158,11,0.15)]"
+                            : "bg-[#231F1E] border-[#29221D] text-[#C4B5A0] hover:border-[#3D3229] hover:text-[#FAF5EF]"
                         )}
                       >
                         <span>{mode.icon}</span>
@@ -372,7 +374,7 @@ export default function MissionControl() {
 
                 {/* Active Layers */}
                 <div>
-                  <label className="block text-sm font-medium text-[#8B949E] mb-2">Active Layers</label>
+                  <label className="block text-sm font-medium text-[#C4B5A0] mb-2">Active Layers</label>
                   <div className="flex flex-wrap gap-2">
                     {LAYERS.map((layer) => (
                       <button
@@ -382,7 +384,7 @@ export default function MissionControl() {
                           "px-3 py-1.5 rounded-full border text-xs font-medium transition-all",
                           activeLayers.includes(layer.id)
                             ? `${layer.color} shadow-[0_0_8px_rgba(34,197,94,0.1)]`
-                            : "bg-[#161B22] border-[#21262D] text-[#484F58] hover:border-[#30363D]"
+                            : "bg-[#231F1E] border-[#29221D] text-[#7A6E5F] hover:border-[#3D3229]"
                         )}
                       >
                         {layer.label}
@@ -400,9 +402,14 @@ export default function MissionControl() {
               className={cn(
                 "w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 transition-all",
                 isDeploying || !objective.trim() || !budget || !timeline
-                  ? "bg-[#161B22] border border-[#21262D] text-[#484F58] cursor-not-allowed"
-                  : "bg-gradient-to-r from-[#9333EA] to-[#7E22CE] text-white shadow-[0_0_30px_rgba(147,51,234,0.3)] hover:shadow-[0_0_40px_rgba(147,51,234,0.45)] hover:scale-[1.02] active:scale-[0.98]"
+                  ? "bg-[#231F1E] border border-[#29221D] text-[#7A6E5F] cursor-not-allowed"
+                  : "bg-gradient-to-r from-[#F59E0B] via-[#F97316] to-[#F59E0B] text-[#0C0A09] animate-shimmer shadow-[0_0_30px_rgba(245,158,11,0.35)] hover:shadow-[0_0_40px_rgba(245,158,11,0.45)] hover:scale-[1.03] active:scale-[0.98]"
               )}
+              style={
+                !isDeploying && objective.trim() && budget && timeline
+                  ? { backgroundSize: "200% 100%" }
+                  : undefined
+              }
             >
               {isDeploying ? (
                 <>
@@ -419,16 +426,16 @@ export default function MissionControl() {
 
             {/* ═══ Section 6: Mission Results ═══ */}
             {campaignResults.length > 0 && (
-              <div className="rounded-2xl border border-[#21262D] bg-[#0D1117] p-6">
+              <div className="rounded-2xl border border-[#29221D] bg-[#1C1917]/80 backdrop-blur-xl p-6 animate-fade-slide-up glass-card-hover transition-all" style={{ animationDelay: "0.16s" }}>
                 <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-[#9333EA]" />
+                  <Sparkles className="w-5 h-5 text-[#F59E0B]" />
                   Mission Results
-                  <span className="text-xs font-normal text-[#484F58] ml-2">
+                  <span className="text-xs font-normal text-[#7A6E5F] ml-2">
                     {campaignResults.filter((o) => o.status === "completed").length} / {campaignResults.length} agents
                   </span>
                 </h2>
 
-                <div className="space-y-3 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#21262D] scrollbar-track-transparent pr-1">
+                <div className="space-y-3 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#29221D] scrollbar-track-transparent pr-1">
                   {campaignResults.map((output) => {
                     const isExpanded = expandedResults.has(output.agentId);
                     const isSocialAgent = output.agentId === "social";
@@ -438,16 +445,16 @@ export default function MissionControl() {
                     return (
                       <div
                         key={output.agentId}
-                        className="rounded-xl border border-[#21262D] bg-[#161B22] overflow-hidden transition-all"
+                        className="rounded-xl border border-[#29221D] bg-[#231F1E] overflow-hidden transition-all"
                       >
                         {/* Header - always visible */}
                         <button
                           onClick={() => output.output && toggleResult(output.agentId)}
-                          className="w-full flex items-center justify-between p-4 text-left hover:bg-[#1C2128] transition-colors"
+                          className="w-full flex items-center justify-between p-4 text-left hover:bg-[#2A2422] transition-colors"
                         >
                           <div className="flex items-center gap-3">
                             <span className="text-lg">{output.agentEmoji}</span>
-                            <span className="text-sm font-semibold text-[#F0F6FC]">{output.agentName}</span>
+                            <span className="text-sm font-semibold text-[#FAF5EF]">{output.agentName}</span>
                             <span
                               className={cn(
                                 "px-2 py-0.5 rounded-full text-[10px] font-medium uppercase",
@@ -455,7 +462,7 @@ export default function MissionControl() {
                                   ? "bg-emerald-500/10 text-emerald-400"
                                   : isRunning
                                     ? "bg-amber-500/10 text-amber-400"
-                                    : "bg-[#21262D] text-[#484F58]"
+                                    : "bg-[#29221D] text-[#7A6E5F]"
                               )}
                             >
                               {output.status}
@@ -469,7 +476,7 @@ export default function MissionControl() {
                                     e.stopPropagation();
                                     handleCopy(output.output, output.agentId);
                                   }}
-                                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-[#8B949E] hover:text-[#F0F6FC] hover:bg-[#21262D] transition-all"
+                                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-[#C4B5A0] hover:text-[#FAF5EF] hover:bg-[#29221D] transition-all"
                                   title="Copy output"
                                 >
                                   {copiedId === output.agentId ? (
@@ -480,9 +487,9 @@ export default function MissionControl() {
                                   {copiedId === output.agentId ? "Copied" : "Copy"}
                                 </button>
                                 {isExpanded ? (
-                                  <ChevronUp className="w-4 h-4 text-[#484F58]" />
+                                  <ChevronUp className="w-4 h-4 text-[#7A6E5F]" />
                                 ) : (
-                                  <ChevronDown className="w-4 h-4 text-[#484F58]" />
+                                  <ChevronDown className="w-4 h-4 text-[#7A6E5F]" />
                                 )}
                               </>
                             )}
@@ -491,20 +498,20 @@ export default function MissionControl() {
 
                         {/* Expandable content */}
                         {isExpanded && output.output && (
-                          <div className="px-4 pb-4 border-t border-[#21262D]">
-                            <pre className="mt-3 p-3 rounded-lg bg-[#0D1117] border border-[#21262D] text-xs text-[#C9D1D9] font-mono whitespace-pre-wrap leading-relaxed max-h-[300px] overflow-y-auto">
+                          <div className="px-4 pb-4 border-t border-[#29221D]">
+                            <pre className="mt-3 p-3 rounded-lg bg-[#1C1917] border border-[#29221D] text-xs text-[#C9D1D9] font-mono whitespace-pre-wrap leading-relaxed max-h-[300px] overflow-y-auto">
                               {output.output}
                             </pre>
                             {isSocialAgent && (
                               <div className="mt-3 flex items-center gap-2">
                                 <Link
                                   to="/social-connections"
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gradient-to-r from-[#9333EA] to-[#7E22CE] text-white hover:shadow-[0_0_16px_rgba(147,51,234,0.3)] transition-all"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gradient-to-r from-[#F59E0B] via-[#F97316] to-[#F59E0B] text-[#0C0A09] hover:shadow-[0_0_16px_rgba(245,158,11,0.3)] transition-all"
                                 >
                                   <ExternalLink className="w-3 h-3" />
                                   Post to Instagram
                                 </Link>
-                                <span className="text-[10px] text-[#484F58]">
+                                <span className="text-[10px] text-[#7A6E5F]">
                                   Connects to your linked Instagram accounts
                                 </span>
                               </div>
@@ -522,40 +529,40 @@ export default function MissionControl() {
           {/* ═══ Right Column: Console + Topology ═══ */}
           <div className="space-y-6">
             {/* Section 4: Live Console */}
-            <div className="rounded-2xl border border-[#21262D] bg-[#0D1117] overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-[#21262D] bg-[#161B22]">
+            <div className="rounded-2xl border border-[#29221D] bg-[#1C1917]/80 backdrop-blur-xl overflow-hidden animate-fade-slide-up glass-card-hover transition-all" style={{ animationDelay: "0.04s" }}>
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[#29221D] bg-[#231F1E]">
                 <div className="flex items-center gap-2">
-                  <Terminal className="w-4 h-4 text-[#8B949E]" />
-                  <span className="text-sm font-medium text-[#8B949E]">Live Console</span>
+                  <Terminal className="w-4 h-4 text-[#C4B5A0]" />
+                  <span className="text-sm font-medium text-[#C4B5A0]">Live Console</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="relative flex h-2.5 w-2.5">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#22C55E]" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#84CC16]" />
                   </span>
-                  <span className="text-xs font-semibold text-[#22C55E]">LIVE</span>
+                  <span className="text-xs font-semibold text-[#84CC16]">LIVE</span>
                 </div>
               </div>
               <div
                 ref={consoleRef}
-                className="p-4 h-[260px] overflow-y-auto font-mono text-xs space-y-1.5 scrollbar-thin scrollbar-thumb-[#21262D] scrollbar-track-transparent"
+                className="p-4 h-[260px] overflow-y-auto font-mono text-xs space-y-1.5 scrollbar-thin scrollbar-thumb-[#29221D] scrollbar-track-transparent"
               >
                 {logs.map((log, i) => (
                   <div key={i} className="flex items-start gap-2">
-                    <span className="text-[#484F58] shrink-0">[{log.timestamp}]</span>
+                    <span className="text-[#7A6E5F] shrink-0">[{log.timestamp}]</span>
                     <span style={{ color: log.agentColor }} className="shrink-0 font-semibold min-w-[110px]">
                       {log.agent}:
                     </span>
-                    <span className="text-[#F0F6FC]">{log.message}</span>
+                    <span className="text-[#FAF5EF]">{log.message}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Section 5: Swarm Topology */}
-            <div className="rounded-2xl border border-[#21262D] bg-[#0D1117] p-6">
+            <div className="rounded-2xl border border-[#29221D] bg-[#1C1917]/80 backdrop-blur-xl p-6 animate-fade-slide-up glass-card-hover transition-all relative" style={{ animationDelay: "0.12s" }}>
               <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <Activity className="w-5 h-5 text-[#9333EA]" />
+                <Activity className="w-5 h-5 text-[#F59E0B]" />
                 Swarm Topology
               </h2>
               <div className="flex justify-center">
@@ -580,8 +587,8 @@ export default function MissionControl() {
                   {/* Gradient definition */}
                   <defs>
                     <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#9333EA" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="#7E22CE" stopOpacity={0.1} />
+                      <stop offset="0%" stopColor="#F59E0B" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="#D97706" stopOpacity={0.1} />
                     </linearGradient>
                   </defs>
 
@@ -618,7 +625,7 @@ export default function MissionControl() {
                         {/* Node circle */}
                         <circle
                           r={nodeRadius}
-                          fill={isOrchestrator ? `${agent.color}20` : "#161B22"}
+                          fill={isOrchestrator ? `${agent.color}20` : "#231F1E"}
                           stroke={agent.color}
                           strokeWidth={2}
                         />
@@ -636,7 +643,7 @@ export default function MissionControl() {
                           y={nodeRadius + 14}
                           textAnchor="middle"
                           dominantBaseline="middle"
-                          fill="#8B949E"
+                          fill="#C4B5A0"
                           fontSize={10}
                           fontWeight={500}
                         >
@@ -648,14 +655,14 @@ export default function MissionControl() {
 
                   {/* Center Orchestrator (main hub) */}
                   <g transform={`translate(${cx}, ${cy})`}>
-                    <circle r={38} fill="#9333EA15" stroke="#9333EA" strokeWidth={2.5}>
+                    <circle r={38} fill="#F59E0B15" stroke="#F59E0B" strokeWidth={2.5}>
                       <animate attributeName="r" values="38;42;38" dur="3s" repeatCount="indefinite" />
                       <animate attributeName="opacity" values="0.8;0.5;0.8" dur="3s" repeatCount="indefinite" />
                     </circle>
                     <text y={2} textAnchor="middle" dominantBaseline="middle" fontSize={24}>
                       🧠
                     </text>
-                    <text y={52} textAnchor="middle" dominantBaseline="middle" fill="#9333EA" fontSize={11} fontWeight={600}>
+                    <text y={52} textAnchor="middle" dominantBaseline="middle" fill="#F59E0B" fontSize={11} fontWeight={600}>
                       Orchestrator
                     </text>
                   </g>
@@ -665,13 +672,13 @@ export default function MissionControl() {
               {/* Tooltip */}
               {tooltip && (
                 <div
-                  className="absolute z-50 rounded-xl border border-[#21262D] bg-[#161B22] px-4 py-3 shadow-xl pointer-events-none"
+                  className="absolute z-50 rounded-xl border border-[#3D3229] bg-[#231F1E] px-4 py-3 shadow-xl pointer-events-none"
                   style={{ left: tooltip.x, top: tooltip.y, transform: "translate(-50%, -100%)" }}
                 >
                   <div className="text-sm font-semibold" style={{ color: tooltip.data.color }}>
                     {tooltip.data.name}
                   </div>
-                  <div className="text-xs text-[#8B949E] mt-0.5">{tooltip.data.role}</div>
+                  <div className="text-xs text-[#C4B5A0] mt-0.5">{tooltip.data.role}</div>
                 </div>
               )}
             </div>

@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Flame,
   Play,
-  Instagram,
+  Camera,
   Calendar,
   CheckCircle2,
   Clock,
@@ -104,7 +104,7 @@ function VideoCard({
               color: accountColor,
             }}
           >
-            <Instagram className="h-2.5 w-2.5 mr-1" />
+            <Camera className="h-2.5 w-2.5 mr-1" />
             {video.account}
           </Badge>
         </div>
