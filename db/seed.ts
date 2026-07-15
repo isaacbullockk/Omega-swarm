@@ -1,5 +1,5 @@
-import { db } from "./connection";
-import { brandVoices, viralVideos, contentAssets, socialAccounts } from "./schema";
+import { db } from "./connection.ts";
+import { brandVoices, viralVideos, contentAssets, socialAccounts } from "./schema.ts";
 
 export async function seed() {
   console.log("🌱 Seeding database...");
