@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { publicProcedure, router } from "../trpc";
-import { createCampaign, getCampaigns, getCampaignById } from "../../db/store";
+import { publicProcedure, router } from "../trpc.ts";
+import { createCampaign, getCampaigns, getCampaignById } from "../../db/store.ts";
 import { TRPCError } from "@trpc/server";
 
 const AGENTS = [
