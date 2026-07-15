@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { publicProcedure, router } from "../trpc";
-import { getViralVideos, updateViralVideoStatus } from "../../db/store";
+import { publicProcedure, router } from "../trpc.ts";
+import { getViralVideos, updateViralVideoStatus } from "../../db/store.ts";
 
 export const viralRouter = router({
   list: publicProcedure.query(async () => {
