@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { publicProcedure, router } from "../trpc";
-import { getContentAssets, createContentAsset } from "../../db/store";
+import { publicProcedure, router } from "../trpc.ts";
+import { getContentAssets, createContentAsset } from "../../db/store.ts";
 
 export const contentLibraryRouter = router({
   list: publicProcedure.query(async () => {
