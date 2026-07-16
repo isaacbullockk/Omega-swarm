@@ -1,23 +1,37 @@
 import { Outlet } from "react-router";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import Sidebar from "@/components/Sidebar";
+import TopBar from "@/components/TopBar";
+import ParticleBackground from "@/components/ParticleBackground";
 
 /**
- * Layout wrapper — provides Navbar (top) + Footer (bottom)
- * with the main content area in the middle (flex-1).
- * Max-width container: 1440px centered.
+ * Layout — Sidebar (left, fixed) + Main Content (right, flex-grow).
+ * Uses nested route pattern with Outlet.
+ * ParticleBackground sits behind everything as fixed background.
  */
 export default function Layout() {
   return (
-    <div
-      className="flex min-h-screen flex-col"
-      style={{ backgroundColor: "#0A0A0F" }}
-    >
-      <Navbar />
-      <main className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col px-6 py-6">
-        <Outlet />
-      </main>
-      <Footer />
+    <div className="flex min-h-[100dvh]" style={{ backgroundColor: "var(--bg-base)" }}>
+      {/* Canvas 2D Particle Background (fixed, behind everything) */}
+      <ParticleBackground />
+
+      {/* Sidebar (fixed left) */}
+      <div className="shrink-0" style={{ width: 240 }}>
+        <Sidebar />
+      </div>
+
+      {/* Main Content Area */}
+      <div className="relative flex flex-1 flex-col" style={{ zIndex: 1 }}>
+        <TopBar />
+        <main
+          className="flex-1 overflow-y-auto p-6"
+          style={{
+            background: "var(--gradient-sunset)",
+            minHeight: "calc(100dvh - 56px)",
+          }}
+        >
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
