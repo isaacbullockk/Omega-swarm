@@ -1,500 +1,651 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { cn } from "@/lib/utils";
 import {
-  Layout,
-  List,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Loader2,
-  MoreHorizontal,
-  Download,
-  Trash2,
-  Workflow,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import {
+  BarChart3,
+  Eye,
+  Target,
+  MousePointerClick,
+  TrendingUp,
+  TrendingDown,
+  Users,
+  ShoppingCart,
+  Star,
+  Award,
+  Medal,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
-type TaskStatus = "queued" | "in-progress" | "review" | "completed" | "failed";
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
 
-interface Task {
-  id: string;
-  title: string;
-  agent: string;
-  agentColor: string;
-  status: TaskStatus;
-  progress?: number;
-  timestamp: string;
-  detail?: string;
+interface FunnelStage {
+  name: string;
+  value: number;
+  color: string;
+  percent: number;
 }
 
-interface ColumnConfig {
-  id: TaskStatus;
+interface AgentLeader {
+  rank: number;
+  name: string;
+  role: string;
+  tasks: number;
+  successRate: number;
+  avgQuality: number;
+  color: string;
+}
+
+interface ChannelData {
+  name: string;
+  percent: number;
+  color: string;
+  leads: number;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Constants                                                          */
+/* ------------------------------------------------------------------ */
+
+const PERFORMANCE_DATA_7D = [
+  { day: "Mon", impressions: 42000, conversions: 1800 },
+  { day: "Tue", impressions: 48000, conversions: 2100 },
+  { day: "Wed", impressions: 45000, conversions: 1950 },
+  { day: "Thu", impressions: 52000, conversions: 2400 },
+  { day: "Fri", impressions: 58000, conversions: 2800 },
+  { day: "Sat", impressions: 61000, conversions: 3100 },
+  { day: "Sun", impressions: 55000, conversions: 2700 },
+];
+
+const PERFORMANCE_DATA_30D = [
+  { day: "W1", impressions: 98000, conversions: 3200 },
+  { day: "W2", impressions: 112000, conversions: 4100 },
+  { day: "W3", impressions: 105000, conversions: 3800 },
+  { day: "W4", impressions: 128000, conversions: 5200 },
+  { day: "W5", impressions: 118000, conversions: 4700 },
+  { day: "W6", impressions: 135000, conversions: 5800 },
+  { day: "W7", impressions: 142000, conversions: 6100 },
+  { day: "W8", impressions: 138000, conversions: 5900 },
+];
+
+const PERFORMANCE_DATA_90D = [
+  { day: "M1", impressions: 380000, conversions: 12800 },
+  { day: "M2", impressions: 420000, conversions: 15200 },
+  { day: "M3", impressions: 398000, conversions: 14100 },
+  { day: "M4", impressions: 445000, conversions: 16800 },
+  { day: "M5", impressions: 410000, conversions: 14900 },
+  { day: "M6", impressions: 468000, conversions: 18200 },
+  { day: "M7", impressions: 489000, conversions: 19500 },
+  { day: "M8", impressions: 512000, conversions: 21000 },
+  { day: "M9", impressions: 421000, conversions: 10900 },
+];
+
+const FUNNEL_STAGES: FunnelStage[] = [
+  { name: "Impressions", value: 10000, color: "#06B6D4", percent: 100 },
+  { name: "Clicks", value: 2400, color: "#F59E0B", percent: 60 },
+  { name: "Leads", value: 847, color: "#A855F7", percent: 35 },
+  { name: "Customers", value: 142, color: "#84CC16", percent: 10 },
+];
+
+const CHANNELS: ChannelData[] = [
+  { name: "Instagram", percent: 32, color: "#EC4899", leads: 1231 },
+  { name: "LinkedIn", percent: 25, color: "#3B82F6", leads: 962 },
+  { name: "Google", percent: 20, color: "#F59E0B", leads: 770 },
+  { name: "TikTok", percent: 13, color: "#06B6D4", leads: 500 },
+  { name: "Email", percent: 10, color: "#84CC16", leads: 384 },
+];
+
+const AGENT_LEADERS: AgentLeader[] = [
+  { rank: 1, name: "Ace", role: "Sales", tasks: 487, successRate: 96, avgQuality: 9.4, color: "#EF4444" },
+  { rank: 2, name: "Maya", role: "Copywriter", tasks: 623, successRate: 92, avgQuality: 9.2, color: "#F59E0B" },
+  { rank: 3, name: "Scout", role: "SEO", tasks: 534, successRate: 88, avgQuality: 9.0, color: "#84CC16" },
+  { rank: 4, name: "Pulse", role: "Social Media", tasks: 712, successRate: 85, avgQuality: 8.7, color: "#EC4899" },
+  { rank: 5, name: "Nexus", role: "Analytics", tasks: 398, successRate: 81, avgQuality: 8.5, color: "#06B6D4" },
+  { rank: 6, name: "Vision", role: "Creative Director", tasks: 445, successRate: 78, avgQuality: 8.3, color: "#A855F7" },
+];
+
+/* ------------------------------------------------------------------ */
+/*  Animation helpers                                                  */
+/* ------------------------------------------------------------------ */
+
+function useCountUp(target: number, duration = 1500) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    let start: number | null = null;
+    const step = (ts: number) => {
+      if (!start) start = ts;
+      const progress = Math.min((ts - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.floor(eased * target));
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, [target, duration]);
+  return value;
+}
+
+function useCountUpFloat(target: number, duration = 1500, decimals = 1) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    let start: number | null = null;
+    const step = (ts: number) => {
+      if (!start) start = ts;
+      const progress = Math.min((ts - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Number((eased * target).toFixed(decimals)));
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, [target, duration, decimals]);
+  return value;
+}
+
+function useAnimatedWidth(target: number, duration = 1000, delay = 0) {
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      let start: number | null = null;
+      const step = (ts: number) => {
+        if (!start) start = ts;
+        const progress = Math.min((ts - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setWidth(Math.floor(eased * target));
+        if (progress < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [target, duration, delay]);
+  return width;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Sub-components                                                     */
+/* ------------------------------------------------------------------ */
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  suffix,
+  trend,
+  trendUp,
+  color,
+  index,
+}: {
+  icon: typeof Eye;
   label: string;
-  borderColor: string;
-  indicatorColor: string;
-  badgeVariant: "default" | "secondary" | "outline" | "destructive";
+  value: number;
+  suffix: string;
+  trend: string;
+  trendUp: boolean;
+  color: string;
+  index: number;
+}) {
+  const count = useCountUp(value, 1500);
+  const formatted =
+    value >= 1000
+      ? suffix === "%"
+        ? `${count}${suffix}`
+        : `${(count / 1000).toFixed(suffix === "K" ? 1 : 0)}${suffix || "K"}`
+      : `${count}${suffix}`;
+
+  return (
+    <div
+      className="animate-stagger-in stagger-dynamic rounded-2xl border p-5 card-lift"
+      style={{
+        animationDelay: `${index * 0.1}s`,
+        background: "var(--gradient-card)",
+        borderColor: "var(--border-subtle)",
+      }}
+    >
+      <div className="mb-3 flex items-center justify-between">
+        <div
+          className="flex size-10 items-center justify-center rounded-xl"
+          style={{ backgroundColor: `${color}20` }}
+        >
+          <Icon className="size-5" style={{ color }} />
+        </div>
+        <div
+          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+          style={{
+            backgroundColor: trendUp ? "rgba(132,204,22,0.15)" : "rgba(239,68,68,0.15)",
+            color: trendUp ? "#84CC16" : "#EF4444",
+          }}
+        >
+          {trendUp ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
+          {trend}
+        </div>
+      </div>
+      <div className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
+        {suffix === "€" ? `€${count.toFixed(2)}` : formatted}
+      </div>
+      <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+        {label}
+      </div>
+    </div>
+  );
 }
 
-const columns: ColumnConfig[] = [
-  {
-    id: "queued",
-    label: "QUEUED",
-    borderColor: "border-[#484F58]",
-    indicatorColor: "bg-[#484F58]",
-    badgeVariant: "secondary",
-  },
-  {
-    id: "in-progress",
-    label: "IN PROGRESS",
-    borderColor: "border-[#F59E0B]",
-    indicatorColor: "bg-[#F59E0B]",
-    badgeVariant: "outline",
-  },
-  {
-    id: "review",
-    label: "REVIEW",
-    borderColor: "border-[#3B82F6]",
-    indicatorColor: "bg-[#3B82F6]",
-    badgeVariant: "default",
-  },
-  {
-    id: "completed",
-    label: "COMPLETED",
-    borderColor: "border-[#22C55E]",
-    indicatorColor: "bg-[#22C55E]",
-    badgeVariant: "outline",
-  },
-  {
-    id: "failed",
-    label: "FAILED",
-    borderColor: "border-[#EF4444]",
-    indicatorColor: "bg-[#EF4444]",
-    badgeVariant: "destructive",
-  },
-];
+function FunnelBar({ stage, index }: { stage: FunnelStage; index: number }) {
+  const width = useAnimatedWidth(stage.percent, 800, index * 150);
 
-const initialTasks: Task[] = [
-  {
-    id: "1",
-    title: "Concept campaign theme",
-    agent: "Creative Director",
-    agentColor: "#9333EA",
-    status: "queued",
-    timestamp: "10m ago",
-  },
-  {
-    id: "2",
-    title: "Generate SEO keyword report",
-    agent: "SEO Strategist",
-    agentColor: "#3B82F6",
-    status: "queued",
-    timestamp: "25m ago",
-  },
-  {
-    id: "3",
-    title: "Set up privacy compliance check",
-    agent: "Privacy Agent",
-    agentColor: "#22C55E",
-    status: "queued",
-    timestamp: "1h ago",
-  },
-  {
-    id: "4",
-    title: "Draft campaign copy",
-    agent: "Copywriter GPT",
-    agentColor: "#F59E0B",
-    status: "in-progress",
-    progress: 73,
-    timestamp: "Running",
-    detail: "73%",
-  },
-  {
-    id: "5",
-    title: "Build sales funnel",
-    agent: "Sales Closer",
-    agentColor: "#EF4444",
-    status: "in-progress",
-    progress: 45,
-    timestamp: "Running",
-    detail: "45%",
-  },
-  {
-    id: "6",
-    title: "Competitor intel scan",
-    agent: "Sentinel",
-    agentColor: "#8B949E",
-    status: "in-progress",
-    progress: 60,
-    timestamp: "Running",
-    detail: "60%",
-  },
-  {
-    id: "7",
-    title: "Social content calendar",
-    agent: "Social Media Agent",
-    agentColor: "#9333EA",
-    status: "review",
-    timestamp: "Done",
-    detail: "12 posts generated",
-  },
-  {
-    id: "8",
-    title: "Cross-device strategy",
-    agent: "Ambient Agent",
-    agentColor: "#3B82F6",
-    status: "review",
-    timestamp: "Done",
-    detail: "3 campaigns mapped",
-  },
-  {
-    id: "9",
-    title: "Analyze campaign metrics",
-    agent: "Data Analyst",
-    agentColor: "#22C55E",
-    status: "completed",
-    timestamp: "Done",
-    detail: "47 insights found",
-  },
-  {
-    id: "10",
-    title: "GEO content optimization",
-    agent: "GEO Agent",
-    agentColor: "#F59E0B",
-    status: "completed",
-    timestamp: "Done",
-    detail: "52 citations earned",
-  },
-  {
-    id: "11",
-    title: "RL budget allocation",
-    agent: "Budget RL",
-    agentColor: "#EF4444",
-    status: "completed",
-    timestamp: "Done",
-    detail: "+34% ROAS",
-  },
-  {
-    id: "12",
-    title: "Generate video storyboard",
-    agent: "Creative Director",
-    agentColor: "#9333EA",
-    status: "failed",
-    timestamp: "Failed",
-    detail: "API timeout",
-  },
-];
+  return (
+    <div
+      className="animate-stagger-in stagger-dynamic"
+      style={{ animationDelay: `${index * 0.15}s` }}
+    >
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
+          {stage.name}
+        </span>
+        <span className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+          {stage.value.toLocaleString()}
+        </span>
+      </div>
+      <div
+        className="relative h-12 rounded-lg overflow-hidden"
+        style={{ background: "var(--bg-input)" }}
+      >
+        <div
+          className="absolute left-0 top-0 h-full rounded-lg transition-all duration-700 flex items-center justify-end px-3"
+          style={{
+            width: `${width}%`,
+            background: `linear-gradient(90deg, ${stage.color}40, ${stage.color}80)`,
+          }}
+        >
+          <span className="text-xs font-bold text-white/90">{stage.percent}%</span>
+        </div>
+      </div>
+      {index < FUNNEL_STAGES.length - 1 && (
+        <div className="flex justify-center my-1">
+          <div
+            className="h-3 w-px"
+            style={{
+              background: "var(--border-subtle)",
+              borderLeft: "1px dashed var(--border-subtle)",
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
-const statusIcon = (status: TaskStatus) => {
-  switch (status) {
-    case "completed":
-      return <CheckCircle2 className="w-3.5 h-3.5 text-[#22C55E]" />;
-    case "failed":
-      return <XCircle className="w-3.5 h-3.5 text-[#EF4444]" />;
-    case "in-progress":
-      return <Loader2 className="w-3.5 h-3.5 text-[#F59E0B] animate-spin" />;
-    case "review":
-      return <Clock className="w-3.5 h-3.5 text-[#3B82F6]" />;
-    default:
-      return <Clock className="w-3.5 h-3.5 text-[#484F58]" />;
-  }
-};
+function ChannelBar({ channel, index }: { channel: ChannelData; index: number }) {
+  const width = useAnimatedWidth(channel.percent, 800, 300 + index * 100);
 
-const statusLabel = (status: TaskStatus) => {
-  switch (status) {
-    case "completed":
-      return "Done";
-    case "failed":
-      return "Failed";
-    case "in-progress":
-      return "Running";
-    case "review":
-      return "Done";
-    default:
-      return "Queued";
-  }
-};
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-20 text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+        {channel.name}
+      </span>
+      <div className="flex-1 h-6 rounded-full overflow-hidden" style={{ background: "var(--bg-input)" }}>
+        <div
+          className="h-full rounded-full transition-all duration-700 flex items-center justify-end px-2"
+          style={{
+            width: `${width}%`,
+            background: `linear-gradient(90deg, ${channel.color}60, ${channel.color})`,
+          }}
+        />
+      </div>
+      <span className="w-12 text-right text-xs font-semibold" style={{ color: channel.color }}>
+        {channel.percent}%
+      </span>
+    </div>
+  );
+}
 
-export default function Pipeline() {
-  const [view, setView] = useState<"board" | "list">("board");
-  const [tasks] = useState<Task[]>(initialTasks);
+function LeaderRow({ agent, index }: { agent: AgentLeader; index: number }) {
+  const barWidth = useAnimatedWidth(agent.successRate, 800, 600 + index * 100);
 
-  const tasksByColumn = (colId: TaskStatus) =>
-    tasks.filter((t) => t.status === colId);
-
-  const getStatusBadgeClass = (status: TaskStatus) => {
-    switch (status) {
-      case "completed":
-        return "bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/30";
-      case "failed":
-        return "bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/30";
-      case "in-progress":
-        return "bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/30";
-      case "review":
-        return "bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/30";
-      default:
-        return "bg-[#484F58]/10 text-[#8B949E] border-[#484F58]/30";
-    }
+  const getRankIcon = () => {
+    if (agent.rank === 1) return <Award className="size-4" style={{ color: "#FBBF24" }} />;
+    if (agent.rank === 2) return <Medal className="size-4" style={{ color: "#C0C0C0" }} />;
+    if (agent.rank === 3) return <Star className="size-4" style={{ color: "#CD7F32" }} />;
+    return <span className="w-4 text-center text-xs" style={{ color: "var(--text-muted)" }}>{agent.rank}</span>;
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0F] text-[#F0F6FC]">
-      {/* Section 1: Page Header */}
-      <div className="px-6 py-6 border-b border-[#21262D]">
+    <div
+      className="animate-stagger-in stagger-dynamic flex items-center gap-3 rounded-xl border px-4 py-3 transition-all duration-200 hover:bg-white/[0.02]"
+      style={{
+        animationDelay: `${index * 0.08}s`,
+        borderColor: agent.rank <= 3 ? `${agent.color}30` : "var(--border-subtle)",
+        background: agent.rank <= 3 ? `${agent.color}08` : "transparent",
+      }}
+    >
+      <div className="w-6 flex justify-center">{getRankIcon()}</div>
+      <div
+        className="flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+        style={{ backgroundColor: agent.color }}
+      >
+        {agent.name[0]}
+      </div>
+      <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-[#9333EA]/10 border border-[#9333EA]/20 flex items-center justify-center">
-              <Workflow className="w-5 h-5 text-[#9333EA]" />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold text-[#F0F6FC]">
-                Execution Pipeline
-              </h1>
-              <p className="text-sm text-[#8B949E]">
-                Active and completed campaign tasks
-              </p>
-            </div>
+          <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+            {agent.name}
+          </span>
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+            {agent.tasks} tasks
+          </span>
+        </div>
+        <div className="mt-1 flex items-center gap-2">
+          <div className="h-2 flex-1 rounded-full overflow-hidden" style={{ background: "var(--bg-input)" }}>
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{
+                width: `${barWidth}%`,
+                background: `linear-gradient(90deg, ${agent.color}, ${agent.color}80)`,
+              }}
+            />
           </div>
+          <span className="w-10 text-right text-xs font-bold" style={{ color: agent.color }}>
+            {agent.successRate}%
+          </span>
+        </div>
+      </div>
+      <div className="text-right">
+        <div className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+          {agent.avgQuality}
+        </div>
+        <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+          quality
+        </div>
+      </div>
+    </div>
+  );
+}
 
-          <div className="flex items-center gap-3">
-            {/* View Toggle */}
-            <div className="flex items-center bg-[#161B22] rounded-lg border border-[#21262D] p-0.5">
-              <button
-                onClick={() => setView("board")}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  view === "board"
-                    ? "bg-[#9333EA] text-white"
-                    : "text-[#8B949E] hover:text-[#F0F6FC]"
-                }`}
-              >
-                <Layout className="w-4 h-4" />
-                Board
-              </button>
-              <button
-                onClick={() => setView("list")}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  view === "list"
-                    ? "bg-[#9333EA] text-white"
-                    : "text-[#8B949E] hover:text-[#F0F6FC]"
-                }`}
-              >
-                <List className="w-4 h-4" />
-                List
-              </button>
-            </div>
+/* ------------------------------------------------------------------ */
+/*  Custom Tooltip                                                     */
+/* ------------------------------------------------------------------ */
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-[#21262D] bg-[#161B22] text-[#8B949E] hover:bg-[#21262D] hover:text-[#F0F6FC]"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Clear Completed
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-[#21262D] bg-[#161B22] text-[#8B949E] hover:bg-[#21262D] hover:text-[#F0F6FC]"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Export
-            </Button>
+function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; dataKey: string; color: string }>; label?: string }) {
+  if (!active || !payload) return null;
+  return (
+    <div
+      className="rounded-xl border px-4 py-3 shadow-lg"
+      style={{
+        background: "var(--bg-card-solid)",
+        borderColor: "var(--accent-primary)",
+      }}
+    >
+      <p className="mb-1 text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+        {label}
+      </p>
+      {payload.map((entry, i) => (
+        <p key={i} className="text-sm font-semibold" style={{ color: entry.color }}>
+          {entry.dataKey === "impressions" ? "Impressions" : "Conversions"}: {entry.value.toLocaleString()}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Main Component                                                     */
+/* ------------------------------------------------------------------ */
+
+export default function Pipeline() {
+  const [period, setPeriod] = useState<"7D" | "30D" | "90D">("7D");
+
+  const chartData = useMemo(() => {
+    switch (period) {
+      case "30D":
+        return PERFORMANCE_DATA_30D;
+      case "90D":
+        return PERFORMANCE_DATA_90D;
+      default:
+        return PERFORMANCE_DATA_7D;
+    }
+  }, [period]);
+
+  const stats = [
+    {
+      icon: Eye,
+      label: "Total Impressions",
+      value: 421,
+      suffix: "K",
+      trend: "+12.5%",
+      trendUp: true,
+      color: "#06B6D4",
+    },
+    {
+      icon: Target,
+      label: "Conversions",
+      value: 10900,
+      suffix: "",
+      trend: "+8.3%",
+      trendUp: true,
+      color: "#A855F7",
+    },
+    {
+      icon: MousePointerClick,
+      label: "CTR",
+      value: 26,
+      suffix: "%",
+      trend: "+1.2%",
+      trendUp: true,
+      color: "#F59E0B",
+    },
+    {
+      icon: ShoppingCart,
+      label: "Cost / Conv",
+      value: 0,
+      suffix: "€",
+      display: "€42.50",
+      trend: "-5.1%",
+      trendUp: true,
+      color: "#84CC16",
+    },
+  ];
+
+  return (
+    <div className="flex flex-col gap-8">
+      {/* ── Header ── */}
+      <div className="animate-fade-up flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <BarChart3 className="size-6" style={{ color: "var(--accent-primary)" }} />
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
+              Analytics Pipeline
+            </h1>
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+              Real-time performance insights across your Swarm
+            </p>
           </div>
+        </div>
+        {/* Period Toggle */}
+        <div
+          className="inline-flex rounded-xl border p-1"
+          style={{ borderColor: "var(--border-subtle)", background: "var(--bg-input)" }}
+        >
+          {(["7D", "30D", "90D"] as const).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={cn(
+                "rounded-lg px-4 py-1.5 text-xs font-semibold transition-all duration-200",
+                period === p ? "text-black" : ""
+              )}
+              style={{
+                background: period === p ? "var(--gradient-gold)" : "transparent",
+                color: period === p ? "#0C0A09" : "var(--text-muted)",
+              }}
+            >
+              {p}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Section 2: Kanban Board View */}
-      {view === "board" && (
-        <div className="px-6 py-6">
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {columns.map((col) => (
-              <div
-                key={col.id}
-                className={`flex-shrink-0 w-72 rounded-lg border-t-4 ${col.borderColor} bg-[#0D1117] border border-[#21262D]`}
-              >
-                {/* Column Header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-[#21262D]">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`w-2 h-2 rounded-full ${col.indicatorColor} ${col.id === "in-progress" ? "animate-pulse" : ""}`}
-                    />
-                    <span className="text-xs font-semibold tracking-wider text-[#8B949E]">
-                      {col.label}
-                    </span>
-                  </div>
-                  <span className="text-xs text-[#484F58] font-medium">
-                    {tasksByColumn(col.id).length}
-                  </span>
-                </div>
+      {/* ── Stats Row ── */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {stats.map((s, i) =>
+          i === 3 ? (
+            <StatCard
+              key={i}
+              {...s}
+              value={42}
+              index={i}
+            />
+          ) : (
+            <StatCard key={i} {...s} index={i} />
+          )
+        )}
+      </div>
 
-                {/* Tasks */}
-                <div className="p-3 space-y-3">
-                  {tasksByColumn(col.id).map((task) => (
-                    <div
-                      key={task.id}
-                      className="bg-[#161B22] rounded-lg border border-[#21262D] p-4 hover:border-[#30363D] transition-colors group"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="text-sm font-medium text-[#F0F6FC] leading-snug">
-                          {task.title}
-                        </h3>
-                        <button className="opacity-0 group-hover:opacity-100 transition-opacity text-[#484F58] hover:text-[#8B949E]">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </button>
-                      </div>
+      {/* ── Performance Chart ── */}
+      <div
+        className="animate-fade-up stagger-2 rounded-2xl border p-6"
+        style={{
+          background: "var(--gradient-card)",
+          borderColor: "var(--border-subtle)",
+        }}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+            Performance Overview
+          </h3>
+          <div className="flex items-center gap-4">
+            <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: "#F59E0B" }}>
+              <span className="size-2 rounded-full" style={{ background: "#F59E0B" }} />
+              Impressions
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: "#A855F7" }}>
+              <span className="size-2 rounded-full" style={{ background: "#A855F7" }} />
+              Conversions
+            </span>
+          </div>
+        </div>
+        <div className="h-[320px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="impressionsGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#F59E0B" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#F59E0B" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="conversionsGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#A855F7" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#A855F7" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="rgba(41,34,29,0.5)"
+                vertical={false}
+              />
+              <XAxis
+                dataKey="day"
+                tick={{ fill: "#7A6E5F", fontSize: 12 }}
+                axisLine={{ stroke: "var(--border-subtle)" }}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fill: "#7A6E5F", fontSize: 12 }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v: number) =>
+                  v >= 1000 ? `${(v / 1000).toFixed(0)}K` : `${v}`
+                }
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Area
+                type="monotone"
+                dataKey="impressions"
+                stroke="#F59E0B"
+                strokeWidth={2}
+                fill="url(#impressionsGrad)"
+                animationDuration={1500}
+              />
+              <Area
+                type="monotone"
+                dataKey="conversions"
+                stroke="#A855F7"
+                strokeWidth={2}
+                fill="url(#conversionsGrad)"
+                animationDuration={1500}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
 
-                      {/* Agent */}
-                      <div className="flex items-center gap-2 mb-3">
-                        <div
-                          className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: task.agentColor }}
-                        />
-                        <span className="text-xs text-[#8B949E]">
-                          {task.agent}
-                        </span>
-                      </div>
-
-                      {/* Status Row */}
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-1.5">
-                          {statusIcon(task.status)}
-                          <span className="text-xs text-[#8B949E]">
-                            {statusLabel(task.status)}
-                          </span>
-                        </div>
-                        {task.detail && (
-                          <span className="text-xs text-[#484F58]">
-                            {task.detail}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Progress Bar */}
-                      {task.progress !== undefined && (
-                        <div className="mt-2">
-                          <Progress
-                            value={task.progress}
-                            className="h-1.5 bg-[#21262D]"
-                          />
-                        </div>
-                      )}
-
-                      {/* Timestamp */}
-                      <div className="mt-2 text-xs text-[#484F58]">
-                        {task.timestamp}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+      {/* ── Bottom Row: Funnel + Channels + Leaderboard ── */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Conversion Funnel */}
+        <div
+          className="animate-fade-up stagger-3 rounded-2xl border p-6"
+          style={{
+            background: "var(--gradient-card)",
+            borderColor: "var(--border-subtle)",
+          }}
+        >
+          <h3 className="mb-5 text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+            Conversion Funnel
+          </h3>
+          <div className="space-y-1">
+            {FUNNEL_STAGES.map((stage, i) => (
+              <FunnelBar key={stage.name} stage={stage} index={i} />
             ))}
           </div>
         </div>
-      )}
 
-      {/* Section 3: List View */}
-      {view === "list" && (
-        <div className="px-6 py-6">
-          <div className="rounded-lg border border-[#21262D] bg-[#0D1117] overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-[#21262D] hover:bg-transparent">
-                  <TableHead className="text-[#8B949E] font-medium text-xs uppercase tracking-wider">
-                    Task
-                  </TableHead>
-                  <TableHead className="text-[#8B949E] font-medium text-xs uppercase tracking-wider">
-                    Agent
-                  </TableHead>
-                  <TableHead className="text-[#8B949E] font-medium text-xs uppercase tracking-wider">
-                    Status
-                  </TableHead>
-                  <TableHead className="text-[#8B949E] font-medium text-xs uppercase tracking-wider">
-                    Progress
-                  </TableHead>
-                  <TableHead className="text-[#8B949E] font-medium text-xs uppercase tracking-wider">
-                    Started
-                  </TableHead>
-                  <TableHead className="text-[#8B949E] font-medium text-xs uppercase tracking-wider text-right">
-                    Actions
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tasks.map((task) => (
-                  <TableRow
-                    key={task.id}
-                    className="border-[#21262D] hover:bg-[#161B22] transition-colors"
-                  >
-                    <TableCell className="py-3">
-                      <span className="text-sm font-medium text-[#F0F6FC]">
-                        {task.title}
-                      </span>
-                      {task.detail && (
-                        <span className="block text-xs text-[#484F58] mt-0.5">
-                          {task.detail}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: task.agentColor }}
-                        />
-                        <span className="text-sm text-[#8B949E]">
-                          {task.agent}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <Badge
-                        variant="outline"
-                        className={`${getStatusBadgeClass(task.status)} text-xs font-medium`}
-                      >
-                        {statusIcon(task.status)}
-                        <span className="ml-1">{statusLabel(task.status)}</span>
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="py-3">
-                      {task.progress !== undefined ? (
-                        <div className="flex items-center gap-2 w-32">
-                          <Progress
-                            value={task.progress}
-                            className="h-1.5 bg-[#21262D] flex-1"
-                          />
-                          <span className="text-xs text-[#8B949E] w-8 text-right">
-                            {task.progress}%
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-[#484F58]">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-3">
-                      <span className="text-xs text-[#8B949E]">
-                        {task.timestamp}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-3 text-right">
-                      <button className="text-[#484F58] hover:text-[#8B949E] transition-colors">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+        {/* Channel Breakdown */}
+        <div
+          className="animate-fade-up stagger-4 rounded-2xl border p-6"
+          style={{
+            background: "var(--gradient-card)",
+            borderColor: "var(--border-subtle)",
+          }}
+        >
+          <h3 className="mb-5 text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+            Channel Breakdown
+          </h3>
+          <div className="space-y-4">
+            {CHANNELS.map((ch, i) => (
+              <ChannelBar key={ch.name} channel={ch} index={i} />
+            ))}
+          </div>
+          <div className="mt-5 rounded-xl border p-3 text-center" style={{ borderColor: "var(--border-subtle)", background: "var(--bg-input)" }}>
+            <div className="text-lg font-bold" style={{ color: "var(--accent-primary)" }}>
+              3,847
+            </div>
+            <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Total Leads
+            </div>
           </div>
         </div>
-      )}
+
+        {/* Agent Leaderboard */}
+        <div
+          className="animate-fade-up stagger-5 rounded-2xl border p-6"
+          style={{
+            background: "var(--gradient-card)",
+            borderColor: "var(--border-subtle)",
+          }}
+        >
+          <h3 className="mb-4 text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+            Agent Leaderboard
+          </h3>
+          <div className="space-y-2">
+            {AGENT_LEADERS.map((agent, i) => (
+              <LeaderRow key={agent.name} agent={agent} index={i} />
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
