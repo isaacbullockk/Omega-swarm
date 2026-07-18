@@ -1,0 +1,316 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* Savannah Summer Backgrounds */
+    --bg-base: #0C0A09;
+    --bg-card: rgba(28, 25, 23, 0.85);
+    --bg-card-solid: #1C1917;
+    --bg-elevated: #29221D;
+    --bg-input: #1A1614;
+
+    /* Savannah Summer Accents */
+    --accent-primary: #F59E0B;
+    --accent-secondary: #F97316;
+    --accent-tertiary: #EF4444;
+    --accent-success: #84CC16;
+    --accent-info: #06B6D4;
+    --accent-purple: #A855F7;
+
+    /* Savannah Summer Gradients */
+    --gradient-gold: linear-gradient(135deg, #F59E0B 0%, #F97316 50%, #FBBF24 100%);
+    --gradient-sunset: linear-gradient(180deg, #0C0A09 0%, #1C1917 40%, #29221D 100%);
+    --gradient-card: linear-gradient(135deg, rgba(28,25,23,0.9) 0%, rgba(41,34,29,0.7) 100%);
+    --gradient-aurora: linear-gradient(90deg, #F59E0B20, #F9731620, #A855F720, #06B6D420);
+
+    /* Savannah Summer Text */
+    --text-primary: #FAF5EF;
+    --text-secondary: #C4B5A0;
+    --text-muted: #7A6E5F;
+    --text-accent: #F59E0B;
+
+    /* Savannah Summer Borders */
+    --border-subtle: #29221D;
+    --border-active: #F59E0B;
+    --border-glow: rgba(245, 158, 11, 0.3);
+
+    /* Font Stack */
+    --font-primary: 'Space Grotesk', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    /* shadcn variables */
+    --background: 20 14% 4%;
+    --foreground: 30 33% 96%;
+    --card: 20 12% 11%;
+    --card-foreground: 30 33% 96%;
+    --popover: 20 12% 11%;
+    --popover-foreground: 30 33% 96%;
+    --primary: 38 92% 50%;
+    --primary-foreground: 20 14% 4%;
+    --secondary: 25 95% 53%;
+    --secondary-foreground: 20 14% 4%;
+    --muted: 20 10% 18%;
+    --muted-foreground: 30 18% 56%;
+    --accent: 38 92% 50%;
+    --accent-foreground: 20 14% 4%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 20 16% 14%;
+    --input: 20 14% 13%;
+    --ring: 38 92% 50%;
+    --radius: 0.5rem;
+    --sidebar-background: 20 12% 7%;
+    --sidebar-foreground: 30 33% 96%;
+    --sidebar-primary: 38 92% 50%;
+    --sidebar-primary-foreground: 20 14% 4%;
+    --sidebar-accent: 20 10% 18%;
+    --sidebar-accent-foreground: 30 33% 96%;
+    --sidebar-border: 20 16% 14%;
+    --sidebar-ring: 38 92% 50%;
+
+    /* Legacy tokens (preserved for compatibility) */
+    --savannah-void: #0C0A09;
+    --savannah-card: #1C1917;
+    --savannah-input: #231F1E;
+    --savannah-border: #29221D;
+    --savannah-border-light: #3D3229;
+    --savannah-amber: #F59E0B;
+    --savannah-amber-dark: #D97706;
+    --savannah-amber-light: #FBBF24;
+    --savannah-amber-glow: rgba(245, 158, 11, 0.35);
+    --savannah-sunset: #F97316;
+    --savannah-cream: #FAF5EF;
+    --savannah-cream-secondary: #C4B5A0;
+    --savannah-cream-muted: #7A6E5F;
+    --savannah-sage: #84CC16;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: var(--font-primary);
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--bg-base);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #3D3229;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: rgba(245, 158, 11, 0.3);
+    color: var(--text-primary);
+  }
+
+  /* Focus styles */
+  *:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* ──────────────────────── Keyframe Animations ──────────────────────── */
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeSlideLeft {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scaleFade {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(245,158,11,0.2); }
+  50% { box-shadow: 0 0 24px rgba(245,158,11,0.5); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  25% { transform: translateY(-20px) translateX(10px); }
+  50% { transform: translateY(-10px) translateX(-15px); }
+  75% { transform: translateY(-30px) translateX(5px); }
+}
+
+@keyframes ringPulse {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes slowRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes staggerFadeIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes neuralPulse {
+  0% { stroke-dashoffset: 100; opacity: 0.3; }
+  50% { opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0.3; }
+}
+
+@keyframes glowOscillate {
+  0%, 100% { opacity: 0.06; }
+  50% { opacity: 0.1; }
+}
+
+/* ──────────────────────── Animation Utility Classes ──────────────────────── */
+
+@layer utilities {
+  .animate-fade-up {
+    animation: fadeSlideUp 0.5s ease-out forwards;
+  }
+
+  .animate-fade-left {
+    animation: fadeSlideLeft 0.5s ease-out forwards;
+  }
+
+  .animate-scale-in {
+    animation: scaleFade 0.4s ease-out forwards;
+  }
+
+  .animate-shimmer {
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+
+  .animate-pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+
+  .animate-float {
+    animation: float 8s ease-in-out infinite;
+  }
+
+  .animate-ring-pulse {
+    animation: ringPulse 1.5s ease-out infinite;
+  }
+
+  .animate-blink {
+    animation: blink 1s steps(1) infinite;
+  }
+
+  .animate-slow-rotate {
+    animation: slowRotate 20s linear infinite;
+  }
+
+  .animate-stagger-in {
+    animation: staggerFadeIn 0.5s ease-out forwards;
+    opacity: 0;
+  }
+
+  .animate-neural-pulse {
+    animation: neuralPulse 2s ease-in-out infinite;
+  }
+
+  .animate-glow-oscillate {
+    animation: glowOscillate 6s ease-in-out infinite;
+  }
+
+  /* Glass card utility */
+  .glass-card {
+    background: rgba(28, 25, 23, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(245, 158, 11, 0.12);
+    border-radius: 16px;
+  }
+
+  /* Stagger delay utilities */
+  .stagger-1 { animation-delay: 0.08s; }
+  .stagger-2 { animation-delay: 0.16s; }
+  .stagger-3 { animation-delay: 0.24s; }
+  .stagger-4 { animation-delay: 0.32s; }
+  .stagger-5 { animation-delay: 0.40s; }
+  .stagger-6 { animation-delay: 0.48s; }
+  .stagger-7 { animation-delay: 0.56s; }
+  .stagger-8 { animation-delay: 0.64s; }
+  .stagger-9 { animation-delay: 0.72s; }
+  .stagger-10 { animation-delay: 0.80s; }
+  .stagger-11 { animation-delay: 0.88s; }
+  .stagger-12 { animation-delay: 0.96s; }
+
+  /* Dynamic stagger via custom property */
+  .stagger-dynamic {
+    animation-delay: calc(var(--index, 0) * 0.08s);
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(135deg, #FBBF24, #F59E0B, #F97316);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Card hover lift */
+  .card-lift {
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+
+  .card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(245,158,11,0.08);
+    border-color: var(--border-glow);
+  }
+
+  /* Glow border utilities */
+  .glow-border {
+    box-shadow: 0 0 0 1px var(--border-subtle), 0 0 20px rgba(245, 158, 11, 0.15);
+  }
+
+  .glow-border-amber {
+    box-shadow: 0 0 0 1px var(--border-subtle), 0 0 20px rgba(245, 158, 11, 0.15);
+  }
+
+  /* Font utilities */
+  .font-primary {
+    font-family: var(--font-primary);
+  }
+
+  .font-data {
+    font-family: var(--font-mono);
+  }
+}

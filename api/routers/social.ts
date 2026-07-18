@@ -1,34 +1,70 @@
 import { z } from "zod";
-import { publicProcedure, router } from "../trpc.ts";
-import { getSocialAccounts, createSocialAccount, deleteSocialAccount } from "../../db/store.ts";
+import { router, publicProcedure } from "../trpc";
+import {
+  getSocialAccounts,
+  addSocialAccount,
+  updateSocialAccount,
+  disconnectSocialAccount,
+} from "../../db/store";
 
 export const socialRouter = router({
   list: publicProcedure.query(async () => {
-    return await getSocialAccounts();
+    return getSocialAccounts();
   }),
 
-  create: publicProcedure
-    .input(z.object({
-      platform: z.string(),
-      handle: z.string(),
-      accountName: z.string(),
-      accessToken: z.string().optional(),
-    }))
+  connect: publicProcedure
+    .input(
+      z.object({
+        platform: z.enum(["instagram", "facebook", "youtube"]),
+        accountName: z.string().min(1),
+        handle: z.string().min(1),
+        accessToken: z.string().min(1),
+        pageId: z.string().optional(),
+      })
+    )
     .mutation(async ({ input }) => {
-      return await createSocialAccount(input);
-    }),
+      const existing = getSocialAccounts().find(
+        (a) => a.handle === input.handle && a.platform === input.platform
+      );
 
-  delete: publicProcedure
-    .input(z.object({ id: z.number() }))
-    .mutation(async ({ input }) => {
-      await deleteSocialAccount(input.id);
-      return { success: true };
+      if (existing) {
+        return updateSocialAccount(existing.id, {
+          connected: true,
+          accessToken: input.accessToken,
+          pageId: input.pageId,
+          connectedAt: new Date().toISOString(),
+        });
+      }
+
+      return addSocialAccount({
+        id: `${input.platform}_${Date.now()}`,
+        platform: input.platform,
+        accountName: input.accountName,
+        handle: input.handle,
+        connected: true,
+        accessToken: input.accessToken,
+        pageId: input.pageId,
+        connectedAt: new Date().toISOString(),
+      });
     }),
 
   disconnect: publicProcedure
-    .input(z.object({ id: z.number() }))
+    .input(z.object({ id: z.string() }))
     .mutation(async ({ input }) => {
-      await deleteSocialAccount(input.id);
-      return { success: true };
+      return disconnectSocialAccount(input.id);
+    }),
+
+  status: publicProcedure
+    .input(z.object({ platform: z.enum(["instagram", "facebook", "youtube"]) }))
+    .query(async ({ input }) => {
+      const accounts = getSocialAccounts().filter(
+        (a) => a.platform === input.platform
+      );
+      return {
+        platform: input.platform,
+        total: accounts.length,
+        connected: accounts.filter((a) => a.connected).length,
+        accounts,
+      };
     }),
 });

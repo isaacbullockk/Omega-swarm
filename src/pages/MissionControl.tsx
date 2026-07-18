@@ -1,17 +1,21 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Rocket, Bot, Terminal, Activity, Copy, Check, ExternalLink, Image, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+  Rocket,
+  Zap,
+  Link2,
+  Brain,
+  Swords,
+  Terminal,
+  Activity,
+  Shield,
+  Globe,
+  Lock,
+  Flower2,
+  TrendingUp,
+  ChevronDown,
+  Volume2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { trpc } from "@/lib/trpc";
-import { Link } from "react-router";
 
 /* ───────── Types ───────── */
 interface LogEntry {
@@ -26,70 +30,103 @@ interface AgentNode {
   name: string;
   emoji: string;
   color: string;
-  bgColor: string;
   role: string;
   angle: number;
 }
 
-interface AgentTooltip {
+interface SwarmMode {
+  id: string;
+  name: string;
+  icon: React.ReactNode;
+  description: string;
+}
+
+interface AgentTooltipData {
   name: string;
   role: string;
   color: string;
 }
 
-// Agent result type comes from tRPC campaign query
-
 /* ───────── Constants ───────── */
 const AGENTS: AgentNode[] = [
-  { id: "copywriter", name: "Copywriter", emoji: "✍️", color: "#F59E0B", bgColor: "bg-amber-500/20", role: "Ad copy, emails, landing pages", angle: 0 },
-  { id: "social", name: "Social", emoji: "📱", color: "#EC4899", bgColor: "bg-pink-500/20", role: "Viral content & calendars", angle: 30 },
-  { id: "sales", name: "Sales", emoji: "💼", color: "#22C55E", bgColor: "bg-emerald-500/20", role: "Funnels & objection handling", angle: 60 },
-  { id: "creative", name: "Creative", emoji: "🎨", color: "#A855F7", bgColor: "bg-purple-500/20", role: "Campaign themes & visuals", angle: 90 },
-  { id: "seo", name: "SEO", emoji: "🔍", color: "#06B6D4", bgColor: "bg-cyan-500/20", role: "Keywords & content optimization", angle: 120 },
-  { id: "analytics", name: "Analytics", emoji: "📊", color: "#94A3B8", bgColor: "bg-slate-500/20", role: "KPIs, funnels & reports", angle: 150 },
-  { id: "sentinel", name: "Sentinel", emoji: "👁️", color: "#EF4444", bgColor: "bg-red-500/20", role: "Competitor intel & sentiment", angle: 180 },
-  { id: "geo", name: "GEO", emoji: "🤖", color: "#6366F1", bgColor: "bg-indigo-500/20", role: "AI engine citation optimization", angle: 210 },
-  { id: "privacy", name: "Privacy", emoji: "🔒", color: "#22C55E", bgColor: "bg-green-500/20", role: "Compliance & zero-party data", angle: 240 },
-  { id: "ambient", name: "Ambient", emoji: "🌐", color: "#14B8A6", bgColor: "bg-teal-500/20", role: "Cross-device campaigns", angle: 270 },
-  { id: "budget", name: "Budget", emoji: "💰", color: "#EAB308", bgColor: "bg-yellow-500/20", role: "Auto budget allocation", angle: 300 },
-  { id: "orchestrator", name: "Orchestrator", emoji: "🧠", color: "#9333EA", bgColor: "bg-violet-500/20", role: "Coordinates all agents", angle: 330 },
+  { id: "copywriter", name: "Maya", emoji: "✍️", color: "#F59E0B", role: "Ad copy, landing pages, emails", angle: 0 },
+  { id: "social", name: "Pulse", emoji: "📱", color: "#EC4899", role: "Social content & viral posts", angle: 30 },
+  { id: "sales", name: "Ace", emoji: "💰", color: "#EF4444", role: "Funnels & conversions", angle: 60 },
+  { id: "creative", name: "Vision", emoji: "🎨", color: "#A855F7", role: "Visual assets & branding", angle: 90 },
+  { id: "seo", name: "Scout", emoji: "🔍", color: "#84CC16", role: "Keywords & SEO strategy", angle: 120 },
+  { id: "analytics", name: "Nexus", emoji: "📊", color: "#06B6D4", role: "Data analysis & reports", angle: 150 },
+  { id: "sentinel", name: "Sentinel", emoji: "🛡️", color: "#3B82F6", role: "Threat intel & monitoring", angle: 180 },
+  { id: "geo", name: "GEO", emoji: "🌍", color: "#14B8A6", role: "Geo-targeting optimization", angle: 210 },
+  { id: "privacy", name: "Cipher", emoji: "🔒", color: "#6366F1", role: "Privacy & compliance", angle: 240 },
+  { id: "ambient", name: "Aura", emoji: "🌸", color: "#D946EF", role: "Ambient awareness", angle: 270 },
+  { id: "budget", name: "Ledger", emoji: "💹", color: "#22C55E", role: "Budget optimization", angle: 300 },
+  { id: "orchestrator", name: "Prime", emoji: "🧠", color: "#F59E0B", role: "Coordinates all agents", angle: 330 },
 ];
 
-const INITIAL_LOGS: LogEntry[] = [
-  { timestamp: "09:14:32", agent: "System", agentColor: "#8B949E", message: "Omega Swarm v4.0 initialized — 12 agents standing by" },
-  { timestamp: "09:14:33", agent: "Sentinel", agentColor: "#EF4444", message: "14 competitor feeds connected" },
-  { timestamp: "09:14:34", agent: "GEO", agentColor: "#6366F1", message: "Optimizing content for ChatGPT, Perplexity, Gemini, Claude" },
-  { timestamp: "09:14:35", agent: "Budget RL", agentColor: "#EAB308", message: "Auto-budget allocation module active" },
-  { timestamp: "09:14:36", agent: "Privacy Agent", agentColor: "#22C55E", message: "Zero-party data collection framework active" },
-  { timestamp: "09:14:37", agent: "Orchestrator", agentColor: "#9333EA", message: "Swarm topology online — awaiting mission parameters" },
-  { timestamp: "09:14:38", agent: "Creative Director", agentColor: "#A855F7", message: "Brand voice module loaded — customizable in Brand Voice Studio" },
-  { timestamp: "09:14:39", agent: "SEO Strategist", agentColor: "#06B6D4", message: "Keyword index refreshed — 2.4M terms indexed" },
-];
-
-const SWARM_MODES = [
-  { id: "parallel", label: "Parallel", icon: "⚡" },
-  { id: "sequential", label: "Sequential", icon: "🔗" },
-  { id: "adaptive", label: "Adaptive", icon: "🧠" },
-  { id: "battle", label: "Battle", icon: "⚔️" },
+const SWARM_MODES: SwarmMode[] = [
+  { id: "parallel", name: "Parallel", icon: <Zap className="w-5 h-5" />, description: "All agents work simultaneously for maximum speed" },
+  { id: "sequential", name: "Sequential", icon: <Link2 className="w-5 h-5" />, description: "Agents execute in order, each building on the last" },
+  { id: "adaptive", name: "Adaptive", icon: <Brain className="w-5 h-5" />, description: "AI dynamically assigns tasks based on performance" },
+  { id: "battle", name: "Battle", icon: <Swords className="w-5 h-5" />, description: "Agents compete to produce the best results" },
 ];
 
 const LAYERS = [
-  { id: "sentinel", label: "Sentinel", color: "bg-red-500/20 text-red-400 border-red-500/30" },
-  { id: "geo", label: "GEO", color: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30" },
-  { id: "privacy", label: "Privacy", color: "bg-green-500/20 text-green-400 border-green-500/30" },
-  { id: "ambient", label: "Ambient", color: "bg-teal-500/20 text-teal-400 border-teal-500/30" },
-  { id: "budget", label: "Budget RL", color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30" },
+  { id: "sentinel", label: "Sentinel", color: "#3B82F6" },
+  { id: "geo", label: "GEO", color: "#14B8A6" },
+  { id: "privacy", label: "Privacy", color: "#6366F1" },
+  { id: "ambient", label: "Ambient", color: "#D946EF" },
+  { id: "budget", label: "Budget RL", color: "#22C55E" },
 ];
 
-const DEPLOY_LOGS: LogEntry[] = [
-  { timestamp: "09:15:01", agent: "Orchestrator", agentColor: "#9333EA", message: "Mission parameters received — parsing objective" },
-  { timestamp: "09:15:02", agent: "Sentinel", agentColor: "#EF4444", message: "Competitor threat analysis initiated" },
-  { timestamp: "09:15:03", agent: "Creative Director", agentColor: "#A855F7", message: "Generating campaign concept variants..." },
-  { timestamp: "09:15:04", agent: "Copywriter GPT", agentColor: "#F59E0B", message: "Ad copy generation started — 12 variants" },
-  { timestamp: "09:15:05", agent: "Social Media", agentColor: "#EC4899", message: "Content calendar auto-scheduling" },
-  { timestamp: "09:15:06", agent: "Budget RL", agentColor: "#EAB308", message: "Dynamic budget redistribution active" },
-  { timestamp: "09:15:07", agent: "GEO Agent", agentColor: "#6366F1", message: "Submitting optimized content to AI engines" },
-  { timestamp: "09:15:08", agent: "Orchestrator", agentColor: "#9333EA", message: "Mission deployed — all agents executing" },
+const BRAND_VOICES = [
+  "Soulful, confident, community-driven",
+  "Playful, witty, Gen-Z focused",
+  "Professional, authoritative, data-backed",
+  "Warm, empathetic, story-driven",
+  "Bold, provocative, contrarian",
+  "Custom...",
+];
+
+const BUDGET_OPTIONS = [
+  { value: "50-100", label: "\u20AC50 - \u20AC100" },
+  { value: "100-250", label: "\u20AC100 - \u20AC250" },
+  { value: "250-500", label: "\u20AC250 - \u20AC500" },
+  { value: "500-1000", label: "\u20AC500 - \u20AC1000" },
+  { value: "1000+", label: "\u20AC1000+" },
+];
+
+const TIMELINE_OPTIONS = [
+  { value: "1w", label: "1 week" },
+  { value: "2w", label: "2 weeks" },
+  { value: "1m", label: "1 month" },
+  { value: "3m", label: "3 months" },
+];
+
+const INITIAL_LOGS: LogEntry[] = [
+  { timestamp: "09:14:32", agent: "System", agentColor: "#7A6E5F", message: "Omega Swarm v4.2 initialized" },
+  { timestamp: "09:14:33", agent: "Prime", agentColor: "#F59E0B", message: "Orchestrator standing by" },
+  { timestamp: "09:14:34", agent: "Sentinel", agentColor: "#3B82F6", message: "Threat monitoring active" },
+  { timestamp: "09:14:35", agent: "GEO", agentColor: "#14B8A6", message: "Location services online" },
+  { timestamp: "09:14:36", agent: "Cipher", agentColor: "#6366F1", message: "Privacy layer confirmed" },
+  { timestamp: "09:14:37", agent: "Aura", agentColor: "#D946EF", message: "Ambient sensors calibrated" },
+  { timestamp: "09:14:38", agent: "Ledger", agentColor: "#22C55E", message: "Budget RL module loaded" },
+];
+
+const DEPLOY_SEQUENCE: LogEntry[] = [
+  { timestamp: "09:23:01", agent: "Prime", agentColor: "#F59E0B", message: ">> Mission initiated by user" },
+  { timestamp: "09:23:01", agent: "Prime", agentColor: "#F59E0B", message: ">> Swarm Mode: PARALLEL activated" },
+  { timestamp: "09:23:02", agent: "Prime", agentColor: "#F59E0B", message: "\u2713 Orchestrator coordinating 12 agents" },
+  { timestamp: "09:23:03", agent: "Maya", agentColor: "#F59E0B", message: "\u2713 Assigned: ad copy, landing page" },
+  { timestamp: "09:23:03", agent: "Pulse", agentColor: "#EC4899", message: "\u2713 Assigned: campaign posts, stories" },
+  { timestamp: "09:23:04", agent: "Vision", agentColor: "#A855F7", message: "\u2713 Assigned: visual concepts" },
+  { timestamp: "09:23:04", agent: "Scout", agentColor: "#84CC16", message: "\u2713 Assigned: keyword optimization" },
+  { timestamp: "09:23:05", agent: "Ledger", agentColor: "#22C55E", message: ">> Budget allocated across agents" },
+  { timestamp: "09:23:06", agent: "Prime", agentColor: "#F59E0B", message: "\u2713 All agents online and ready" },
+  { timestamp: "09:23:07", agent: "Prime", agentColor: "#F59E0B", message: ">> Campaign deployment: ACTIVE" },
+  { timestamp: "09:23:10", agent: "Maya", agentColor: "#F59E0B", message: "Starting landing page copy draft..." },
+  { timestamp: "09:23:12", agent: "Pulse", agentColor: "#EC4899", message: "Social calendar generated \u2014 14 posts" },
+  { timestamp: "09:23:15", agent: "Vision", agentColor: "#A855F7", message: "3 visual concepts ready for review" },
+  { timestamp: "09:23:18", agent: "Prime", agentColor: "#F59E0B", message: "Swarm operating at 100% efficiency" },
 ];
 
 /* ───────── Helper: get position on circle ───────── */
@@ -98,20 +135,71 @@ function getCirclePos(angleDeg: number, radius: number, cx: number, cy: number) 
   return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) };
 }
 
+/* ───────── AnimatedTypingLine component ───────── */
+function AnimatedTypingLine({ log }: { log: LogEntry }) {
+  const [displayed, setDisplayed] = useState("");
+  const fullText = log.message;
+  const speed = 15; // ms per char
+
+  useEffect(() => {
+    let i = 0;
+    const timer = setInterval(() => {
+      i++;
+      setDisplayed(fullText.slice(0, i));
+      if (i >= fullText.length) clearInterval(timer);
+    }, speed);
+    return () => clearInterval(timer);
+  }, [fullText]);
+
+  return (
+    <div className="flex items-start gap-2">
+      <span className="shrink-0" style={{ color: "#7A6E5F", fontFamily: "var(--font-mono)" }}>
+        [{log.timestamp}]
+      </span>
+      <span className="shrink-0 font-semibold min-w-[80px]" style={{ color: log.agentColor, fontFamily: "var(--font-mono)" }}>
+        {log.agent}:
+      </span>
+      <span style={{ color: "#FAF5EF", fontFamily: "var(--font-mono)" }}>
+        {displayed}
+        {displayed.length < fullText.length && (
+          <span className="animate-blink" style={{ color: "#F59E0B" }}>|</span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+/* ───────── ConsoleLine component ───────── */
+function ConsoleLine({ log, index }: { log: LogEntry; index: number }) {
+  const isNew = index >= 7; // first 7 are initial logs
+  if (isNew) {
+    return <AnimatedTypingLine log={log} />;
+  }
+  return (
+    <div className="flex items-start gap-2">
+      <span className="shrink-0" style={{ color: "#7A6E5F", fontFamily: "var(--font-mono)" }}>
+        [{log.timestamp}]
+      </span>
+      <span className="shrink-0 font-semibold min-w-[80px]" style={{ color: log.agentColor, fontFamily: "var(--font-mono)" }}>
+        {log.agent}:
+      </span>
+      <span style={{ color: "#FAF5EF", fontFamily: "var(--font-mono)" }}>{log.message}</span>
+    </div>
+  );
+}
+
 /* ───────── Component ───────── */
 export default function MissionControl() {
   const [objective, setObjective] = useState("");
   const [budget, setBudget] = useState("");
   const [timeline, setTimeline] = useState("");
+  const [brandVoice, setBrandVoice] = useState(BRAND_VOICES[0]);
   const [swarmMode, setSwarmMode] = useState("parallel");
   const [activeLayers, setActiveLayers] = useState<string[]>(LAYERS.map((l) => l.id));
   const [isDeploying, setIsDeploying] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>(INITIAL_LOGS);
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; data: AgentTooltip } | null>(null);
-  const [generateVisuals, setGenerateVisuals] = useState(false);
-  const [completedCampaignId, setCompletedCampaignId] = useState<string | null>(null);
-  const [expandedResults, setExpandedResults] = useState<Set<string>>(new Set());
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; data: AgentTooltipData } | null>(null);
+  const [deployed, setDeployed] = useState(false);
   const consoleRef = useRef<HTMLDivElement>(null);
 
   /* Auto-scroll console */
@@ -128,517 +216,575 @@ export default function MissionControl() {
     );
   }, []);
 
-  /* Toggle result expansion */
-  const toggleResult = useCallback((agentId: string) => {
-    setExpandedResults((prev) => {
-      const next = new Set(prev);
-      if (next.has(agentId)) {
-        next.delete(agentId);
-      } else {
-        next.add(agentId);
-      }
-      return next;
-    });
-  }, []);
-
-  /* Copy to clipboard */
-  const handleCopy = useCallback(async (text: string, agentId: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedId(agentId);
-      setTimeout(() => setCopiedId(null), 2000);
-    } catch {
-      // Fallback
-      const textarea = document.createElement("textarea");
-      textarea.value = text;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textarea);
-      setCopiedId(agentId);
-      setTimeout(() => setCopiedId(null), 2000);
-    }
-  }, []);
-
-  /* Brand voice query */
-  const { data: brandVoiceData } = trpc.brandVoice.get.useQuery();
-
-  /* tRPC mutation for real mission execution */
-  const executeMission = trpc.agent.executeMission.useMutation({
-    onSuccess: (data) => {
-      setLogs((prev) => [
-        ...prev,
-        { timestamp: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }), agent: "Orchestrator", agentColor: "#9333EA", message: `Mission ${data.campaignId} complete — ${data.agentsExecuted} agents executed` },
-      ]);
-      setIsDeploying(false);
-      setCompletedCampaignId(data.campaignId);
-      refCampaign.refetch();
-    },
-    onError: (err) => {
-      setLogs((prev) => [
-        ...prev,
-        { timestamp: new Date().toLocaleTimeString("en-US", { hour12: false }), agent: "System", agentColor: "#EF4444", message: `Error: ${err.message}` },
-      ]);
-      setIsDeploying(false);
-    },
-  });
-
-  const refCampaign = trpc.agent.getCampaigns.useQuery();
-
-  /* Fetch campaign results when completed */
-  const campaignQuery = trpc.agent.getCampaign.useQuery(
-    { id: completedCampaignId ?? "" },
-    { enabled: !!completedCampaignId }
-  );
-
-  const campaignResults = campaignQuery.data?.outputs ?? [];
-
   /* Deploy handler */
   const handleDeploy = useCallback(() => {
     if (!objective.trim() || !budget || !timeline) return;
     setIsDeploying(true);
-    setCompletedCampaignId(null);
-    setExpandedResults(new Set());
+    setDeployed(true);
     setLogs((prev) => [
       ...prev,
-      { timestamp: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }), agent: "Orchestrator", agentColor: "#9333EA", message: "─── DEPLOYMENT INITIATED ───" },
+      { timestamp: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }), agent: "Prime", agentColor: "#F59E0B", message: "\u2501\u2501\u2501 DEPLOYMENT INITIATED \u2501\u2501\u2501" },
     ]);
 
     let i = 0;
     const interval = setInterval(() => {
-      if (i >= DEPLOY_LOGS.length) {
+      if (i >= DEPLOY_SEQUENCE.length) {
         clearInterval(interval);
-        // Now execute the REAL mission via tRPC
-        executeMission.mutate({
-          objective,
-          budget,
-          timeline,
-          mode: swarmMode,
-        });
+        setIsDeploying(false);
         return;
       }
-      setLogs((prev) => [...prev, DEPLOY_LOGS[i]]);
+      setLogs((prev) => [...prev, DEPLOY_SEQUENCE[i]]);
       i++;
-    }, 600);
-  }, [objective, budget, timeline, swarmMode, executeMission]);
+    }, 700);
+  }, [objective, budget, timeline]);
 
   /* SVG Topology dimensions */
-  const svgSize = 420;
+  const svgSize = 400;
   const cx = svgSize / 2;
   const cy = svgSize / 2;
-  const radius = 155;
+  const radius = 145;
 
-  /* Brand voice display */
-  const brandVoiceDisplay = brandVoiceData
-    ? `${brandVoiceData.tone}`
-    : "Soulful, confident, community-driven";
+  /* Budget dropdown open state */
+  const [budgetOpen, setBudgetOpen] = useState(false);
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [voiceOpen, setVoiceOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#0A0A0F] text-[#F0F6FC] p-6 font-[Inter]">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* ═══ Section 1: Page Header ═══ */}
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center">
-            <Rocket className="w-6 h-6 text-[#9333EA]" />
+    <div className="min-h-[100dvh] p-6 lg:p-8" style={{ fontFamily: "var(--font-primary)" }}>
+      <div className="max-w-[1440px] mx-auto space-y-6">
+        {/* ═══ Page Header ═══ */}
+        <div
+          className="animate-fade-up"
+          style={{ animationDelay: "0s" }}
+        >
+          <div className="flex items-center gap-4">
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center"
+              style={{ background: "rgba(245, 158, 11, 0.15)", border: "1px solid rgba(245, 158, 11, 0.25)" }}
+            >
+              <Rocket className="w-6 h-6" style={{ color: "#F59E0B" }} />
+            </div>
+            <div>
+              <h1 className="text-[2.25rem] font-bold tracking-tight" style={{ color: "var(--text-primary)", lineHeight: 1.1, letterSpacing: "-0.02em" }}>
+                Mission Control
+              </h1>
+              <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
+                Deploy your Swarm on new campaigns
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Deploy Mission</h1>
-            <p className="text-[#8B949E] text-sm mt-0.5">Configure your AI marketing campaign</p>
-          </div>
+          <div className="mt-4 h-px w-full" style={{ backgroundColor: "var(--border-subtle)" }} />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* ═══ Left Column: Form + Deploy ═══ */}
+        <div className="grid grid-cols-1 lg:grid-cols-[55%_45%] gap-6">
+          {/* ═══════════════════════════ LEFT COLUMN ═══════════════════════════ */}
           <div className="space-y-6">
-            {/* Section 2: Mission Configuration Form */}
-            <div className="rounded-2xl border border-[#21262D] bg-[#0D1117] p-6">
-              <h2 className="text-lg font-semibold mb-5 flex items-center gap-2">
-                <Bot className="w-5 h-5 text-[#9333EA]" />
+            {/* ── Mission Configuration Card ── */}
+            <div
+              className="animate-fade-up card-lift"
+              style={{
+                animationDelay: "0.08s",
+                opacity: 0,
+                background: "var(--gradient-card)",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "16px",
+                padding: "32px",
+                backdropFilter: "blur(12px)",
+              }}
+            >
+              <h2 className="text-lg font-semibold mb-5" style={{ color: "var(--text-primary)" }}>
                 Mission Configuration
               </h2>
 
               <div className="space-y-5">
-                {/* Objective */}
-                <div>
-                  <label className="block text-sm font-medium text-[#8B949E] mb-2">
+                {/* Mission Objective */}
+                <div style={{ animationDelay: "0.16s" }} className="animate-fade-up" >
+                  <label className="block text-xs font-medium uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>
                     Mission Objective
                   </label>
-                  <Textarea
-                    placeholder="e.g., Launch eco-friendly water bottle targeting Gen Z fitness enthusiasts, €200 budget, 2-week sprint"
+                  <textarea
+                    placeholder="Launch eco-friendly water bottle targeting Gen Z fitness enthusiasts with emphasis on sustainability..."
                     value={objective}
                     onChange={(e) => setObjective(e.target.value)}
-                    className="bg-[#161B22] border-[#21262D] text-[#F0F6FC] placeholder:text-[#484F58] focus:border-[#9333EA] focus:ring-purple-500/20 min-h-[100px] resize-none"
+                    rows={4}
+                    className="w-full rounded-[10px] px-4 py-3 text-sm resize-none transition-all focus:outline-none"
+                    style={{
+                      backgroundColor: "var(--bg-input)",
+                      border: "1px solid var(--border-subtle)",
+                      color: "var(--text-primary)",
+                      fontFamily: "var(--font-primary)",
+                    }}
                   />
                 </div>
 
                 {/* Budget + Timeline row */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-[#8B949E] mb-2">Budget</label>
-                    <Select value={budget} onValueChange={setBudget}>
-                      <SelectTrigger className="bg-[#161B22] border-[#21262D] text-[#F0F6FC] focus:ring-purple-500/20">
-                        <SelectValue placeholder="Select budget" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#161B22] border-[#21262D]">
-                        <SelectItem value="50-100" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">€50 - €100</SelectItem>
-                        <SelectItem value="100-250" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">€100 - €250</SelectItem>
-                        <SelectItem value="250-500" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">€250 - €500</SelectItem>
-                        <SelectItem value="custom" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">Custom</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  {/* Budget */}
+                  <div style={{ animationDelay: "0.24s" }} className="animate-fade-up relative" >
+                    <label className="block text-xs font-medium uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>
+                      Budget
+                    </label>
+                    <button
+                      onClick={() => setBudgetOpen(!budgetOpen)}
+                      className="w-full rounded-[10px] px-4 py-2.5 text-sm flex items-center justify-between transition-all focus:outline-none"
+                      style={{
+                        backgroundColor: "var(--bg-input)",
+                        border: "1px solid var(--border-subtle)",
+                        color: budget ? "var(--text-primary)" : "var(--text-muted)",
+                      }}
+                    >
+                      <span>{budget ? BUDGET_OPTIONS.find((b) => b.value === budget)?.label : "Select budget"}</span>
+                      <ChevronDown className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
+                    </button>
+                    {budgetOpen && (
+                      <div
+                        className="absolute z-50 w-full mt-1 rounded-[10px] overflow-hidden shadow-xl"
+                        style={{
+                          backgroundColor: "var(--bg-elevated)",
+                          border: "1px solid var(--border-subtle)",
+                        }}
+                      >
+                        {BUDGET_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.value}
+                            onClick={() => { setBudget(opt.value); setBudgetOpen(false); }}
+                            className="w-full px-4 py-2.5 text-sm text-left transition-colors hover:bg-amber-500/10"
+                            style={{ color: "var(--text-primary)" }}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[#8B949E] mb-2">Timeline</label>
-                    <Select value={timeline} onValueChange={setTimeline}>
-                      <SelectTrigger className="bg-[#161B22] border-[#21262D] text-[#F0F6FC] focus:ring-purple-500/20">
-                        <SelectValue placeholder="Select timeline" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#161B22] border-[#21262D]">
-                        <SelectItem value="1w" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">1 Week</SelectItem>
-                        <SelectItem value="2w" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">2 Weeks</SelectItem>
-                        <SelectItem value="1m" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">1 Month</SelectItem>
-                        <SelectItem value="3m" className="text-[#F0F6FC] focus:bg-purple-500/10 focus:text-[#F0F6FC]">3 Months</SelectItem>
-                      </SelectContent>
-                    </Select>
+
+                  {/* Timeline */}
+                  <div style={{ animationDelay: "0.32s" }} className="animate-fade-up relative" >
+                    <label className="block text-xs font-medium uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>
+                      Timeline
+                    </label>
+                    <button
+                      onClick={() => setTimelineOpen(!timelineOpen)}
+                      className="w-full rounded-[10px] px-4 py-2.5 text-sm flex items-center justify-between transition-all focus:outline-none"
+                      style={{
+                        backgroundColor: "var(--bg-input)",
+                        border: "1px solid var(--border-subtle)",
+                        color: timeline ? "var(--text-primary)" : "var(--text-muted)",
+                      }}
+                    >
+                      <span>{timeline ? TIMELINE_OPTIONS.find((t) => t.value === timeline)?.label : "Select timeline"}</span>
+                      <ChevronDown className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
+                    </button>
+                    {timelineOpen && (
+                      <div
+                        className="absolute z-50 w-full mt-1 rounded-[10px] overflow-hidden shadow-xl"
+                        style={{
+                          backgroundColor: "var(--bg-elevated)",
+                          border: "1px solid var(--border-subtle)",
+                        }}
+                      >
+                        {TIMELINE_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.value}
+                            onClick={() => { setTimeline(opt.value); setTimelineOpen(false); }}
+                            className="w-full px-4 py-2.5 text-sm text-left transition-colors hover:bg-amber-500/10"
+                            style={{ color: "var(--text-primary)" }}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Brand Voice */}
-                <div className="rounded-xl border border-[#21262D] bg-[#161B22] p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-[#8B949E]">Brand Voice</label>
-                    <Link
-                      to="/brand-voice"
-                      className="text-xs text-[#9333EA] hover:text-[#A855F7] transition-colors flex items-center gap-1"
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      Customize
-                    </Link>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-[#22C55E]" />
-                    <span className="text-sm font-medium text-[#F0F6FC]">
-                      {brandVoiceDisplay}
-                    </span>
-                  </div>
-                  <p className="text-xs text-[#484F58] mt-2">
-                    Omega Swarm will write in this voice. Go to{" "}
-                    <Link to="/brand-voice" className="text-[#9333EA] hover:underline">Brand Voice Studio</Link>{" "}
-                    to customize.
-                  </p>
-                </div>
-
-                {/* Generate Visual Assets Toggle */}
-                <div className="rounded-xl border border-[#21262D] bg-[#161B22] p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                        <Image className="w-4 h-4 text-[#9333EA]" />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-[#F0F6FC]">Generate Visual Assets</label>
-                        <p className="text-xs text-[#484F58]">Creates DALL-E images and AI video clips for your campaign</p>
-                      </div>
+                <div style={{ animationDelay: "0.40s" }} className="animate-fade-up relative" >
+                  <label className="block text-xs font-medium uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>
+                    Brand Voice
+                  </label>
+                  <button
+                    onClick={() => setVoiceOpen(!voiceOpen)}
+                    className="w-full rounded-[10px] px-4 py-2.5 text-sm flex items-center justify-between transition-all focus:outline-none"
+                    style={{
+                      backgroundColor: "var(--bg-input)",
+                      border: "1px solid var(--border-subtle)",
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Volume2 className="w-4 h-4" style={{ color: "var(--accent-primary)" }} />
+                      <span>{brandVoice}</span>
                     </div>
-                    <Switch
-                      checked={generateVisuals}
-                      onCheckedChange={setGenerateVisuals}
-                      className="data-[state=checked]:bg-[#9333EA]"
-                    />
-                  </div>
+                    <ChevronDown className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
+                  </button>
+                  {voiceOpen && (
+                    <div
+                      className="absolute z-50 w-full mt-1 rounded-[10px] overflow-hidden shadow-xl"
+                      style={{
+                        backgroundColor: "var(--bg-elevated)",
+                        border: "1px solid var(--border-subtle)",
+                      }}
+                    >
+                      {BRAND_VOICES.map((voice) => (
+                        <button
+                          key={voice}
+                          onClick={() => { setBrandVoice(voice); setVoiceOpen(false); }}
+                          className="w-full px-4 py-2.5 text-sm text-left transition-colors hover:bg-amber-500/10"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          {voice}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {/* Swarm Mode */}
-                <div>
-                  <label className="block text-sm font-medium text-[#8B949E] mb-2">Swarm Mode</label>
-                  <div className="grid grid-cols-4 gap-2">
+                {/* Swarm Mode Selector */}
+                <div style={{ animationDelay: "0.48s" }} className="animate-fade-up" >
+                  <label className="block text-xs font-medium uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>
+                    Swarm Mode
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
                     {SWARM_MODES.map((mode) => (
                       <button
                         key={mode.id}
                         onClick={() => setSwarmMode(mode.id)}
                         className={cn(
-                          "flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-sm font-medium transition-all",
+                          "relative rounded-xl border-2 p-4 text-left transition-all duration-200",
                           swarmMode === mode.id
-                            ? "bg-purple-500/15 border-[#9333EA] text-[#F0F6FC] shadow-[0_0_12px_rgba(147,51,234,0.15)]"
-                            : "bg-[#161B22] border-[#21262D] text-[#8B949E] hover:border-[#30363D] hover:text-[#F0F6FC]"
+                            ? "border-[#F59E0B]"
+                            : "border-transparent hover:border-[#3D3229]"
                         )}
+                        style={{
+                          background: swarmMode === mode.id
+                            ? "rgba(245, 158, 11, 0.08)"
+                            : "var(--bg-elevated)",
+                          boxShadow: swarmMode === mode.id
+                            ? "0 0 20px rgba(245, 158, 11, 0.15)"
+                            : "none",
+                        }}
                       >
-                        <span>{mode.icon}</span>
-                        <span className="hidden sm:inline">{mode.label}</span>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span style={{ color: swarmMode === mode.id ? "#F59E0B" : "var(--text-muted)" }}>
+                            {mode.icon}
+                          </span>
+                          <span
+                            className="text-sm font-semibold"
+                            style={{ color: swarmMode === mode.id ? "var(--text-primary)" : "var(--text-secondary)" }}
+                          >
+                            {mode.name}
+                          </span>
+                        </div>
+                        <p className="text-xs leading-relaxed" style={{ color: "var(--text-muted)" }}>
+                          {mode.description}
+                        </p>
                       </button>
                     ))}
                   </div>
                 </div>
 
                 {/* Active Layers */}
-                <div>
-                  <label className="block text-sm font-medium text-[#8B949E] mb-2">Active Layers</label>
-                  <div className="flex flex-wrap gap-2">
-                    {LAYERS.map((layer) => (
-                      <button
-                        key={layer.id}
-                        onClick={() => toggleLayer(layer.id)}
-                        className={cn(
-                          "px-3 py-1.5 rounded-full border text-xs font-medium transition-all",
-                          activeLayers.includes(layer.id)
-                            ? `${layer.color} shadow-[0_0_8px_rgba(34,197,94,0.1)]`
-                            : "bg-[#161B22] border-[#21262D] text-[#484F58] hover:border-[#30363D]"
-                        )}
-                      >
-                        {layer.label}
-                      </button>
-                    ))}
+                <div style={{ animationDelay: "0.56s" }} className="animate-fade-up" >
+                  <label className="block text-xs font-medium uppercase tracking-wider mb-3" style={{ color: "var(--text-muted)" }}>
+                    Active Layers
+                  </label>
+                  <div className="space-y-2">
+                    {LAYERS.map((layer) => {
+                      const isActive = activeLayers.includes(layer.id);
+                      return (
+                        <button
+                          key={layer.id}
+                          onClick={() => toggleLayer(layer.id)}
+                          className="w-full flex items-center justify-between rounded-lg px-4 py-2.5 transition-all duration-200"
+                          style={{
+                            background: isActive ? `${layer.color}10` : "var(--bg-elevated)",
+                            border: `1px solid ${isActive ? `${layer.color}40` : "var(--border-subtle)"}`,
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-3 h-3 rounded-full transition-all"
+                              style={{
+                                backgroundColor: isActive ? layer.color : "var(--text-muted)",
+                                opacity: isActive ? 1 : 0.3,
+                                boxShadow: isActive ? `0 0 8px ${layer.color}60` : "none",
+                              }}
+                            />
+                            <span
+                              className="text-sm font-medium"
+                              style={{ color: isActive ? "var(--text-primary)" : "var(--text-muted)" }}
+                            >
+                              {layer.label}
+                            </span>
+                          </div>
+                          <div
+                            className="w-9 h-5 rounded-full relative transition-all duration-200"
+                            style={{
+                              backgroundColor: isActive ? layer.color : "var(--border-subtle)",
+                            }}
+                          >
+                            <div
+                              className="absolute top-0.5 w-4 h-4 rounded-full transition-all duration-200"
+                              style={{
+                                left: isActive ? "18px" : "2px",
+                                backgroundColor: "#fff",
+                              }}
+                            />
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Section 3: Deploy Button */}
-            <button
-              onClick={handleDeploy}
-              disabled={isDeploying || !objective.trim() || !budget || !timeline}
-              className={cn(
-                "w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 transition-all",
-                isDeploying || !objective.trim() || !budget || !timeline
-                  ? "bg-[#161B22] border border-[#21262D] text-[#484F58] cursor-not-allowed"
-                  : "bg-gradient-to-r from-[#9333EA] to-[#7E22CE] text-white shadow-[0_0_30px_rgba(147,51,234,0.3)] hover:shadow-[0_0_40px_rgba(147,51,234,0.45)] hover:scale-[1.02] active:scale-[0.98]"
-              )}
+            {/* ── Deploy Button ── */}
+            <div
+              className="animate-fade-up"
+              style={{ animationDelay: "0.64s", opacity: 0 }}
             >
-              {isDeploying ? (
-                <>
-                  <Activity className="w-6 h-6 animate-pulse" />
-                  Deploying...
-                </>
-              ) : (
-                <>
-                  <Rocket className="w-6 h-6" />
-                  Deploy Omega Swarm
-                </>
-              )}
-            </button>
-
-            {/* ═══ Section 6: Mission Results ═══ */}
-            {campaignResults.length > 0 && (
-              <div className="rounded-2xl border border-[#21262D] bg-[#0D1117] p-6">
-                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-[#9333EA]" />
-                  Mission Results
-                  <span className="text-xs font-normal text-[#484F58] ml-2">
-                    {campaignResults.filter((o) => o.status === "completed").length} / {campaignResults.length} agents
-                  </span>
-                </h2>
-
-                <div className="space-y-3 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#21262D] scrollbar-track-transparent pr-1">
-                  {campaignResults.map((output) => {
-                    const isExpanded = expandedResults.has(output.agentId);
-                    const isSocialAgent = output.agentId === "social";
-                    const isCompleted = output.status === "completed";
-                    const isRunning = output.status === "running";
-
-                    return (
-                      <div
-                        key={output.agentId}
-                        className="rounded-xl border border-[#21262D] bg-[#161B22] overflow-hidden transition-all"
-                      >
-                        {/* Header - always visible */}
-                        <button
-                          onClick={() => output.output && toggleResult(output.agentId)}
-                          className="w-full flex items-center justify-between p-4 text-left hover:bg-[#1C2128] transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="text-lg">{output.agentEmoji}</span>
-                            <span className="text-sm font-semibold text-[#F0F6FC]">{output.agentName}</span>
-                            <span
-                              className={cn(
-                                "px-2 py-0.5 rounded-full text-[10px] font-medium uppercase",
-                                isCompleted
-                                  ? "bg-emerald-500/10 text-emerald-400"
-                                  : isRunning
-                                    ? "bg-amber-500/10 text-amber-400"
-                                    : "bg-[#21262D] text-[#484F58]"
-                              )}
-                            >
-                              {output.status}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {output.output && (
-                              <>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleCopy(output.output, output.agentId);
-                                  }}
-                                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-[#8B949E] hover:text-[#F0F6FC] hover:bg-[#21262D] transition-all"
-                                  title="Copy output"
-                                >
-                                  {copiedId === output.agentId ? (
-                                    <Check className="w-3 h-3 text-emerald-400" />
-                                  ) : (
-                                    <Copy className="w-3 h-3" />
-                                  )}
-                                  {copiedId === output.agentId ? "Copied" : "Copy"}
-                                </button>
-                                {isExpanded ? (
-                                  <ChevronUp className="w-4 h-4 text-[#484F58]" />
-                                ) : (
-                                  <ChevronDown className="w-4 h-4 text-[#484F58]" />
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </button>
-
-                        {/* Expandable content */}
-                        {isExpanded && output.output && (
-                          <div className="px-4 pb-4 border-t border-[#21262D]">
-                            <pre className="mt-3 p-3 rounded-lg bg-[#0D1117] border border-[#21262D] text-xs text-[#C9D1D9] font-mono whitespace-pre-wrap leading-relaxed max-h-[300px] overflow-y-auto">
-                              {output.output}
-                            </pre>
-                            {isSocialAgent && (
-                              <div className="mt-3 flex items-center gap-2">
-                                <Link
-                                  to="/social-connections"
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gradient-to-r from-[#9333EA] to-[#7E22CE] text-white hover:shadow-[0_0_16px_rgba(147,51,234,0.3)] transition-all"
-                                >
-                                  <ExternalLink className="w-3 h-3" />
-                                  Post to Instagram
-                                </Link>
-                                <span className="text-[10px] text-[#484F58]">
-                                  Connects to your linked Instagram accounts
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+              <button
+                onClick={handleDeploy}
+                disabled={isDeploying || !objective.trim() || !budget || !timeline}
+                className={cn(
+                  "w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 transition-all duration-200",
+                  isDeploying || !objective.trim() || !budget || !timeline
+                    ? "cursor-not-allowed"
+                    : "hover:scale-[1.02] active:scale-[0.98]"
+                )}
+                style={
+                  !isDeploying && objective.trim() && budget && timeline
+                    ? {
+                        background: "linear-gradient(135deg, #F59E0B 0%, #F97316 50%, #FBBF24 100%)",
+                        backgroundSize: "200% 100%",
+                        animation: "shimmer 2s linear infinite",
+                        color: "#0C0A09",
+                        boxShadow: "0 0 30px rgba(245,158,11,0.35), 0 0 60px rgba(245,158,11,0.15)",
+                      }
+                    : {
+                        backgroundColor: "var(--bg-elevated)",
+                        border: "1px solid var(--border-subtle)",
+                        color: "var(--text-muted)",
+                      }
+                }
+              >
+                {isDeploying ? (
+                  <>
+                    <Activity className="w-6 h-6 animate-pulse" />
+                    Initializing Swarm...
+                  </>
+                ) : deployed ? (
+                  <>
+                    <span className="text-xl">✓</span>
+                    Swarm Deployed
+                  </>
+                ) : (
+                  <>
+                    <Rocket className="w-6 h-6" />
+                    Deploy Swarm
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
-          {/* ═══ Right Column: Console + Topology ═══ */}
+          {/* ═══════════════════════════ RIGHT COLUMN ═══════════════════════════ */}
           <div className="space-y-6">
-            {/* Section 4: Live Console */}
-            <div className="rounded-2xl border border-[#21262D] bg-[#0D1117] overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-[#21262D] bg-[#161B22]">
+            {/* ── Live Console ── */}
+            <div
+              className="animate-fade-up overflow-hidden"
+              style={{
+                animationDelay: "0.12s",
+                opacity: 0,
+                background: "var(--bg-card)",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "16px",
+              }}
+            >
+              {/* Console Header */}
+              <div
+                className="flex items-center justify-between px-4 py-2.5"
+                style={{
+                  backgroundColor: "var(--bg-elevated)",
+                  borderBottom: "1px solid var(--border-subtle)",
+                }}
+              >
                 <div className="flex items-center gap-2">
-                  <Terminal className="w-4 h-4 text-[#8B949E]" />
-                  <span className="text-sm font-medium text-[#8B949E]">Live Console</span>
+                  <div className="flex gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-[#EF4444]" />
+                    <div className="w-3 h-3 rounded-full bg-[#F59E0B]" />
+                    <div className="w-3 h-3 rounded-full bg-[#22C55E]" />
+                  </div>
+                  <Terminal className="w-4 h-4 ml-2" style={{ color: "var(--text-muted)" }} />
+                  <span className="text-xs" style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                    swarm-console
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="relative flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#22C55E]" />
+                    <span
+                      className="absolute inline-flex h-full w-full rounded-full opacity-75"
+                      style={{ backgroundColor: "#84CC16", animation: "pulseGlow 2s ease-in-out infinite" }}
+                    />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#84CC16]" />
                   </span>
-                  <span className="text-xs font-semibold text-[#22C55E]">LIVE</span>
+                  <span className="text-xs font-bold" style={{ color: "#84CC16" }}>LIVE</span>
                 </div>
               </div>
+
+              {/* Console Output */}
               <div
                 ref={consoleRef}
-                className="p-4 h-[260px] overflow-y-auto font-mono text-xs space-y-1.5 scrollbar-thin scrollbar-thumb-[#21262D] scrollbar-track-transparent"
+                className="p-4 overflow-y-auto"
+                style={{
+                  height: "320px",
+                  maxHeight: "400px",
+                  backgroundColor: "var(--bg-base)",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "13px",
+                  lineHeight: 1.6,
+                }}
               >
-                {logs.map((log, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <span className="text-[#484F58] shrink-0">[{log.timestamp}]</span>
-                    <span style={{ color: log.agentColor }} className="shrink-0 font-semibold min-w-[110px]">
-                      {log.agent}:
-                    </span>
-                    <span className="text-[#F0F6FC]">{log.message}</span>
-                  </div>
-                ))}
+                <div className="space-y-1.5">
+                  {logs.map((log, i) => (
+                    <ConsoleLine key={i} log={log} index={i} />
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Section 5: Swarm Topology */}
-            <div className="rounded-2xl border border-[#21262D] bg-[#0D1117] p-6">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <Activity className="w-5 h-5 text-[#9333EA]" />
+            {/* ── Swarm Topology SVG ── */}
+            <div
+              className="animate-scale-in relative"
+              style={{
+                animationDelay: "0.2s",
+                opacity: 0,
+                background: "var(--gradient-card)",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "16px",
+                padding: "24px",
+              }}
+            >
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+                <Activity className="w-5 h-5" style={{ color: "var(--accent-primary)" }} />
                 Swarm Topology
               </h2>
               <div className="flex justify-center">
                 <svg width={svgSize} height={svgSize} viewBox={`0 0 ${svgSize} ${svgSize}`} className="max-w-full">
-                  {/* Connection lines from center to each node */}
-                  {AGENTS.map((agent) => {
+                  <defs>
+                    <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#F59E0B" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="#D97706" stopOpacity={0.15} />
+                    </linearGradient>
+                    <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+                      <stop offset="0%" stopColor="#F59E0B" stopOpacity={0.08} />
+                      <stop offset="100%" stopColor="#F59E0B" stopOpacity={0} />
+                    </radialGradient>
+                  </defs>
+
+                  {/* Background glow */}
+                  <circle cx={cx} cy={cy} r={radius + 40} fill="url(#centerGlow)" />
+
+                  {/* Connection lines from center to each agent */}
+                  {AGENTS.filter((a) => a.id !== "orchestrator").map((agent) => {
                     const pos = getCirclePos(agent.angle, radius, cx, cy);
                     return (
-                      <line
-                        key={`line-${agent.id}`}
-                        x1={cx}
-                        y1={cy}
-                        x2={pos.x}
-                        y2={pos.y}
-                        stroke="url(#lineGradient)"
-                        strokeWidth={1}
-                        opacity={0.4}
-                      />
+                      <g key={`line-${agent.id}`}>
+                        <line
+                          x1={cx}
+                          y1={cy}
+                          x2={pos.x}
+                          y2={pos.y}
+                          stroke="url(#lineGradient)"
+                          strokeWidth={1.5}
+                          opacity={0.4}
+                        />
+                        {/* Animated traveling dot */}
+                        <circle r={2.5} fill="#F59E0B" opacity={0.8}>
+                          <animateMotion
+                            dur={`${2 + Math.random() * 2}s`}
+                            repeatCount="indefinite"
+                            path={`M${cx},${cy} L${pos.x},${pos.y}`}
+                          />
+                        </circle>
+                      </g>
                     );
                   })}
 
-                  {/* Gradient definition */}
-                  <defs>
-                    <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#9333EA" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="#7E22CE" stopOpacity={0.1} />
-                    </linearGradient>
-                  </defs>
+                  {/* Pulse rings for active agents */}
+                  {AGENTS.filter((a) => a.id !== "orchestrator").map((agent) => {
+                    const pos = getCirclePos(agent.angle, radius, cx, cy);
+                    return (
+                      <g key={`pulse-${agent.id}`}>
+                        <circle
+                          cx={pos.x}
+                          cy={pos.y}
+                          r={28}
+                          fill="none"
+                          stroke={agent.color}
+                          strokeWidth={1}
+                          opacity={0}
+                        >
+                          <animate
+                            attributeName="r"
+                            values="24;42;24"
+                            dur={`${1.5 + Math.random() * 0.5}s`}
+                            repeatCount="indefinite"
+                          />
+                          <animate
+                            attributeName="opacity"
+                            values="0.5;0;0.5"
+                            dur={`${1.5 + Math.random() * 0.5}s`}
+                            repeatCount="indefinite"
+                          />
+                        </circle>
+                      </g>
+                    );
+                  })}
 
                   {/* Agent nodes */}
-                  {AGENTS.map((agent) => {
+                  {AGENTS.filter((a) => a.id !== "orchestrator").map((agent) => {
                     const pos = getCirclePos(agent.angle, radius, cx, cy);
-                    const isOrchestrator = agent.id === "orchestrator";
-                    const nodeRadius = isOrchestrator ? 32 : 24;
-
+                    const nodeR = 22;
                     return (
                       <g
                         key={agent.id}
-                        transform={`translate(${pos.x}, ${pos.y})`}
                         className="cursor-pointer"
-                        onClick={(e) => {
-                          const rect = (e.target as SVGElement).closest("svg")?.getBoundingClientRect();
-                          if (rect) {
-                            setTooltip({
-                              x: pos.x,
-                              y: pos.y - nodeRadius - 10,
-                              data: { name: agent.name, role: agent.role, color: agent.color },
-                            });
-                          }
-                        }}
-                        style={{ filter: `drop-shadow(0 0 6px ${agent.color}30)` }}
+                        onClick={() => setTooltip({
+                          x: pos.x,
+                          y: pos.y - nodeR - 12,
+                          data: { name: agent.name, role: agent.role, color: agent.color },
+                        })}
+                        style={{ filter: `drop-shadow(0 0 6px ${agent.color}40)` }}
                       >
-                        {/* Pulse ring for orchestrator */}
-                        {isOrchestrator && (
-                          <circle r={nodeRadius + 6} fill="none" stroke={agent.color} strokeWidth={1.5} opacity={0.4}>
-                            <animate attributeName="r" values={`${nodeRadius + 4};${nodeRadius + 14};${nodeRadius + 4}`} dur="2.5s" repeatCount="indefinite" />
-                            <animate attributeName="opacity" values="0.5;0.1;0.5" dur="2.5s" repeatCount="indefinite" />
-                          </circle>
-                        )}
-                        {/* Node circle */}
                         <circle
-                          r={nodeRadius}
-                          fill={isOrchestrator ? `${agent.color}20` : "#161B22"}
+                          cx={pos.x}
+                          cy={pos.y}
+                          r={nodeR}
+                          fill={`${agent.color}15`}
                           stroke={agent.color}
                           strokeWidth={2}
                         />
-                        {/* Emoji */}
                         <text
-                          y={isOrchestrator ? 2 : 1}
+                          x={pos.x}
+                          y={pos.y + 1}
                           textAnchor="middle"
                           dominantBaseline="middle"
-                          fontSize={isOrchestrator ? 20 : 14}
+                          fontSize={14}
                         >
                           {agent.emoji}
                         </text>
-                        {/* Label */}
                         <text
-                          y={nodeRadius + 14}
+                          x={pos.x}
+                          y={pos.y + nodeR + 12}
                           textAnchor="middle"
                           dominantBaseline="middle"
-                          fill="#8B949E"
+                          fill="#C4B5A0"
                           fontSize={10}
                           fontWeight={500}
+                          fontFamily="var(--font-primary)"
                         >
                           {agent.name}
                         </text>
@@ -646,16 +792,46 @@ export default function MissionControl() {
                     );
                   })}
 
-                  {/* Center Orchestrator (main hub) */}
-                  <g transform={`translate(${cx}, ${cy})`}>
-                    <circle r={38} fill="#9333EA15" stroke="#9333EA" strokeWidth={2.5}>
-                      <animate attributeName="r" values="38;42;38" dur="3s" repeatCount="indefinite" />
-                      <animate attributeName="opacity" values="0.8;0.5;0.8" dur="3s" repeatCount="indefinite" />
+                  {/* Center Orchestrator node */}
+                  <g>
+                    {/* Outer pulse ring */}
+                    <circle cx={cx} cy={cy} r={42} fill="none" stroke="#F59E0B" strokeWidth={1.5} opacity={0.3}>
+                      <animate attributeName="r" values="38;50;38" dur="3s" repeatCount="indefinite" />
+                      <animate attributeName="opacity" values="0.4;0;0.4" dur="3s" repeatCount="indefinite" />
                     </circle>
-                    <text y={2} textAnchor="middle" dominantBaseline="middle" fontSize={24}>
+                    {/* Second pulse ring */}
+                    <circle cx={cx} cy={cy} r={38} fill="none" stroke="#F59E0B" strokeWidth={1} opacity={0.2}>
+                      <animate attributeName="r" values="34;48;34" dur="3s" begin="1s" repeatCount="indefinite" />
+                      <animate attributeName="opacity" values="0.3;0;0.3" dur="3s" begin="1s" repeatCount="indefinite" />
+                    </circle>
+                    {/* Main center circle */}
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={34}
+                      fill="rgba(245,158,11,0.12)"
+                      stroke="#F59E0B"
+                      strokeWidth={2.5}
+                    />
+                    <text
+                      x={cx}
+                      y={cy + 2}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fontSize={22}
+                    >
                       🧠
                     </text>
-                    <text y={52} textAnchor="middle" dominantBaseline="middle" fill="#9333EA" fontSize={11} fontWeight={600}>
+                    <text
+                      x={cx}
+                      y={cy + 50}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fill="#F59E0B"
+                      fontSize={11}
+                      fontWeight={600}
+                      fontFamily="var(--font-primary)"
+                    >
                       Orchestrator
                     </text>
                   </g>
@@ -665,13 +841,22 @@ export default function MissionControl() {
               {/* Tooltip */}
               {tooltip && (
                 <div
-                  className="absolute z-50 rounded-xl border border-[#21262D] bg-[#161B22] px-4 py-3 shadow-xl pointer-events-none"
-                  style={{ left: tooltip.x, top: tooltip.y, transform: "translate(-50%, -100%)" }}
+                  className="absolute z-50 rounded-xl px-4 py-3 pointer-events-none"
+                  style={{
+                    left: `${(tooltip.x / svgSize) * 100}%`,
+                    top: `${(tooltip.y / svgSize) * 100}%`,
+                    transform: "translate(-50%, -100%)",
+                    background: "var(--bg-elevated)",
+                    border: "1px solid #3D3229",
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+                  }}
                 >
                   <div className="text-sm font-semibold" style={{ color: tooltip.data.color }}>
                     {tooltip.data.name}
                   </div>
-                  <div className="text-xs text-[#8B949E] mt-0.5">{tooltip.data.role}</div>
+                  <div className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                    {tooltip.data.role}
+                  </div>
                 </div>
               )}
             </div>

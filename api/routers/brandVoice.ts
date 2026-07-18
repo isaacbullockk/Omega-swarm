@@ -1,19 +1,28 @@
 import { z } from "zod";
-import { publicProcedure, router } from "../trpc.ts";
-import { getBrandVoice, saveBrandVoice } from "../../db/store.ts";
+import { router, publicProcedure } from "../trpc";
+import { getBrandVoice, saveBrandVoice } from "../../db/store";
 
 export const brandVoiceRouter = router({
+  /* ─── Get saved brand voice ─── */
   get: publicProcedure.query(async () => {
-    return await getBrandVoice();
+    return getBrandVoice();
   }),
 
+  /* ─── Save brand voice ─── */
   save: publicProcedure
-    .input(z.object({
-      tone: z.string(),
-      description: z.string(),
-      samples: z.array(z.string()).optional(),
-    }))
+    .input(
+      z.object({
+        tone: z.string().min(1, "Tone is required"),
+        description: z.string().min(1, "Description is required"),
+        samples: z.array(z.string()).max(3, "Maximum 3 samples allowed").default([]),
+      })
+    )
     .mutation(async ({ input }) => {
-      return await saveBrandVoice(input);
+      const brandVoice = saveBrandVoice({
+        tone: input.tone,
+        description: input.description,
+        samples: input.samples,
+      });
+      return brandVoice;
     }),
 });
