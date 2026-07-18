@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTheme } from "@/context/ThemeContext";
 
 interface Particle {
   x: number;
@@ -16,14 +17,15 @@ interface Particle {
 
 /**
  * ParticleBackground — Full-viewport Canvas 2D particle system.
- * 50 floating orbs with warm amber/gold colors, slow drift,
- * sinusoidal oscillation, lines between nearby particles, mouse repel.
+ * Uses theme-aware colors from ThemeContext. Re-initializes when
+ * the active theme changes so particles pick up the new palette.
  */
 export default function ParticleBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
   const mouseRef = useRef({ x: -1000, y: -1000 });
   const rafRef = useRef<number>(0);
+  const { theme } = useTheme();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -31,13 +33,9 @@ export default function ParticleBackground() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const WARM_COLORS = [
-      "#F59E0B", // amber
-      "#F97316", // sunset orange
-      "#FBBF24", // amber light
-      "#D97706", // amber dark
-      "#F59E0B", // amber (more weight)
-    ];
+    const PARTICLE_COLORS = theme.particleColors;
+    // Use primary color for connections
+    const connectionRgb = hexToRgb(PARTICLE_COLORS[0]);
 
     function resize() {
       if (!canvas) return;
@@ -46,7 +44,7 @@ export default function ParticleBackground() {
     }
     resize();
 
-    // Initialize 50 particles
+    // Initialize 50 particles with theme colors
     const PARTICLE_COUNT = 50;
     particlesRef.current = [];
     for (let i = 0; i < PARTICLE_COUNT; i++) {
@@ -61,7 +59,7 @@ export default function ParticleBackground() {
         vy: (Math.random() - 0.5) * 0.3,
         radius: 2 + Math.random() * 6,
         alpha: 0.15 + Math.random() * 0.25,
-        color: WARM_COLORS[Math.floor(Math.random() * WARM_COLORS.length)],
+        color: PARTICLE_COLORS[Math.floor(Math.random() * PARTICLE_COLORS.length)],
         phase: Math.random() * Math.PI * 2,
         speed: 0.3 + Math.random() * 0.5,
       });
@@ -123,7 +121,7 @@ export default function ParticleBackground() {
             ctx.beginPath();
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(245, 158, 11, ${alpha})`;
+            ctx.strokeStyle = `rgba(${connectionRgb}, ${alpha})`;
             ctx.lineWidth = 0.5;
             ctx.stroke();
           }
@@ -154,7 +152,7 @@ export default function ParticleBackground() {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseleave", handleMouseLeave);
     };
-  }, []);
+  }, [theme]); // Re-initialize when theme changes
 
   return (
     <canvas
@@ -171,4 +169,14 @@ export default function ParticleBackground() {
       }}
     />
   );
+}
+
+/** Convert "#RRGGBB" to "R, G, B" string for rgba() */
+function hexToRgb(hex: string): string {
+  const clean = hex.replace("#", "");
+  const bigint = parseInt(clean, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return `${r}, ${g}, ${b}`;
 }

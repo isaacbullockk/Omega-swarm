@@ -1,5 +1,6 @@
 import { useLocation } from "react-router";
 import { Bell, Settings } from "lucide-react";
+import { useTheme } from "@/context/ThemeContext";
 
 /* ------------------------------------------------------------------ */
 /*  Route-to-title mapping                                            */
@@ -22,13 +23,14 @@ const PAGE_TITLES: Record<string, string> = {
 
 export default function TopBar() {
   const location = useLocation();
-  const title = PAGE_TITLES[location.pathname] || "Omega Swarm";
+  const { primaryColor } = useTheme();
+  const title = PAGE_TITLES[location.pathname] ?? "Omega Swarm";
 
   return (
     <header
       className="sticky top-0 z-10 flex h-14 items-center justify-between border-b px-6"
       style={{
-        backgroundColor: "rgba(12, 10, 9, 0.8)",
+        backgroundColor: "var(--bg-card-solid)",
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         borderColor: "var(--border-subtle)",
@@ -55,7 +57,10 @@ export default function TopBar() {
         >
           <Bell className="size-[18px]" />
           {/* Unread badge */}
-          <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-black">
+          <span
+            className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full text-[9px] font-bold"
+            style={{ background: primaryColor, color: "var(--bg-base)" }}
+          >
             3
           </span>
         </button>

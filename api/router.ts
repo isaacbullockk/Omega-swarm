@@ -4,6 +4,7 @@ import { brandVoiceRouter } from "./routers/brandVoice";
 import { socialRouter } from "./routers/social";
 import { viralRouter } from "./routers/viral";
 import { contentLibraryRouter } from "./routers/contentLibrary";
+import { voiceRouter } from "./routers/voice";
 
 export const appRouter = router({
   agent: agentRouter,
@@ -11,6 +12,7 @@ export const appRouter = router({
   social: socialRouter,
   viral: viralRouter,
   contentLibrary: contentLibraryRouter,
+  voice: voiceRouter,
 });
 
 export type AppRouter = typeof appRouter;
