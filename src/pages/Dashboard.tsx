@@ -57,6 +57,8 @@ const AGENTS: AgentData[] = [
   { id: "a9", name: "Privacy", emoji: "🔒", color: "#6366F1", glowColor: "rgba(99,102,241,0.3)", status: "online" },
   { id: "a10", name: "Ambient", emoji: "🌸", color: "#D946EF", glowColor: "rgba(217,70,239,0.3)", status: "offline" },
   { id: "a11", name: "Budget RL", emoji: "💹", color: "#22C55E", glowColor: "rgba(34,197,94,0.3)", status: "online" },
+  { id: "a13", name: "Legal", emoji: "⚖️", color: "#8B5CF6", glowColor: "rgba(139,92,246,0.3)", status: "online" },
+  { id: "a14", name: "Accountant", emoji: "🧮", color: "#14B8A6", glowColor: "rgba(20,184,166,0.3)", status: "online" },
   { id: "a12", name: "Orchestrator", emoji: "🧠", color: "#F59E0B", glowColor: "rgba(245,158,11,0.4)", status: "online" },
 ];
 
@@ -66,6 +68,8 @@ const ACTIVITIES: ActivityItem[] = [
   { id: "act3", agentColor: "#EF4444", agentName: "Sales Agent", description: "closed deal: $4,200", timestamp: "1 hr ago" },
   { id: "act4", agentColor: "#84CC16", agentName: "SEO Agent", description: "updated keyword rankings: +5 positions", timestamp: "3 hr ago" },
   { id: "act5", agentColor: "#F59E0B", agentName: "Orchestrator", description: "deployed new campaign 'Savannah Summer Sale'", timestamp: "5 hr ago" },
+  { id: "act13", agentColor: "#8B5CF6", agentName: "Legal Counsel Lex", description: "reviewed 3 partnership agreements — all clear", timestamp: "4 hr ago" },
+  { id: "act14", agentColor: "#14B8A6", agentName: "Accountant Count", description: "filed quarterly tax estimates — saved €2,400", timestamp: "6 hr ago" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -454,7 +458,7 @@ export default function Dashboard() {
           icon={<Bot className="size-5 text-cyan-400" />}
           iconBg="rgba(6, 182, 212, 0.12)"
           label="Agents online"
-          value={`${agentsOnlineValue} / 12`}
+          value={`${agentsOnlineValue} / 14`}
           trend="8 active"
           trendColor="var(--text-muted)"
           delay={0.54}

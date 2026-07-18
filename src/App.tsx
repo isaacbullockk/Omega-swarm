@@ -7,6 +7,7 @@ import MemoryBank from "@/pages/MemoryBank";
 import ContentLibrary from "@/pages/ContentLibrary";
 import BrandVoice from "@/pages/BrandVoice";
 import Pipeline from "@/pages/Pipeline";
+import Originals from "@/pages/Originals";
 import Login from "@/pages/Login";
 
 /* Placeholder for Settings */
@@ -40,6 +41,7 @@ export default function App() {
         <Route path="/content-library" element={<ContentLibrary />} />
         <Route path="/brand-voice" element={<BrandVoice />} />
         <Route path="/pipeline" element={<Pipeline />} />
+        <Route path="/originals" element={<Originals />} />
         <Route path="/settings" element={<Placeholder title="Settings" />} />
       </Route>
     </Routes>

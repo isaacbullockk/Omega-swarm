@@ -46,7 +46,7 @@ interface Message {
 }
 
 /* =================================================================== */
-/*  AGENT DATA — 12 Specialized Agents                                  */
+/*  AGENT DATA — 14 Specialized Agents                                  */
 /* =================================================================== */
 
 const AGENTS: Agent[] = [
@@ -260,6 +260,44 @@ const AGENTS: Agent[] = [
     ],
   },
   {
+    id: "lex",
+    name: "Lex",
+    role: "Legal Counsel",
+    emoji: "⚖️",
+    color: "#8B5CF6",
+    glowColor: "rgba(139,92,246,0.3)",
+    status: "online",
+    personality: "Sharp, meticulous, always has your back",
+    capabilities: ["Contract Review", "IP Protection", "Terms of Service", "Compliance Check", "Dispute Resolution", "Trademark Guidance"],
+    tasksCompleted: 1243,
+    avgResponseTime: "2.3s",
+    successRate: "99%",
+    recentChats: [
+      { title: "Partnership Agreement Review", time: "1h ago" },
+      { title: "Copyright Filing", time: "4h ago" },
+      { title: "Privacy Policy Update", time: "1d ago" },
+    ],
+  },
+  {
+    id: "count",
+    name: "Count",
+    role: "Accountant",
+    emoji: "🧮",
+    color: "#14B8A6",
+    glowColor: "rgba(20,184,166,0.3)",
+    status: "online",
+    personality: "Precise, tax-savvy, numbers whisperer",
+    capabilities: ["Bookkeeping", "Tax Planning", "Financial Reports", "Expense Tracking", "Invoicing", "Cash Flow Analysis"],
+    tasksCompleted: 2876,
+    avgResponseTime: "1.1s",
+    successRate: "98%",
+    recentChats: [
+      { title: "Monthly P&L Statement", time: "30m ago" },
+      { title: "Tax Deduction Audit", time: "3h ago" },
+      { title: "Expense Categorization", time: "6h ago" },
+    ],
+  },
+  {
     id: "prime",
     name: "Prime",
     role: "Orchestrator",
@@ -296,6 +334,8 @@ const ROUTING_MAP: { keywords: string[]; agentId: string }[] = [
   { keywords: ["privacy", "compliance", "gdpr", "data policy", "consent"], agentId: "vault" },
   { keywords: ["mood", "theme", "atmosphere", "aesthetic", "vibe"], agentId: "aura" },
   { keywords: ["budget", "cost", "spend", "roi", "allocate", "revenue"], agentId: "ledger" },
+  { keywords: ["lawyer", "legal", "contract", "ip", "trademark", "copyright", "terms", "compliance", "gdpr", "lawsuit", "agreement"], agentId: "lex" },
+  { keywords: ["accountant", "accounting", "tax", "bookkeeping", "invoice", "expense", "financial", "budget", "cash flow", "profit", "revenue", "p&l"], agentId: "count" },
   { keywords: ["coordinate", "all agents", "everyone", "swarm", "orchestrate"], agentId: "prime" },
 ];
 
@@ -327,7 +367,9 @@ function getWelcomeMessage(agent: Agent): string {
     vault: "Security protocol active. I'm Vault, your privacy guardian. Need a compliance audit or data policy review? I'm on it. 🔒",
     aura: "Welcome to a calmer space. I'm Aura, your ambient experience designer. Let's set the perfect mood for your brand. 🌸",
     ledger: "Numbers don't lie. I'm Ledger, your budget strategist. Let's optimize your spend and maximize ROI. What's your budget challenge? 💹",
-    prime: "I am Prime, the Orchestrator. I coordinate all 11 specialized agents in our swarm. Describe your marketing goal and I'll route it to the perfect specialist — or assemble a team for complex missions. 🧠",
+    lex: "Lex here, your legal counsel. Need a contract reviewed, IP protected, or compliance checked? I handle all legal matters so you can focus on creating. ⚖️",
+    count: "Count at your service — your numbers guy. Whether it's tax planning, bookkeeping, or financial reports, I've got your books covered. 🧮",
+    prime: "I am Prime, the Orchestrator. I coordinate all 13 specialized agents in our swarm. Describe your marketing goal and I'll route it to the perfect specialist — or assemble a team for complex missions. 🧠",
   };
   return messages[agent.id] || `Hello! I'm ${agent.name}, your ${agent.role}. How can I help you today?`;
 }
@@ -388,6 +430,16 @@ function getAgentResponse(agent: Agent, userMessage: string): string {
       "ROI calculation complete. I'm recommending a budget reallocation that could increase returns by 23%. Here's the breakdown...",
       "I've run the numbers through my reinforcement learning model. This allocation strategy maximizes efficiency.",
       "Cost analysis finished! I've identified $12.4K in potential savings without sacrificing performance. Here's how...",
+    ],
+    lex: [
+      "I've reviewed your request from a legal standpoint. Here's my analysis and recommended course of action... ⚖️",
+      "From a legal perspective, I see several key points to address. Let me walk you through the implications and my recommendations.",
+      "Legal review complete. I've identified the relevant provisions and prepared guidance to protect your interests.",
+    ],
+    count: [
+      "Crunched the numbers for you. Here's what the data shows and my financial recommendation... 🧮",
+      "I've analyzed the figures and found some interesting patterns. Here's my financial breakdown and advice.",
+      "Your books are looking solid. I've compiled the financial report with key insights and actionable next steps.",
     ],
     prime: [
       "Excellent. I'm analyzing your request and assembling the optimal agent team. This requires a coordinated multi-agent approach.",
@@ -771,7 +823,7 @@ export default function Agents() {
             AI Swarm
           </h2>
           <p className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
-            12 specialized agents at your command
+            14 specialized agents at your command
           </p>
           <div
             className="mt-3 h-px w-full"

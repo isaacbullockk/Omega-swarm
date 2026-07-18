@@ -8,6 +8,7 @@ import {
   Library,
   Mic,
   BarChart3,
+  Sparkles,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -49,6 +50,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Content Studio", path: "/content-library", icon: <Library className="size-[18px]" /> },
       { label: "Brand Voice", path: "/brand-voice", icon: <Mic className="size-[18px]" /> },
       { label: "Analytics", path: "/pipeline", icon: <BarChart3 className="size-[18px]" /> },
+      { label: "Originals", path: "/originals", icon: <Sparkles className="size-[18px]" /> },
     ],
   },
   {
@@ -190,7 +192,7 @@ export default function Sidebar() {
                 Swarm Active
               </p>
               <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                8/12 agents online
+                8/14 agents online
               </p>
             </div>
           )}
