@@ -2,12 +2,12 @@ import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import {
   FolderOpen, Share2, Video, ImageIcon,
-  Plus, X, Sparkles, Instagram, Send, Loader2
+  Plus, X, Sparkles, Camera, Send, Loader2
 } from "lucide-react";
 
 const TABS = [
   { key: "all", label: "All Content", icon: FolderOpen },
-  { key: "social", label: "Social Posts", icon: Instagram },
+  { key: "social", label: "Social Posts", icon: Camera },
   { key: "video", label: "Videos", icon: Video },
   { key: "asset", label: "Assets", icon: ImageIcon },
 ];
