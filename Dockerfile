@@ -2,6 +2,9 @@ FROM node:20-slim
 
 WORKDIR /app
 
+# Cache bust: force fresh COPY on every rebuild
+ARG CACHE_BUST=2
+
 # Copy package.json and install dependencies
 COPY package.json ./
 RUN npm install --legacy-peer-deps
