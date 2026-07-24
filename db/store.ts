@@ -102,48 +102,10 @@ interface StoreData {
 
 const defaultData: StoreData = {
   campaigns: [],
-  memories: [
-    { id: "1", title: "Sustainable fitness gear launch", type: "win", ctr: "4.2%", cpa: "$16.80", date: "2025-07-01", agents: "✍️ 📱 🎨" },
-    { id: "2", title: "Premium SaaS onboarding flow", type: "win", ctr: "3.8%", cpa: "$12.40", date: "2025-07-02", agents: "💼 📊 ✍️" },
-    { id: "3", title: "Holiday flash sale campaign", type: "loss", ctr: "1.9%", cpa: "$34.20", date: "2025-07-03", agents: "📱 ✍️" },
-    { id: "4", title: "B2B lead gen webinar series", type: "win", ctr: "5.1%", cpa: "$22.10", date: "2025-07-04", agents: "🔍 💼 🎨" },
-    { id: "5", title: "Gen Z skincare brand awareness", type: "win", ctr: "6.7%", cpa: "$8.90", date: "2025-07-05", agents: "📱 🎨 📊" },
-    { id: "6", title: "Enterprise software demo funnel", type: "win", ctr: "4.5%", cpa: "$45.00", date: "2025-07-06", agents: "💼 🔍 ✍️" },
-  ],
+  memories: [],
   brandVoice: null,
   socialAccounts: [],
-  viralVideos: [
-    {
-      id: "viral_1",
-      title: "Stage Energy",
-      account: "@wildnoff",
-      caption: "The live experience is where the magic happens ✨\n\nDrop a 🔥 if you've felt that electricity in the room.\n\n#WildnoffCollective #LiveMusic #PerformanceEnergy #MusicCommunity #AfroFusion #ConcertVibes #IsaacBullockKintu #Wildnoff",
-      hashtags: ["#WildnoffCollective", "#LiveMusic", "#PerformanceEnergy", "#MusicCommunity", "#AfroFusion", "#ConcertVibes", "#IsaacBullockKintu", "#Wildnoff"],
-      videoUrl: "/viral-studio/viral_reel_1.mp4",
-      status: "ready",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "viral_2",
-      title: "Behind the Scenes",
-      account: "@isaacbullockk",
-      caption: "Real talk: the best ideas come when nobody's watching 🎶\n\nJust me, the keys, and whatever the moment brings. No filters. No scripts. Just soul.\n\nWhat does your creative space look like? Show me 👇\n\n#BehindTheScenes #StudioLife #MusicCreation #WildnoffCollective #KyakuwaMusic #SoulfulSounds #IsaacBullockKintu #CreativeProcess",
-      hashtags: ["#BehindTheScenes", "#StudioLife", "#MusicCreation", "#WildnoffCollective", "#KyakuwaMusic", "#SoulfulSounds", "#IsaacBullockKintu", "#CreativeProcess"],
-      videoUrl: "/viral-studio/viral_reel_2.mp4",
-      status: "ready",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "viral_3",
-      title: "Festival Vibes",
-      account: "@kyakuwamusic",
-      caption: "When the sun sets and the bass drops... that's when we come alive 🌅🎵\n\nNothing connects people like music. Nothing. Tag someone you want to experience this with.\n\n#KyakuwaMusic #FestivalSeason #SunsetVibes #MusicFestival #CommunityFirst #LiveMusic #WildnoffCollective #AfroFusion #MusicConnects",
-      hashtags: ["#KyakuwaMusic", "#FestivalSeason", "#SunsetVibes", "#MusicFestival", "#CommunityFirst", "#LiveMusic", "#WildnoffCollective", "#AfroFusion", "#MusicConnects"],
-      videoUrl: "/viral-studio/viral_reel_3.mp4",
-      status: "ready",
-      createdAt: new Date().toISOString(),
-    },
-  ],
+  viralVideos: [],
   contentAssets: [],
 };
 
