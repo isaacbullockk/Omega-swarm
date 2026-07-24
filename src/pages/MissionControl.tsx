@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { trpc } from "@/lib/trpc";
 import {
   Rocket,
   Zap,
@@ -215,6 +216,27 @@ export default function MissionControl() {
       prev.includes(id) ? prev.filter((l) => l !== id) : [...prev, id]
     );
   }, []);
+
+  /* Post to social */
+  const postMutation = trpc.post.create.useMutation({
+    onSuccess: (data) => {
+      setLogs((prev) => [...prev, {
+        timestamp: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+        agent: "Pulse", agentColor: "#EC4899", message: `✅ POSTED: "${data.caption.substring(0, 60)}..."`,
+      }]);
+    },
+    onError: (err) => {
+      setLogs((prev) => [...prev, {
+        timestamp: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+        agent: "Pulse", agentColor: "#EF4444", message: `❌ Post failed: ${err.message}`,
+      }]);
+    },
+  });
+
+  const handlePost = useCallback(() => {
+    if (!objective.trim()) return;
+    postMutation.mutate({ topic: objective, brandVoice: brandVoice.tone });
+  }, [objective, brandVoice, postMutation]);
 
   /* Deploy handler */
   const handleDeploy = useCallback(() => {
@@ -585,6 +607,29 @@ export default function MissionControl() {
                     <Rocket className="w-6 h-6" />
                     Deploy Swarm
                   </>
+                )}
+              </button>
+
+              {/* Post to Instagram */}
+              <button
+                onClick={handlePost}
+                disabled={postMutation.isPending || !objective.trim()}
+                className="mt-3 w-full py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
+                style={{
+                  background: postMutation.isPending || !objective.trim()
+                    ? "rgba(28,25,23,0.5)" : "linear-gradient(135deg, #EC4899, #F43F5E)",
+                  color: postMutation.isPending || !objective.trim() ? "#7A6E5F" : "#fff",
+                  border: "1px solid rgba(236,72,153,0.3)",
+                  cursor: postMutation.isPending || !objective.trim() ? "not-allowed" : "pointer",
+                  boxShadow: postMutation.isPending || !objective.trim() ? "none" : "0 0 20px rgba(236,72,153,0.2)",
+                }}
+              >
+                {postMutation.isPending ? (
+                  <><Activity className="w-4 h-4 animate-spin" /> Posting...</>
+                ) : postMutation.isSuccess ? (
+                  <><span>✓</span> Posted!</>
+                ) : (
+                  <>📷 Post to Instagram</>
                 )}
               </button>
             </div>
