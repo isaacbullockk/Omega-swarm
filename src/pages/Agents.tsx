@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { trpc } from "@/lib/trpc";
 import {
   Search,
   Send,
@@ -667,6 +668,36 @@ export default function Agents() {
   const [searchQuery, setSearchQuery] = useState("");
   const [hasWelcomed, setHasWelcomed] = useState(false);
 
+  /* ── tRPC: real AI agent ── */
+  const executeAgent = trpc.agent.executeMission.useMutation({
+    onSuccess: (data) => {
+      setMessages((prev) => [...prev, {
+        id: `msg_${Date.now()}`,
+        role: "agent" as const,
+        agentId: selectedAgentId,
+        agentName: selectedAgent?.name || "Agent",
+        agentEmoji: selectedAgent?.emoji || "🤖",
+        agentColor: selectedAgent?.color || "#F59E0B",
+        text: data.output || "No response",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }]);
+      setIsTyping(false);
+    },
+    onError: (err) => {
+      setMessages((prev) => [...prev, {
+        id: `msg_${Date.now()}`,
+        role: "agent" as const,
+        agentId: selectedAgentId,
+        agentName: selectedAgent?.name || "Agent",
+        agentEmoji: "⚠️",
+        agentColor: "#EF4444",
+        text: `Error: ${err.message}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }]);
+      setIsTyping(false);
+    },
+  });
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -737,20 +768,14 @@ export default function Agents() {
       }, 1500);
     }
 
-    /* Simulate agent response */
-    const delay = 1200 + Math.random() * 1500;
-    setTimeout(() => {
-      setIsTyping(false);
-      const response: Message = {
-        id: `a-${Date.now()}`,
-        role: "agent",
-        content: getAgentResponse(targetAgent, text),
-        agentId: targetAgent.id,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, response]);
-    }, delay);
-  }, [inputValue, selectedAgent, selectedAgentId]);
+    /* Call real AI via Groq */
+    executeAgent.mutate({
+      objective: text,
+      budget: "Flexible",
+      timeline: "1 week",
+      mode: "parallel",
+    });
+  }, [inputValue, selectedAgent, selectedAgentId, executeAgent]);
 
   /* ── Quick action click ── */
   const handleQuickAction = useCallback(
