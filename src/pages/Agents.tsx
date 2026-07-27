@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import {
   Search,
@@ -7,7 +7,6 @@ import {
   Pin,
   Trash2,
   PanelRightOpen,
-  PanelRightClose,
   X,
   MessageSquare,
   TrendingUp,
@@ -375,82 +374,7 @@ function getWelcomeMessage(agent: Agent): string {
   return messages[agent.id] || `Hello! I'm ${agent.name}, your ${agent.role}. How can I help you today?`;
 }
 
-function getAgentResponse(agent: Agent, userMessage: string): string {
-  const responses: Record<string, string[]> = {
-    maya: [
-      "Great brief! I'll craft compelling copy that speaks directly to your audience's pain points and desires. Give me a moment to draft some options for you.",
-      "Love this angle! I'm thinking a storytelling approach with an emotional hook. Let me draft something that converts.",
-      "Got it! I'll create copy that's persuasive but authentic — no fluff, just results. Here's what I'm thinking...",
-    ],
-    pulse: [
-      "Ooh, this is trending material! I'm already brainstorming hooks that'll stop the scroll. Let me craft the perfect post for you.",
-      "This is FIRE content! I'm thinking a carousel with bold visuals and punchy captions. Here's my take...",
-      "Trending alert! This fits perfectly with what's blowing up right now. Let me create something that rides the wave! 🌊",
-    ],
-    ace: [
-      "This is a solid lead gen opportunity. I'm mapping out a funnel that'll convert at 15%+. Here's my strategy...",
-      "I see the angle. Let me build you an objection-handling sequence that turns maybes into yeses.",
-      "Cha-ching! This funnel has serious potential. I'm designing a conversion-optimized flow right now.",
-    ],
-    vision: [
-      "I'm envisioning a cohesive creative direction that elevates your brand. Let me conceptualize the visual narrative...",
-      "This calls for bold, artistic expression with strategic intent. Here's my creative direction...",
-      "Artistry meets strategy. I'm designing a visual language that captures your brand essence perfectly.",
-    ],
-    scout: [
-      "I'm running a deep keyword analysis and site audit. Your SEO foundation looks promising — here's what we can optimize...",
-      "Great question! Based on current search trends, I recommend targeting long-tail keywords with high intent. Here's my analysis...",
-      "I've identified 5 quick SEO wins and 3 strategic opportunities. Let's climb those rankings! 🔍",
-    ],
-    nexus: [
-      "The data tells a compelling story. I've analyzed your metrics and found some fascinating insights. Here's what the numbers reveal...",
-      "Interesting pattern emerging! Let me break down the attribution model and show you where the real ROI is coming from.",
-      "Dashboard updated! I've identified three key performance drivers and two optimization opportunities.",
-    ],
-    guardian: [
-      "Scanning complete. No immediate threats detected, but I've identified 2 areas that need attention. Here's my security brief...",
-      "Alert analysis complete. Your brand sentiment is strong, and I've cataloged new competitor movements. Full report incoming...",
-      "All clear on the perimeter. I've updated the threat model and compiled competitor intel. Here's what you need to know...",
-    ],
-    terra: [
-      "I've mapped your global presence and identified key regional opportunities. Here's your multi-market strategy...",
-      "Location data analyzed! I'm recommending a targeted approach for each region with localized content strategies.",
-      "Your local SEO profile is looking strong in 3 regions but needs work in 2 others. Here's the optimization plan...",
-    ],
-    vault: [
-      "Compliance scan complete. All systems green. I've updated your privacy framework to the latest standards.",
-      "Policy review finished. Your data handling practices exceed GDPR requirements. Here's the detailed compliance report...",
-      "Security audit passed with flying colors. I've documented the findings and updated your consent management protocols.",
-    ],
-    aura: [
-      "I'm sensing the perfect atmosphere for your brand. Let me curate a sensory experience that resonates with your audience...",
-      "The vibe is coming together beautifully. I'm designing an ambient brand experience that creates emotional connections.",
-      "Atmospheric analysis complete. Your brand's emotional resonance score is about to get a serious upgrade. 🌸",
-    ],
-    ledger: [
-      "ROI calculation complete. I'm recommending a budget reallocation that could increase returns by 23%. Here's the breakdown...",
-      "I've run the numbers through my reinforcement learning model. This allocation strategy maximizes efficiency.",
-      "Cost analysis finished! I've identified $12.4K in potential savings without sacrificing performance. Here's how...",
-    ],
-    lex: [
-      "I've reviewed your request from a legal standpoint. Here's my analysis and recommended course of action... ⚖️",
-      "From a legal perspective, I see several key points to address. Let me walk you through the implications and my recommendations.",
-      "Legal review complete. I've identified the relevant provisions and prepared guidance to protect your interests.",
-    ],
-    count: [
-      "Crunched the numbers for you. Here's what the data shows and my financial recommendation... 🧮",
-      "I've analyzed the figures and found some interesting patterns. Here's my financial breakdown and advice.",
-      "Your books are looking solid. I've compiled the financial report with key insights and actionable next steps.",
-    ],
-    prime: [
-      "Excellent. I'm analyzing your request and assembling the optimal agent team. This requires a coordinated multi-agent approach.",
-      "Swarm coordination initiated. I'm routing subtasks to our specialized agents and will synthesize their outputs into a unified strategy.",
-      "Mission parameters received. I'm deploying the appropriate agents in sequence. Prime out... for now. 🧠",
-    ],
-  };
-  const agentResponses = responses[agent.id] || ["I'm on it! Let me analyze this and get back to you with a detailed response."];
-  return agentResponses[Math.floor(Math.random() * agentResponses.length)];
-}
+
 
 /* =================================================================== */
 /*  QUICK ACTION CHIPS                                                  */
@@ -676,18 +600,15 @@ export default function Agents() {
     [selectedAgentId]
   );
 
-  /* ── tRPC: real AI agent ── */
-  const executeAgent = trpc.agent.executeMission.useMutation({
+  /* ── tRPC: real AI agent chat ── */
+  const chatMutation = trpc.agent.chat.useMutation({
     onSuccess: (data) => {
       setMessages((prev) => [...prev, {
         id: `msg_${Date.now()}`,
         role: "agent" as const,
         agentId: selectedAgentId,
-        agentName: selectedAgent?.name || "Agent",
-        agentEmoji: selectedAgent?.emoji || "🤖",
-        agentColor: selectedAgent?.color || "#F59E0B",
-        text: data.output || "No response",
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        content: data.output || "No response",
+        timestamp: new Date(),
       }]);
       setIsTyping(false);
     },
@@ -696,11 +617,8 @@ export default function Agents() {
         id: `msg_${Date.now()}`,
         role: "agent" as const,
         agentId: selectedAgentId,
-        agentName: selectedAgent?.name || "Agent",
-        agentEmoji: "⚠️",
-        agentColor: "#EF4444",
-        text: `Error: ${err.message}`,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        content: `Error: ${err.message}`,
+        timestamp: new Date(),
       }]);
       setIsTyping(false);
     },
@@ -769,13 +687,11 @@ export default function Agents() {
     }
 
     /* Call real AI via Groq */
-    executeAgent.mutate({
-      objective: text,
-      budget: "Flexible",
-      timeline: "1 week",
-      mode: "parallel",
+    chatMutation.mutate({
+      message: text,
+      agentId: targetAgent.id,
     });
-  }, [inputValue, selectedAgent, selectedAgentId, executeAgent]);
+  }, [inputValue, selectedAgent, selectedAgentId, chatMutation]);
 
   /* ── Quick action click ── */
   const handleQuickAction = useCallback(
