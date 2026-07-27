@@ -78,7 +78,7 @@ export async function generateImage(prompt: string): Promise<string> {
     n: 1,
     size: "1024x1024",
   });
-  return response.data[0]?.url || "";
+  return response.data?.[0]?.url || "";
 }
 
 export async function generateCaption(topic: string, brandVoice?: string): Promise<string> {
