@@ -668,6 +668,14 @@ export default function Agents() {
   const [searchQuery, setSearchQuery] = useState("");
   const [hasWelcomed, setHasWelcomed] = useState(false);
 
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selectedAgent = useMemo(
+    () => AGENTS.find((a) => a.id === selectedAgentId) || AGENTS[11],
+    [selectedAgentId]
+  );
+
   /* ── tRPC: real AI agent ── */
   const executeAgent = trpc.agent.executeMission.useMutation({
     onSuccess: (data) => {
@@ -697,14 +705,6 @@ export default function Agents() {
       setIsTyping(false);
     },
   });
-
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const selectedAgent = useMemo(
-    () => AGENTS.find((a) => a.id === selectedAgentId) || AGENTS[11],
-    [selectedAgentId]
-  );
 
   /* ── Welcome message on first load ── */
   useEffect(() => {
