@@ -121,6 +121,59 @@ export const agentRouter = router({
 
       return { agentId: agent.id, agentName: agent.name, output };
     }),
+
+  // Chat — direct AI response for the agent hub
+  chat: publicProcedure
+    .input(
+      z.object({
+        message: z.string().min(1),
+        agentId: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      // Map frontend agent IDs to backend agents
+      const agentMap: Record<string, string> = {
+        maya: "copywriter",
+        pulse: "social",
+        ace: "sales",
+        vision: "creative",
+        scout: "seo",
+        nexus: "analytics",
+        guardian: "sentinel",
+        terra: "geo",
+        vault: "privacy",
+        aura: "ambient",
+        ledger: "budget",
+        lex: "orchestrator",
+        count: "analytics",
+        prime: "orchestrator",
+      };
+
+      const backendAgentId = input.agentId ? (agentMap[input.agentId] || "orchestrator") : "orchestrator";
+      const agent = AGENTS.find((a) => a.id === backendAgentId);
+      if (!agent) throw new Error("Agent not found");
+
+      let brandVoice: { tone: string; description: string } | null = null;
+      try {
+        const savedVoice = getBrandVoice();
+        if (savedVoice) {
+          brandVoice = { tone: savedVoice.tone, description: savedVoice.description };
+        }
+      } catch {
+        // ignore
+      }
+
+      const output = await generateWithAgent(
+        agent.name,
+        agent.role,
+        input.message,
+        "Flexible",
+        "1 week",
+        brandVoice
+      );
+
+      return { output, agentName: agent.name, agentEmoji: agent.emoji };
+    }),
 });
 
 function getCapabilities(agentId: string): string[] {
