@@ -37,48 +37,7 @@ interface MetricOption {
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
-const battleHistory: BattleRecord[] = [
-  {
-    id: 1,
-    battle: "Campaign #42 vs #43",
-    metric: "Conversion",
-    winner: "A",
-    aResult: "4.2%",
-    bResult: "3.8%",
-    confidence: 94,
-    date: "2 days ago",
-  },
-  {
-    id: 2,
-    battle: "Campaign #40 vs #41",
-    metric: "CTR",
-    winner: "B",
-    aResult: "2.1%",
-    bResult: "2.7%",
-    confidence: 89,
-    date: "5 days ago",
-  },
-  {
-    id: 3,
-    battle: "Campaign #38 vs #39",
-    metric: "CPA",
-    winner: "A",
-    aResult: "$18.50",
-    bResult: "$22.10",
-    confidence: 91,
-    date: "1 week ago",
-  },
-  {
-    id: 4,
-    battle: "Headline V1 vs V2",
-    metric: "Engagement",
-    winner: "A",
-    aResult: "5.4%",
-    bResult: "4.1%",
-    confidence: 87,
-    date: "2 weeks ago",
-  },
-];
+const battleHistory: BattleRecord[] = [];
 
 const metrics: MetricOption[] = [
   { value: "conversion", label: "Conversion Rate", icon: <ShoppingCart size={14} /> },
@@ -88,19 +47,9 @@ const metrics: MetricOption[] = [
   { value: "revenue", label: "Revenue", icon: <TrendingUp size={14} /> },
 ];
 
-const championOptions = [
-  "Current Best Campaign",
-  "Summer Sale V2",
-  "Holiday Special",
-  "Enterprise Funnel A",
-];
+const championOptions = ["No campaigns yet"];
 
-const challengerOptions = [
-  "New Variant #44",
-  "Challenger Alpha",
-  "Variant B2",
-  "Test Campaign X",
-];
+const challengerOptions = ["Start your first mission"];
 
 // ─── Mini Sparkline Component ────────────────────────────────────────────────
 

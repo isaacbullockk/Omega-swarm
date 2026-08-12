@@ -2,8 +2,8 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Force Docker to never cache — changes on every commit
-ADD https://api.github.com/repos/isaacbullockk/Omega-swarm/commits?per_page=1 /tmp/latest-commit
+# Cache bust: force fresh COPY on every rebuild
+ARG CACHE_BUST=24
 
 # Copy package.json and install dependencies
 COPY package.json ./
@@ -19,4 +19,4 @@ RUN npm run build
 EXPOSE 3001
 
 # Start the server
-CMD ["npm", "start"]
+CMD ["npx", "tsx", "server.ts"]

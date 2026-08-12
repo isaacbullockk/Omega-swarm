@@ -8,11 +8,13 @@ import {
   Library,
   Mic,
   BarChart3,
+  Sparkles,
   Settings,
   ChevronLeft,
   ChevronRight,
   Hexagon,
 } from "lucide-react";
+import { useTheme } from "@/context/ThemeContext";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -49,6 +51,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Content Studio", path: "/content-library", icon: <Library className="size-[18px]" /> },
       { label: "Brand Voice", path: "/brand-voice", icon: <Mic className="size-[18px]" /> },
       { label: "Analytics", path: "/pipeline", icon: <BarChart3 className="size-[18px]" /> },
+      { label: "Originals", path: "/originals", icon: <Sparkles className="size-[18px]" /> },
     ],
   },
   {
@@ -63,9 +66,14 @@ const NAV_SECTIONS: NavSection[] = [
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
-export default function Sidebar() {
+interface SidebarProps {
+  onNavigate?: () => void;
+}
+
+export default function Sidebar({ onNavigate }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { brandName, logo, primaryColor } = useTheme();
 
   const isActive = (path: string) => {
     if (path === "/") return location.pathname === "/";
@@ -87,17 +95,25 @@ export default function Sidebar() {
         style={{ borderColor: "var(--border-subtle)" }}
       >
         <div
-          className="flex size-8 shrink-0 items-center justify-center rounded-lg"
-          style={{ background: "var(--gradient-gold)" }}
+          className="flex size-8 shrink-0 items-center justify-center rounded-lg overflow-hidden"
+          style={{ background: logo ? "transparent" : "var(--gradient-gold)" }}
         >
-          <Hexagon className="size-5" style={{ color: "#0C0A09" }} />
+          {logo ? (
+            <img
+              src={logo}
+              alt={brandName}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <Hexagon className="size-5" style={{ color: "var(--bg-base)" }} />
+          )}
         </div>
         {!collapsed && (
           <span
             className="text-lg font-bold tracking-tight whitespace-nowrap"
             style={{ color: "var(--text-primary)" }}
           >
-            Omega Swarm
+            {brandName}
           </span>
         )}
       </div>
@@ -127,11 +143,14 @@ export default function Sidebar() {
                   <li key={item.path}>
                     <Link
                       to={item.path}
+                      onClick={onNavigate}
                       className="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200"
                       style={{
-                        color: active ? "var(--text-primary)" : "var(--text-muted)",
+                        color: active
+                          ? "var(--text-primary)"
+                          : "var(--text-muted)",
                         background: active
-                          ? "rgba(245, 158, 11, 0.08)"
+                          ? `${primaryColor}14`
                           : "transparent",
                         borderLeft: active
                           ? "3px solid var(--accent-primary)"
@@ -142,13 +161,17 @@ export default function Sidebar() {
                       <span
                         className="shrink-0 transition-colors duration-200"
                         style={{
-                          color: active ? "var(--accent-primary)" : "var(--text-muted)",
+                          color: active
+                            ? "var(--accent-primary)"
+                            : "var(--text-muted)",
                         }}
                       >
                         {item.icon}
                       </span>
                       {!collapsed && (
-                        <span className="truncate whitespace-nowrap">{item.label}</span>
+                        <span className="truncate whitespace-nowrap">
+                          {item.label}
+                        </span>
                       )}
                     </Link>
                   </li>
@@ -166,20 +189,26 @@ export default function Sidebar() {
       >
         <div
           className="flex items-center gap-2.5 rounded-lg px-2 py-2"
-          style={{ background: "rgba(245, 158, 11, 0.04)" }}
+          style={{ background: `${primaryColor}0A` }}
         >
           <div className="relative shrink-0">
             <div
               className="size-8 rounded-full border-2 flex items-center justify-center text-xs"
               style={{
                 borderColor: "var(--accent-primary)",
-                background: "rgba(245, 158, 11, 0.1)",
+                background: `${primaryColor}1A`,
                 color: "var(--accent-primary)",
               }}
             >
               <Bot className="size-4" />
             </div>
-            <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2 bg-emerald-500" style={{ borderColor: "var(--bg-elevated)" }} />
+            <span
+              className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2"
+              style={{
+                background: "#22C55E",
+                borderColor: "var(--bg-elevated)",
+              }}
+            />
           </div>
           {!collapsed && (
             <div className="min-w-0">
@@ -189,8 +218,11 @@ export default function Sidebar() {
               >
                 Swarm Active
               </p>
-              <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                8/12 agents online
+              <p
+                className="text-[10px]"
+                style={{ color: "var(--text-muted)" }}
+              >
+                0/14 agents idle
               </p>
             </div>
           )}
@@ -205,9 +237,15 @@ export default function Sidebar() {
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
         {collapsed ? (
-          <ChevronRight className="size-4" style={{ color: "var(--text-muted)" }} />
+          <ChevronRight
+            className="size-4"
+            style={{ color: "var(--text-muted)" }}
+          />
         ) : (
-          <ChevronLeft className="size-4" style={{ color: "var(--text-muted)" }} />
+          <ChevronLeft
+            className="size-4"
+            style={{ color: "var(--text-muted)" }}
+          />
         )}
       </button>
     </aside>

@@ -1,16 +1,26 @@
 import { router } from "./trpc";
 import { agentRouter } from "./routers/agent";
-import { brandVoiceRouter } from "./routers/brandVoice";
+import { postRouter } from "./routers/post";
 import { socialRouter } from "./routers/social";
+import { brandVoiceRouter } from "./routers/brandVoice";
 import { viralRouter } from "./routers/viral";
-import { contentLibraryRouter } from "./routers/contentLibrary";
+import { voiceRouter } from "./routers/voice";
+import { bookingRouter } from "./routers/booking";
+import { videoRouter } from "./routers/video";
+import { contentRouter, analyticsRouter } from "./routers/content";
 
 export const appRouter = router({
   agent: agentRouter,
-  brandVoice: brandVoiceRouter,
+  post: postRouter,
   social: socialRouter,
+  brandVoice: brandVoiceRouter,
   viral: viralRouter,
-  contentLibrary: contentLibraryRouter,
+  voice: voiceRouter,
+  booking: bookingRouter,
+  video: videoRouter,
+  content: contentRouter,
+  analytics: analyticsRouter,
+  // contentLibrary router deprecated — use content.list instead
 });
 
 export type AppRouter = typeof appRouter;

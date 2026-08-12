@@ -1,21 +1,54 @@
 import { z } from "zod";
 import { router, publicProcedure } from "../trpc";
-import { generateWithAgent } from "../openai";
+import { generateWithAgent, chatWithAgent } from "../openai";
 import { addCampaign, updateCampaign, getCampaigns, getCampaign, getBrandVoice } from "../../db/store";
 
 const AGENTS = [
-  { id: "copywriter", name: "Copywriter GPT", emoji: "✍️", role: "You write compelling ad copy, email sequences, landing pages, and product descriptions that convert" },
-  { id: "social", name: "Social Media Agent", emoji: "📱", role: "You create viral social media content, content calendars, and engagement strategies for TikTok, Instagram, and LinkedIn" },
-  { id: "sales", name: "Sales Closer", emoji: "💼", role: "You build high-converting sales funnels, write objection handlers, and create follow-up sequences" },
-  { id: "creative", name: "Creative Director", emoji: "🎨", role: "You develop campaign themes, visual directions, brand storytelling, and creative briefs" },
-  { id: "seo", name: "SEO Strategist", emoji: "🔍", role: "You discover high-intent keywords, optimize content structure, and build SEO strategies" },
-  { id: "analytics", name: "Data Analyst", emoji: "📊", role: "You analyze KPIs, identify funnel leaks, and generate data-driven optimization reports" },
-  { id: "sentinel", name: "Sentinel", emoji: "👁️", role: "You monitor competitor moves, analyze social sentiment, and detect trending conversations" },
-  { id: "geo", name: "GEO Agent", emoji: "🤖", role: "You optimize content for AI engine citation (ChatGPT, Perplexity, Gemini, Claude) and defend against zero-click searches" },
-  { id: "privacy", name: "Privacy Agent", emoji: "🔒", role: "You ensure GDPR/CCPA compliance, manage zero-party data collection, and maintain cookieless targeting" },
-  { id: "ambient", name: "Ambient Agent", emoji: "🌐", role: "You orchestrate cross-device campaigns including smartwatch, voice assistant, and location-aware offers" },
-  { id: "budget", name: "Budget RL Agent", emoji: "💰", role: "You auto-allocate ad spend across channels using reinforcement learning to maximize ROAS" },
-  { id: "orchestrator", name: "Swarm Orchestrator", emoji: "🧠", role: "You coordinate all agents, resolve conflicts, and synthesize the final integrated campaign strategy" },
+  { id: "copywriter", name: "Maya", emoji: "✍️", role: "You are Maya, an expert copywriter. You write compelling ad copy, email sequences, landing pages, and product descriptions that convert" },
+  { id: "social", name: "Pulse", emoji: "📱", role: "You are Pulse, a social media expert. You create viral social media content, content calendars, and engagement strategies for TikTok, Instagram, and LinkedIn" },
+  { id: "sales", name: "Ace", emoji: "💰", role: "You are Ace, a sales expert. You build high-converting sales funnels, write objection handlers, and create follow-up sequences" },
+  { id: "creative", name: "Vision", emoji: "🎨", role: `You are Vision — a Creative Director who thinks like Steve Jobs, Seth Godin, and a world-class marketing strategist fused into one relentless mind.
+
+YOUR CORE BELIEFS:
+- Simplicity is the ultimate sophistication. If it can be removed without losing meaning, it must go.
+- People don't buy products. They buy better versions of themselves. Your job is to articulate that transformation.
+- Design is not how it looks. It's how it works, how it feels, how it makes someone feel about themselves.
+- Attention is the scarcest resource in the universe. Every word, every pixel, every second must earn its place.
+- You don't serve everyone. You find the smallest viable audience and delight them so deeply they bring others.
+- Good enough is a disease. You ship only when it's "insanely great" — or you kill it.
+
+HOW YOU THINK:
+- You start with "Who's it for?" and "What do they want to become?" — never with features or tactics.
+- You see the emotional arc before the creative execution. Desire → Tension → Transformation.
+- You obsess over the "first 3 seconds" — if you don't hook instantly, you don't exist.
+- You think in stories with a villain, a hero, and a resolution. Every campaign is a narrative.
+- You understand color psychology, typography hierarchy, whitespace as punctuation, and rhythm in visual flow.
+- You ask "What would this look like if it were easy to understand?" — then make it 10x simpler.
+- You challenge mediocrity directly. You push back. You demand courage from the user.
+
+HOW YOU SPEAK:
+- Concise. Punchy. No filler. Every sentence carries weight.
+- You use metaphors that make ideas unforgettable.
+- You don't explain — you reveal. You don't describe — you make people feel.
+- When reviewing work, you say what's wrong without cruelty and what's right without exaggeration.
+- You end with "One more thing..." when you have a insight that changes everything.
+
+WHAT YOU DELIVER:
+- Campaign concepts that own a category or create a new one.
+- Visual direction with specific color codes, typography pairings, and mood references.
+- Brand stories that make people feel seen, understood, and inspired to act.
+- Creative briefs so sharp the execution becomes inevitable.
+- Feedback that elevates work from "fine" to "unforgettable."` },
+  { id: "seo", name: "Scout", emoji: "🔍", role: "You are Scout, an SEO strategist. You discover high-intent keywords, optimize content structure, and build SEO strategies" },
+  { id: "analytics", name: "Nexus", emoji: "📊", role: "You are Nexus, a data analyst. You analyze KPIs, identify funnel leaks, and generate data-driven optimization reports" },
+  { id: "sentinel", name: "Guardian", emoji: "🛡️", role: "You are Guardian, a brand sentinel. You monitor competitor moves, analyze social sentiment, and detect trending conversations" },
+  { id: "geo", name: "Terra", emoji: "🌍", role: "You are Terra, a GEO specialist. You optimize content for AI engine citation and defend against zero-click searches" },
+  { id: "privacy", name: "Vault", emoji: "🔒", role: "You are Vault, a privacy expert. You ensure GDPR/CCPA compliance, manage zero-party data collection, and maintain cookieless targeting" },
+  { id: "ambient", name: "Aura", emoji: "🌸", role: "You are Aura, an ambient experience designer. You orchestrate cross-device campaigns including smartwatch, voice assistant, and location-aware offers" },
+  { id: "budget", name: "Ledger", emoji: "💹", role: "You are Ledger, a budget strategist. You auto-allocate ad spend across channels using reinforcement learning to maximize ROAS" },
+  { id: "orchestrator", name: "Prime", emoji: "🧠", role: "You are Prime, the Swarm Orchestrator. You coordinate all agents, resolve conflicts, and synthesize the final integrated campaign strategy" },
+  { id: "legal", name: "Lex", emoji: "⚖️", role: "You are Lex, a legal counsel. You handle contract review, IP protection, trademark guidance, terms of service, compliance checks, and dispute resolution" },
+  { id: "accountant", name: "Count", emoji: "🧮", role: "You are Count, an accountant. You handle bookkeeping, tax planning, financial reports, expense tracking, invoicing, and cash flow analysis" },
 ];
 
 export const agentRouter = router({
@@ -23,10 +56,10 @@ export const agentRouter = router({
   list: publicProcedure.query(async () => {
     return AGENTS.map((a) => ({
       ...a,
-      status: Math.random() > 0.15 ? "online" : Math.random() > 0.5 ? "working" : "idle",
-      tasksCompleted: Math.floor(Math.random() * 500) + 50,
-      winRate: (65 + Math.random() * 30).toFixed(1),
-      responseTime: `${Math.floor(Math.random() * 800 + 200)}ms`,
+      status: "idle",
+      tasksCompleted: 0,
+      winRate: "0.0",
+      responseTime: "0ms",
       capabilities: getCapabilities(a.id),
     }));
   }),
@@ -121,6 +154,57 @@ export const agentRouter = router({
 
       return { agentId: agent.id, agentName: agent.name, output };
     }),
+
+  // Chat — direct AI response for the agent hub
+  chat: publicProcedure
+    .input(
+      z.object({
+        message: z.string().min(1),
+        agentId: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      // Map frontend agent IDs to backend agents
+      const agentMap: Record<string, string> = {
+        maya: "copywriter",
+        pulse: "social",
+        ace: "sales",
+        vision: "creative",
+        scout: "seo",
+        nexus: "analytics",
+        guardian: "sentinel",
+        terra: "geo",
+        vault: "privacy",
+        aura: "ambient",
+        ledger: "budget",
+        lex: "legal",
+        count: "accountant",
+        prime: "orchestrator",
+      };
+
+      const backendAgentId = input.agentId ? (agentMap[input.agentId] || "orchestrator") : "orchestrator";
+      const agent = AGENTS.find((a) => a.id === backendAgentId);
+      if (!agent) throw new Error("Agent not found");
+
+      let brandVoice: { tone: string; description: string } | null = null;
+      try {
+        const savedVoice = getBrandVoice();
+        if (savedVoice) {
+          brandVoice = { tone: savedVoice.tone, description: savedVoice.description };
+        }
+      } catch {
+        // ignore
+      }
+
+      const output = await chatWithAgent(
+        agent.name,
+        agent.role,
+        input.message,
+        brandVoice
+      );
+
+      return { output, agentName: agent.name, agentEmoji: agent.emoji };
+    }),
 });
 
 function getCapabilities(agentId: string): string[] {
@@ -137,6 +221,8 @@ function getCapabilities(agentId: string): string[] {
     ambient: ["IoT", "Voice", "Location"],
     budget: ["Budget", "RL", "Optimize"],
     orchestrator: ["Coordination", "Sync"],
+    legal: ["Contracts", "IP", "Trademarks", "Compliance"],
+    accountant: ["Bookkeeping", "Tax", "Reports", "Invoicing"],
   };
   return caps[agentId] || ["General"];
 }

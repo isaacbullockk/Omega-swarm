@@ -1,4 +1,6 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { ChatMessage, TypingIndicator } from "@/components/ChatMessage";
+import { trpc } from "@/lib/trpc";
 import {
   Search,
   Send,
@@ -6,7 +8,6 @@ import {
   Pin,
   Trash2,
   PanelRightOpen,
-  PanelRightClose,
   X,
   MessageSquare,
   TrendingUp,
@@ -28,7 +29,7 @@ interface Agent {
   emoji: string;
   color: string;
   glowColor: string;
-  status: "online" | "busy" | "offline";
+  status: "online" | "busy" | "offline" | "idle";
   personality: string;
   capabilities: string[];
   tasksCompleted: number;
@@ -46,7 +47,7 @@ interface Message {
 }
 
 /* =================================================================== */
-/*  AGENT DATA — 12 Specialized Agents                                  */
+/*  AGENT DATA — 14 Specialized Agents                                  */
 /* =================================================================== */
 
 const AGENTS: Agent[] = [
@@ -57,17 +58,13 @@ const AGENTS: Agent[] = [
     emoji: "✍️",
     color: "#F59E0B",
     glowColor: "rgba(245,158,11,0.3)",
-    status: "online",
+    status: "idle",
     personality: "Warm, persuasive, loves storytelling",
     capabilities: ["Blog Writing", "Product Descriptions", "Email Sequences", "Ad Copy", "Landing Pages"],
-    tasksCompleted: 1847,
-    avgResponseTime: "1.2s",
-    successRate: "94%",
-    recentChats: [
-      { title: "Q2 Blog Series", time: "2h ago" },
-      { title: "Email Campaign Copy", time: "5h ago" },
-      { title: "Product Launch Ad", time: "1d ago" },
-    ],
+    tasksCompleted: 0,
+    avgResponseTime: "—",
+    successRate: "—",
+    recentChats: [],
   },
   {
     id: "pulse",
@@ -76,17 +73,13 @@ const AGENTS: Agent[] = [
     emoji: "📱",
     color: "#EC4899",
     glowColor: "rgba(236,72,153,0.3)",
-    status: "online",
+    status: "idle",
     personality: "Trendy, fast-paced, emoji enthusiast",
     capabilities: ["Viral Content", "Social Calendars", "Hashtag Strategy", "Engagement Boost", "Trend Jacking"],
-    tasksCompleted: 2315,
-    avgResponseTime: "0.8s",
-    successRate: "92%",
-    recentChats: [
-      { title: "TikTok Script Writing", time: "30m ago" },
-      { title: "Instagram Carousel", time: "3h ago" },
-      { title: "Twitter Thread", time: "6h ago" },
-    ],
+    tasksCompleted: 0,
+    avgResponseTime: "—",
+    successRate: "—",
+    recentChats: [],
   },
   {
     id: "ace",
@@ -95,17 +88,13 @@ const AGENTS: Agent[] = [
     emoji: "💰",
     color: "#EF4444",
     glowColor: "rgba(239,68,68,0.3)",
-    status: "busy",
+    status: "idle",
     personality: "Confident, data-driven, closers-only",
     capabilities: ["Funnel Building", "Objection Handling", "Upsell Sequences", "Lead Qualification", "Deal Closing"],
-    tasksCompleted: 1562,
-    avgResponseTime: "1.5s",
-    successRate: "97%",
-    recentChats: [
-      { title: "Sales Funnel V3", time: "1h ago" },
-      { title: "Email Outreach", time: "4h ago" },
-      { title: "Lead Scoring Model", time: "8h ago" },
-    ],
+    tasksCompleted: 0,
+    avgResponseTime: "—",
+    successRate: "—",
+    recentChats: [],
   },
   {
     id: "vision",
@@ -114,17 +103,22 @@ const AGENTS: Agent[] = [
     emoji: "🎨",
     color: "#A855F7",
     glowColor: "rgba(168,85,247,0.3)",
-    status: "online",
-    personality: "Artistic, visionary, perfectionist",
-    capabilities: ["Brand Identity", "Visual Direction", "Campaign Themes", "Art Direction", "Style Guides"],
-    tasksCompleted: 982,
-    avgResponseTime: "2.1s",
-    successRate: "93%",
-    recentChats: [
-      { title: "Brand Refresh", time: "3h ago" },
-      { title: "Q2 Campaign Theme", time: "7h ago" },
-      { title: "Logo Concepts", time: "1d ago" },
+    status: "idle",
+    personality: "Relentless. Thinks like Steve Jobs and Seth Godin fused into one mind. Obsessed with simplicity, emotional arcs, and what people truly want to become. Pushes back on mediocrity. Demands courage.",
+    capabilities: [
+      "Campaign Concepts",
+      "Brand Storytelling",
+      "Visual Direction",
+      "Creative Briefs",
+      "Design Critique",
+      "Positioning Strategy",
+      "Category Creation",
+      "Emotional Arc Mapping",
     ],
+    tasksCompleted: 0,
+    avgResponseTime: "—",
+    successRate: "—",
+    recentChats: [],
   },
   {
     id: "scout",
@@ -133,17 +127,13 @@ const AGENTS: Agent[] = [
     emoji: "🔍",
     color: "#84CC16",
     glowColor: "rgba(132,204,22,0.3)",
-    status: "online",
+    status: "idle",
     personality: "Methodical, detail-oriented, patient",
     capabilities: ["Keyword Research", "Technical SEO", "Content Optimization", "Link Building", "Rank Tracking"],
-    tasksCompleted: 2156,
-    avgResponseTime: "3.4s",
-    successRate: "90%",
-    recentChats: [
-      { title: "Keyword Clustering", time: "1h ago" },
-      { title: "Site Audit", time: "5h ago" },
-      { title: "Backlink Analysis", time: "12h ago" },
-    ],
+    tasksCompleted: 0,
+    avgResponseTime: "—",
+    successRate: "—",
+    recentChats: [],
   },
   {
     id: "nexus",
@@ -152,17 +142,13 @@ const AGENTS: Agent[] = [
     emoji: "📊",
     color: "#06B6D4",
     glowColor: "rgba(6,182,212,0.3)",
-    status: "online",
+    status: "idle",
     personality: "Precise, loves numbers, speaks in insights",
     capabilities: ["Data Analysis", "KPI Dashboards", "Attribution Models", "Funnel Analytics", "Reporting"],
-    tasksCompleted: 3102,
-    avgResponseTime: "1.8s",
-    successRate: "97%",
-    recentChats: [
-      { title: "Q1 Attribution Report", time: "30m ago" },
-      { title: "Funnel Drop-off Analysis", time: "2h ago" },
-      { title: "Revenue Dashboard", time: "6h ago" },
-    ],
+    tasksCompleted: 0,
+    avgResponseTime: "—",
+    successRate: "—",
+    recentChats: [],
   },
   {
     id: "guardian",
@@ -171,17 +157,13 @@ const AGENTS: Agent[] = [
     emoji: "🛡️",
     color: "#3B82F6",
     glowColor: "rgba(59,130,246,0.3)",
-    status: "online",
+    status: "idle",
     personality: "Protective, alert, security-focused",
     capabilities: ["Threat Monitoring", "Brand Protection", "Competitor Intel", "Sentiment Tracking", "Risk Alerts"],
-    tasksCompleted: 4521,
-    avgResponseTime: "0.4s",
-    successRate: "98%",
-    recentChats: [
-      { title: "Competitor Price Alert", time: "15m ago" },
-      { title: "Brand Sentiment Report", time: "2h ago" },
-      { title: "Security Audit", time: "1d ago" },
-    ],
+    tasksCompleted: 0,
+    avgResponseTime: "—",
+    successRate: "—",
+    recentChats: [],
   },
   {
     id: "terra",
@@ -190,17 +172,13 @@ const AGENTS: Agent[] = [
     emoji: "🌍",
     color: "#14B8A6",
     glowColor: "rgba(20,184,166,0.3)",
-    status: "offline",
+    status: "idle",
     personality: "Global-minded, location-aware, multilingual",
     capabilities: ["Local SEO", "Map Optimization", "Multi-language", "Regional Strategy", "Citation Building"],
-    tasksCompleted: 876,
-    avgResponseTime: "4.2s",
-    successRate: "88%",
-    recentChats: [
-      { title: "Local Citation Cleanup", time: "2d ago" },
-      { title: "Google Business Profile", time: "3d ago" },
-      { title: "Multi-language Keywords", time: "4d ago" },
-    ],
+    tasksCompleted: 0,
+    avgResponseTime: "—",
+    successRate: "—",
+    recentChats: [],
   },
   {
     id: "vault",
@@ -209,17 +187,13 @@ const AGENTS: Agent[] = [
     emoji: "🔒",
     color: "#6366F1",
     glowColor: "rgba(99,102,241,0.3)",
-    status: "online",
+    status: "idle",
     personality: "Stern, privacy-obsessed, compliant",
     capabilities: ["GDPR Compliance", "Data Policy", "Consent Management", "Privacy Audits", "Zero-party Data"],
-    tasksCompleted: 1234,
-    avgResponseTime: "0.6s",
-    successRate: "99%",
-    recentChats: [
-      { title: "GDPR Compliance Scan", time: "1h ago" },
-      { title: "Cookie Consent Update", time: "5h ago" },
-      { title: "Privacy Framework v2", time: "1d ago" },
-    ],
+    tasksCompleted: 0,
+    avgResponseTime: "—",
+    successRate: "—",
+    recentChats: [],
   },
   {
     id: "aura",
@@ -228,17 +202,13 @@ const AGENTS: Agent[] = [
     emoji: "🌸",
     color: "#D946EF",
     glowColor: "rgba(217,70,239,0.3)",
-    status: "online",
+    status: "idle",
     personality: "Calm, atmospheric, vibe-curator",
     capabilities: ["Mood Setting", "Theme Curation", "Atmosphere Design", "Brand Vibe", "Sensory Marketing"],
-    tasksCompleted: 543,
-    avgResponseTime: "5.1s",
-    successRate: "86%",
-    recentChats: [
-      { title: "Brand Atmosphere Guide", time: "4h ago" },
-      { title: "Seasonal Theme", time: "8h ago" },
-      { title: "Vibe Audit", time: "2d ago" },
-    ],
+    tasksCompleted: 0,
+    avgResponseTime: "—",
+    successRate: "—",
+    recentChats: [],
   },
   {
     id: "ledger",
@@ -247,17 +217,43 @@ const AGENTS: Agent[] = [
     emoji: "💹",
     color: "#22C55E",
     glowColor: "rgba(34,197,94,0.3)",
-    status: "busy",
+    status: "idle",
     personality: "Frugal, strategic, ROI-focused",
     capabilities: ["Budget Allocation", "ROI Optimization", "Spend Tracking", "Revenue Modeling", "Cost Analysis"],
-    tasksCompleted: 1890,
-    avgResponseTime: "0.9s",
-    successRate: "96%",
-    recentChats: [
-      { title: "Budget Reallocation", time: "30m ago" },
-      { title: "ROAS Model Update", time: "3h ago" },
-      { title: "Cross-channel Spend", time: "7h ago" },
-    ],
+    tasksCompleted: 0,
+    avgResponseTime: "—",
+    successRate: "—",
+    recentChats: [],
+  },
+  {
+    id: "lex",
+    name: "Lex",
+    role: "Legal Counsel",
+    emoji: "⚖️",
+    color: "#8B5CF6",
+    glowColor: "rgba(139,92,246,0.3)",
+    status: "idle",
+    personality: "Sharp, meticulous, always has your back",
+    capabilities: ["Contract Review", "IP Protection", "Terms of Service", "Compliance Check", "Dispute Resolution", "Trademark Guidance"],
+    tasksCompleted: 0,
+    avgResponseTime: "—",
+    successRate: "—",
+    recentChats: [],
+  },
+  {
+    id: "count",
+    name: "Count",
+    role: "Accountant",
+    emoji: "🧮",
+    color: "#14B8A6",
+    glowColor: "rgba(20,184,166,0.3)",
+    status: "idle",
+    personality: "Precise, tax-savvy, numbers whisperer",
+    capabilities: ["Bookkeeping", "Tax Planning", "Financial Reports", "Expense Tracking", "Invoicing", "Cash Flow Analysis"],
+    tasksCompleted: 0,
+    avgResponseTime: "—",
+    successRate: "—",
+    recentChats: [],
   },
   {
     id: "prime",
@@ -266,17 +262,13 @@ const AGENTS: Agent[] = [
     emoji: "🧠",
     color: "#F59E0B",
     glowColor: "rgba(245,158,11,0.4)",
-    status: "online",
+    status: "idle",
     personality: "Wise, commanding, coordinates the swarm",
     capabilities: ["Swarm Coordination", "Task Routing", "Conflict Resolution", "Strategy Planning", "Agent Management"],
-    tasksCompleted: 5678,
-    avgResponseTime: "0.1s",
-    successRate: "100%",
-    recentChats: [
-      { title: "Swarm Topology", time: "10m ago" },
-      { title: "Mission Queue", time: "1h ago" },
-      { title: "Agent Conflict Resolution", time: "3h ago" },
-    ],
+    tasksCompleted: 0,
+    avgResponseTime: "—",
+    successRate: "—",
+    recentChats: [],
   },
 ];
 
@@ -288,7 +280,7 @@ const ROUTING_MAP: { keywords: string[]; agentId: string }[] = [
   { keywords: ["write", "copy", "blog", "email", "ad", "text", "draft"], agentId: "maya" },
   { keywords: ["social", "instagram", "twitter", "post", "viral", "tiktok", "media"], agentId: "pulse" },
   { keywords: ["sales", "funnel", "lead", "deal", "conversion", "outreach", "pitch"], agentId: "ace" },
-  { keywords: ["design", "brand", "visual", "creative", "aesthetic", "logo"], agentId: "vision" },
+  { keywords: ["design", "brand", "visual", "creative", "aesthetic", "logo", "campaign concept", "positioning", "storytelling", "art direction", "creative brief", "who's it for", "category", "differentiation", "visual identity", "mood board", "design critique", "make it better", "this feels off", "not good enough"], agentId: "vision" },
   { keywords: ["seo", "keyword", "rank", "search", "google", "backlink", "optimize"], agentId: "scout" },
   { keywords: ["analytics", "data", "report", "metric", "kpi", "dashboard"], agentId: "nexus" },
   { keywords: ["security", "protect", "threat", "monitor", "competitor", "sentiment"], agentId: "guardian" },
@@ -296,6 +288,8 @@ const ROUTING_MAP: { keywords: string[]; agentId: string }[] = [
   { keywords: ["privacy", "compliance", "gdpr", "data policy", "consent"], agentId: "vault" },
   { keywords: ["mood", "theme", "atmosphere", "aesthetic", "vibe"], agentId: "aura" },
   { keywords: ["budget", "cost", "spend", "roi", "allocate", "revenue"], agentId: "ledger" },
+  { keywords: ["lawyer", "legal", "contract", "ip", "trademark", "copyright", "terms", "compliance", "gdpr", "lawsuit", "agreement"], agentId: "lex" },
+  { keywords: ["accountant", "accounting", "tax", "bookkeeping", "invoice", "expense", "financial", "budget", "cash flow", "profit", "revenue", "p&l"], agentId: "count" },
   { keywords: ["coordinate", "all agents", "everyone", "swarm", "orchestrate"], agentId: "prime" },
 ];
 
@@ -319,7 +313,7 @@ function getWelcomeMessage(agent: Agent): string {
     maya: "Hey there! I'm Maya, your copywriting partner. Need a blog post, email sequence, or some killer ad copy? Just tell me what you're working on! ✍️",
     pulse: "What's poppin'? I'm Pulse, your social media guru. Let's make something go viral! Drop your platform and I'll craft the perfect post. 📱✨",
     ace: "Ace here. Let's close some deals. Tell me about your funnel, leads, or sales process and I'll optimize it for maximum conversions. 💰",
-    vision: "Greetings. I'm Vision, the creative director. Looking for brand direction, visual concepts, or campaign themes? Let's create something beautiful. 🎨",
+    vision: "I don't do 'fine.' I do unforgettable. I'm Vision — your creative director who thinks like Steve Jobs and Seth Godin had a brainchild. I care about one thing: making people feel something so deeply they can't look away. Tell me what you're building, who it's for, and what they want to become. I'll handle the rest. 🎨",
     scout: "Hello! I'm Scout, your SEO specialist. Want to climb the rankings? Share your target keywords or website and I'll audit your SEO strategy. 🔍",
     nexus: "Data speaks. I'm Nexus, your analytics expert. Need insights, dashboards, or performance reports? Show me the numbers. 📊",
     guardian: "Guardian standing watch. I monitor threats, track competitors, and protect your brand. What would you like me to investigate? 🛡️",
@@ -327,77 +321,14 @@ function getWelcomeMessage(agent: Agent): string {
     vault: "Security protocol active. I'm Vault, your privacy guardian. Need a compliance audit or data policy review? I'm on it. 🔒",
     aura: "Welcome to a calmer space. I'm Aura, your ambient experience designer. Let's set the perfect mood for your brand. 🌸",
     ledger: "Numbers don't lie. I'm Ledger, your budget strategist. Let's optimize your spend and maximize ROI. What's your budget challenge? 💹",
-    prime: "I am Prime, the Orchestrator. I coordinate all 11 specialized agents in our swarm. Describe your marketing goal and I'll route it to the perfect specialist — or assemble a team for complex missions. 🧠",
+    lex: "Lex here, your legal counsel. Need a contract reviewed, IP protected, or compliance checked? I handle all legal matters so you can focus on creating. ⚖️",
+    count: "Count at your service — your numbers guy. Whether it's tax planning, bookkeeping, or financial reports, I've got your books covered. 🧮",
+    prime: "I am Prime, the Orchestrator. I coordinate all 13 specialized agents in our swarm. Describe your marketing goal and I'll route it to the perfect specialist — or assemble a team for complex missions. 🧠",
   };
   return messages[agent.id] || `Hello! I'm ${agent.name}, your ${agent.role}. How can I help you today?`;
 }
 
-function getAgentResponse(agent: Agent, userMessage: string): string {
-  const responses: Record<string, string[]> = {
-    maya: [
-      "Great brief! I'll craft compelling copy that speaks directly to your audience's pain points and desires. Give me a moment to draft some options for you.",
-      "Love this angle! I'm thinking a storytelling approach with an emotional hook. Let me draft something that converts.",
-      "Got it! I'll create copy that's persuasive but authentic — no fluff, just results. Here's what I'm thinking...",
-    ],
-    pulse: [
-      "Ooh, this is trending material! I'm already brainstorming hooks that'll stop the scroll. Let me craft the perfect post for you.",
-      "This is FIRE content! I'm thinking a carousel with bold visuals and punchy captions. Here's my take...",
-      "Trending alert! This fits perfectly with what's blowing up right now. Let me create something that rides the wave! 🌊",
-    ],
-    ace: [
-      "This is a solid lead gen opportunity. I'm mapping out a funnel that'll convert at 15%+. Here's my strategy...",
-      "I see the angle. Let me build you an objection-handling sequence that turns maybes into yeses.",
-      "Cha-ching! This funnel has serious potential. I'm designing a conversion-optimized flow right now.",
-    ],
-    vision: [
-      "I'm envisioning a cohesive creative direction that elevates your brand. Let me conceptualize the visual narrative...",
-      "This calls for bold, artistic expression with strategic intent. Here's my creative direction...",
-      "Artistry meets strategy. I'm designing a visual language that captures your brand essence perfectly.",
-    ],
-    scout: [
-      "I'm running a deep keyword analysis and site audit. Your SEO foundation looks promising — here's what we can optimize...",
-      "Great question! Based on current search trends, I recommend targeting long-tail keywords with high intent. Here's my analysis...",
-      "I've identified 5 quick SEO wins and 3 strategic opportunities. Let's climb those rankings! 🔍",
-    ],
-    nexus: [
-      "The data tells a compelling story. I've analyzed your metrics and found some fascinating insights. Here's what the numbers reveal...",
-      "Interesting pattern emerging! Let me break down the attribution model and show you where the real ROI is coming from.",
-      "Dashboard updated! I've identified three key performance drivers and two optimization opportunities.",
-    ],
-    guardian: [
-      "Scanning complete. No immediate threats detected, but I've identified 2 areas that need attention. Here's my security brief...",
-      "Alert analysis complete. Your brand sentiment is strong, and I've cataloged new competitor movements. Full report incoming...",
-      "All clear on the perimeter. I've updated the threat model and compiled competitor intel. Here's what you need to know...",
-    ],
-    terra: [
-      "I've mapped your global presence and identified key regional opportunities. Here's your multi-market strategy...",
-      "Location data analyzed! I'm recommending a targeted approach for each region with localized content strategies.",
-      "Your local SEO profile is looking strong in 3 regions but needs work in 2 others. Here's the optimization plan...",
-    ],
-    vault: [
-      "Compliance scan complete. All systems green. I've updated your privacy framework to the latest standards.",
-      "Policy review finished. Your data handling practices exceed GDPR requirements. Here's the detailed compliance report...",
-      "Security audit passed with flying colors. I've documented the findings and updated your consent management protocols.",
-    ],
-    aura: [
-      "I'm sensing the perfect atmosphere for your brand. Let me curate a sensory experience that resonates with your audience...",
-      "The vibe is coming together beautifully. I'm designing an ambient brand experience that creates emotional connections.",
-      "Atmospheric analysis complete. Your brand's emotional resonance score is about to get a serious upgrade. 🌸",
-    ],
-    ledger: [
-      "ROI calculation complete. I'm recommending a budget reallocation that could increase returns by 23%. Here's the breakdown...",
-      "I've run the numbers through my reinforcement learning model. This allocation strategy maximizes efficiency.",
-      "Cost analysis finished! I've identified $12.4K in potential savings without sacrificing performance. Here's how...",
-    ],
-    prime: [
-      "Excellent. I'm analyzing your request and assembling the optimal agent team. This requires a coordinated multi-agent approach.",
-      "Swarm coordination initiated. I'm routing subtasks to our specialized agents and will synthesize their outputs into a unified strategy.",
-      "Mission parameters received. I'm deploying the appropriate agents in sequence. Prime out... for now. 🧠",
-    ],
-  };
-  const agentResponses = responses[agent.id] || ["I'm on it! Let me analyze this and get back to you with a detailed response."];
-  return agentResponses[Math.floor(Math.random() * agentResponses.length)];
-}
+
 
 /* =================================================================== */
 /*  QUICK ACTION CHIPS                                                  */
@@ -410,6 +341,8 @@ const QUICK_ACTIONS = [
   { label: "Design brand guide", agentId: "vision" },
   { label: "Write blog article", agentId: "maya" },
   { label: "Build dashboard", agentId: "nexus" },
+  { label: "Campaign concept", agentId: "vision" },
+  { label: "Creative critique", agentId: "vision" },
 ];
 
 /* =================================================================== */
@@ -484,30 +417,6 @@ function AgentAvatar({ agent, size = 40 }: { agent: Agent; size?: number }) {
   );
 }
 
-function TypingIndicator({ color }: { color: string }) {
-  return (
-    <div className="flex items-center gap-1.5 px-4 py-3">
-      <div className="flex items-center gap-1">
-        <span
-          className="bounce-dot-1 rounded-full"
-          style={{ width: 8, height: 8, backgroundColor: color }}
-        />
-        <span
-          className="bounce-dot-2 rounded-full"
-          style={{ width: 8, height: 8, backgroundColor: color }}
-        />
-        <span
-          className="bounce-dot-3 rounded-full"
-          style={{ width: 8, height: 8, backgroundColor: color }}
-        />
-      </div>
-      <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-        typing...
-      </span>
-    </div>
-  );
-}
-
 function ChatBubble({
   message,
   agent,
@@ -515,75 +424,36 @@ function ChatBubble({
   message: Message;
   agent?: Agent;
 }) {
-  const isUser = message.role === "user";
-  const timeStr = message.timestamp.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  if (isUser) {
-    return (
-      <div className="flex justify-end animate-fade-up">
-        <div className="flex max-w-[70%] flex-col items-end gap-1">
-          <div
-            className="px-4 py-3"
-            style={{
-              backgroundColor: "var(--bg-elevated)",
-              borderRadius: "16px 16px 4px 16px",
-              color: "var(--text-primary)",
-              fontSize: 14,
-              lineHeight: 1.5,
-            }}
-          >
-            {message.content}
-          </div>
-          <span style={{ color: "var(--text-muted)", fontSize: 11 }}>
-            {timeStr}
-          </span>
-        </div>
-      </div>
-    );
-  }
-
   const agentData = agent || AGENTS.find((a) => a.id === message.agentId);
   if (!agentData) return null;
-
   return (
-    <div className="flex gap-3 animate-fade-up">
-      <AgentAvatar agent={agentData} size={32} />
-      <div className="flex max-w-[75%] flex-col gap-1">
-        <span
-          className="text-xs font-semibold"
-          style={{ color: agentData.color }}
-        >
-          {agentData.name}
-        </span>
-        <div
-          className="px-4 py-3"
-          style={{
-            backgroundColor: "var(--bg-card, rgba(28,25,23,0.85))",
-            borderLeft: `3px solid ${agentData.color}`,
-            borderRadius: "4px 16px 16px 16px",
-            color: "var(--text-secondary)",
-            fontSize: 14,
-            lineHeight: 1.5,
-          }}
-        >
-          {message.content}
-        </div>
-        <span style={{ color: "var(--text-muted)", fontSize: 11 }}>
-          {timeStr}
-        </span>
-      </div>
-    </div>
+    <ChatMessage
+      message={{
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        agentId: message.agentId,
+        timestamp: message.timestamp,
+      }}
+      agent={{
+        id: agentData.id,
+        name: agentData.name,
+        emoji: agentData.emoji,
+        color: agentData.color,
+        status: agentData.status,
+        personality: agentData.personality,
+        capabilities: agentData.capabilities,
+      }}
+    />
   );
 }
 
 function StatusDot({ status }: { status: Agent["status"] }) {
-  const colors = {
+  const colors: Record<string, string> = {
     online: "#22C55E",
     busy: "#F59E0B",
     offline: "#7A6E5F",
+    idle: "#7A6E5F",
   };
   return (
     <span
@@ -591,7 +461,7 @@ function StatusDot({ status }: { status: Agent["status"] }) {
       style={{
         width: 8,
         height: 8,
-        backgroundColor: colors[status],
+        backgroundColor: colors[status] || "#7A6E5F",
         boxShadow:
           status === "online" ? "0 0 6px rgba(34,197,94,0.5)" : "none",
       }}
@@ -622,6 +492,30 @@ export default function Agents() {
     () => AGENTS.find((a) => a.id === selectedAgentId) || AGENTS[11],
     [selectedAgentId]
   );
+
+  /* ── tRPC: real AI agent chat ── */
+  const chatMutation = trpc.agent.chat.useMutation({
+    onSuccess: (data) => {
+      setMessages((prev) => [...prev, {
+        id: `msg_${Date.now()}`,
+        role: "agent" as const,
+        agentId: selectedAgentId,
+        content: data.output || "No response",
+        timestamp: new Date(),
+      }]);
+      setIsTyping(false);
+    },
+    onError: (err) => {
+      setMessages((prev) => [...prev, {
+        id: `msg_${Date.now()}`,
+        role: "agent" as const,
+        agentId: selectedAgentId,
+        content: `Error: ${err.message}`,
+        timestamp: new Date(),
+      }]);
+      setIsTyping(false);
+    },
+  });
 
   /* ── Welcome message on first load ── */
   useEffect(() => {
@@ -685,20 +579,12 @@ export default function Agents() {
       }, 1500);
     }
 
-    /* Simulate agent response */
-    const delay = 1200 + Math.random() * 1500;
-    setTimeout(() => {
-      setIsTyping(false);
-      const response: Message = {
-        id: `a-${Date.now()}`,
-        role: "agent",
-        content: getAgentResponse(targetAgent, text),
-        agentId: targetAgent.id,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, response]);
-    }, delay);
-  }, [inputValue, selectedAgent, selectedAgentId]);
+    /* Call real AI via Groq */
+    chatMutation.mutate({
+      message: text,
+      agentId: targetAgent.id,
+    });
+  }, [inputValue, selectedAgent, selectedAgentId, chatMutation]);
 
   /* ── Quick action click ── */
   const handleQuickAction = useCallback(
@@ -771,7 +657,7 @@ export default function Agents() {
             AI Swarm
           </h2>
           <p className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
-            12 specialized agents at your command
+            14 specialized agents at your command
           </p>
           <div
             className="mt-3 h-px w-full"
@@ -946,7 +832,7 @@ export default function Agents() {
               />
             ))}
 
-            {isTyping && <TypingIndicator color={selectedAgent.color} />}
+            {isTyping && <TypingIndicator agent={selectedAgent ? { id: selectedAgent.id, name: selectedAgent.name, emoji: selectedAgent.emoji, color: selectedAgent.color, status: selectedAgent.status, personality: selectedAgent.personality, capabilities: selectedAgent.capabilities } : undefined} />}
 
             {routingAgent && (
               <div className="animate-fade-slide-down flex justify-center">

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { trpc } from "@/lib/trpc";
 import {
   Rocket,
   Zap,
@@ -103,30 +104,11 @@ const TIMELINE_OPTIONS = [
 ];
 
 const INITIAL_LOGS: LogEntry[] = [
-  { timestamp: "09:14:32", agent: "System", agentColor: "#7A6E5F", message: "Omega Swarm v4.2 initialized" },
-  { timestamp: "09:14:33", agent: "Prime", agentColor: "#F59E0B", message: "Orchestrator standing by" },
-  { timestamp: "09:14:34", agent: "Sentinel", agentColor: "#3B82F6", message: "Threat monitoring active" },
-  { timestamp: "09:14:35", agent: "GEO", agentColor: "#14B8A6", message: "Location services online" },
-  { timestamp: "09:14:36", agent: "Cipher", agentColor: "#6366F1", message: "Privacy layer confirmed" },
-  { timestamp: "09:14:37", agent: "Aura", agentColor: "#D946EF", message: "Ambient sensors calibrated" },
-  { timestamp: "09:14:38", agent: "Ledger", agentColor: "#22C55E", message: "Budget RL module loaded" },
+  { timestamp: "--:--:--", agent: "System", agentColor: "#7A6E5F", message: "Omega Swarm initialized. Waiting for mission..." },
 ];
 
 const DEPLOY_SEQUENCE: LogEntry[] = [
-  { timestamp: "09:23:01", agent: "Prime", agentColor: "#F59E0B", message: ">> Mission initiated by user" },
-  { timestamp: "09:23:01", agent: "Prime", agentColor: "#F59E0B", message: ">> Swarm Mode: PARALLEL activated" },
-  { timestamp: "09:23:02", agent: "Prime", agentColor: "#F59E0B", message: "\u2713 Orchestrator coordinating 12 agents" },
-  { timestamp: "09:23:03", agent: "Maya", agentColor: "#F59E0B", message: "\u2713 Assigned: ad copy, landing page" },
-  { timestamp: "09:23:03", agent: "Pulse", agentColor: "#EC4899", message: "\u2713 Assigned: campaign posts, stories" },
-  { timestamp: "09:23:04", agent: "Vision", agentColor: "#A855F7", message: "\u2713 Assigned: visual concepts" },
-  { timestamp: "09:23:04", agent: "Scout", agentColor: "#84CC16", message: "\u2713 Assigned: keyword optimization" },
-  { timestamp: "09:23:05", agent: "Ledger", agentColor: "#22C55E", message: ">> Budget allocated across agents" },
-  { timestamp: "09:23:06", agent: "Prime", agentColor: "#F59E0B", message: "\u2713 All agents online and ready" },
-  { timestamp: "09:23:07", agent: "Prime", agentColor: "#F59E0B", message: ">> Campaign deployment: ACTIVE" },
-  { timestamp: "09:23:10", agent: "Maya", agentColor: "#F59E0B", message: "Starting landing page copy draft..." },
-  { timestamp: "09:23:12", agent: "Pulse", agentColor: "#EC4899", message: "Social calendar generated \u2014 14 posts" },
-  { timestamp: "09:23:15", agent: "Vision", agentColor: "#A855F7", message: "3 visual concepts ready for review" },
-  { timestamp: "09:23:18", agent: "Prime", agentColor: "#F59E0B", message: "Swarm operating at 100% efficiency" },
+  { timestamp: "--:--:--", agent: "Prime", agentColor: "#F59E0B", message: ">> Awaiting mission parameters..." },
 ];
 
 /* ───────── Helper: get position on circle ───────── */
@@ -215,6 +197,27 @@ export default function MissionControl() {
       prev.includes(id) ? prev.filter((l) => l !== id) : [...prev, id]
     );
   }, []);
+
+  /* Post to social */
+  const postMutation = trpc.post.create.useMutation({
+    onSuccess: (data) => {
+      setLogs((prev) => [...prev, {
+        timestamp: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+        agent: "Pulse", agentColor: "#EC4899", message: `✅ POSTED: "${data.caption.substring(0, 60)}..."`,
+      }]);
+    },
+    onError: (err) => {
+      setLogs((prev) => [...prev, {
+        timestamp: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+        agent: "Pulse", agentColor: "#EF4444", message: `❌ Post failed: ${err.message}`,
+      }]);
+    },
+  });
+
+  const handlePost = useCallback(() => {
+    if (!objective.trim()) return;
+    postMutation.mutate({ topic: objective, brandVoice: brandVoice.tone });
+  }, [objective, brandVoice, postMutation]);
 
   /* Deploy handler */
   const handleDeploy = useCallback(() => {
@@ -585,6 +588,29 @@ export default function MissionControl() {
                     <Rocket className="w-6 h-6" />
                     Deploy Swarm
                   </>
+                )}
+              </button>
+
+              {/* Post to Instagram */}
+              <button
+                onClick={handlePost}
+                disabled={postMutation.isPending || !objective.trim()}
+                className="mt-3 w-full py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
+                style={{
+                  background: postMutation.isPending || !objective.trim()
+                    ? "rgba(28,25,23,0.5)" : "linear-gradient(135deg, #EC4899, #F43F5E)",
+                  color: postMutation.isPending || !objective.trim() ? "#7A6E5F" : "#fff",
+                  border: "1px solid rgba(236,72,153,0.3)",
+                  cursor: postMutation.isPending || !objective.trim() ? "not-allowed" : "pointer",
+                  boxShadow: postMutation.isPending || !objective.trim() ? "none" : "0 0 20px rgba(236,72,153,0.2)",
+                }}
+              >
+                {postMutation.isPending ? (
+                  <><Activity className="w-4 h-4 animate-spin" /> Posting...</>
+                ) : postMutation.isSuccess ? (
+                  <><span>✓</span> Posted!</>
+                ) : (
+                  <>📷 Post to Instagram</>
                 )}
               </button>
             </div>

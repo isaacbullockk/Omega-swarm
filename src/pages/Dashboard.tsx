@@ -18,7 +18,10 @@ import {
   Plus,
   MessageSquare,
   Brain,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react";
+import { trpc } from "@/lib/trpc";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -30,7 +33,7 @@ interface AgentData {
   emoji: string;
   color: string;
   glowColor: string;
-  status: "online" | "busy" | "offline";
+  status: "online" | "busy" | "offline" | "idle";
 }
 
 interface ActivityItem {
@@ -46,26 +49,20 @@ interface ActivityItem {
 /* ------------------------------------------------------------------ */
 
 const AGENTS: AgentData[] = [
-  { id: "a1", name: "Copywriter", emoji: "✍️", color: "#F59E0B", glowColor: "rgba(245,158,11,0.3)", status: "online" },
-  { id: "a2", name: "Social Media", emoji: "📱", color: "#EC4899", glowColor: "rgba(236,72,153,0.3)", status: "online" },
-  { id: "a3", name: "Sales", emoji: "💰", color: "#EF4444", glowColor: "rgba(239,68,68,0.3)", status: "busy" },
-  { id: "a4", name: "Creative Dir.", emoji: "🎨", color: "#A855F7", glowColor: "rgba(168,85,247,0.3)", status: "online" },
-  { id: "a5", name: "SEO", emoji: "🔍", color: "#84CC16", glowColor: "rgba(132,204,22,0.3)", status: "online" },
-  { id: "a6", name: "Analytics", emoji: "📊", color: "#06B6D4", glowColor: "rgba(6,182,212,0.3)", status: "offline" },
-  { id: "a7", name: "Sentinel", emoji: "🛡️", color: "#3B82F6", glowColor: "rgba(59,130,246,0.3)", status: "online" },
-  { id: "a8", name: "GEO", emoji: "🌍", color: "#14B8A6", glowColor: "rgba(20,184,166,0.3)", status: "online" },
-  { id: "a9", name: "Privacy", emoji: "🔒", color: "#6366F1", glowColor: "rgba(99,102,241,0.3)", status: "online" },
-  { id: "a10", name: "Ambient", emoji: "🌸", color: "#D946EF", glowColor: "rgba(217,70,239,0.3)", status: "offline" },
-  { id: "a11", name: "Budget RL", emoji: "💹", color: "#22C55E", glowColor: "rgba(34,197,94,0.3)", status: "online" },
-  { id: "a12", name: "Orchestrator", emoji: "🧠", color: "#F59E0B", glowColor: "rgba(245,158,11,0.4)", status: "online" },
-];
-
-const ACTIVITIES: ActivityItem[] = [
-  { id: "act1", agentColor: "#F59E0B", agentName: "Copywriter Maya", description: "completed blog post 'Summer Trends 2025'", timestamp: "2 min ago" },
-  { id: "act2", agentColor: "#EC4899", agentName: "Social Agent", description: "posted to Instagram: 3 posts scheduled", timestamp: "15 min ago" },
-  { id: "act3", agentColor: "#EF4444", agentName: "Sales Agent", description: "closed deal: $4,200", timestamp: "1 hr ago" },
-  { id: "act4", agentColor: "#84CC16", agentName: "SEO Agent", description: "updated keyword rankings: +5 positions", timestamp: "3 hr ago" },
-  { id: "act5", agentColor: "#F59E0B", agentName: "Orchestrator", description: "deployed new campaign 'Savannah Summer Sale'", timestamp: "5 hr ago" },
+  { id: "a1", name: "Copywriter", emoji: "✍️", color: "#F59E0B", glowColor: "rgba(245,158,11,0.3)", status: "idle" },
+  { id: "a2", name: "Social Media", emoji: "📱", color: "#EC4899", glowColor: "rgba(236,72,153,0.3)", status: "idle" },
+  { id: "a3", name: "Sales", emoji: "💰", color: "#EF4444", glowColor: "rgba(239,68,68,0.3)", status: "idle" },
+  { id: "a4", name: "Creative Dir.", emoji: "🎨", color: "#A855F7", glowColor: "rgba(168,85,247,0.3)", status: "idle" },
+  { id: "a5", name: "SEO", emoji: "🔍", color: "#84CC16", glowColor: "rgba(132,204,22,0.3)", status: "idle" },
+  { id: "a6", name: "Analytics", emoji: "📊", color: "#06B6D4", glowColor: "rgba(6,182,212,0.3)", status: "idle" },
+  { id: "a7", name: "Sentinel", emoji: "🛡️", color: "#3B82F6", glowColor: "rgba(59,130,246,0.3)", status: "idle" },
+  { id: "a8", name: "GEO", emoji: "🌍", color: "#14B8A6", glowColor: "rgba(20,184,166,0.3)", status: "idle" },
+  { id: "a9", name: "Privacy", emoji: "🔒", color: "#6366F1", glowColor: "rgba(99,102,241,0.3)", status: "idle" },
+  { id: "a10", name: "Ambient", emoji: "🌸", color: "#D946EF", glowColor: "rgba(217,70,239,0.3)", status: "idle" },
+  { id: "a11", name: "Budget RL", emoji: "💹", color: "#22C55E", glowColor: "rgba(34,197,94,0.3)", status: "idle" },
+  { id: "a13", name: "Legal", emoji: "⚖️", color: "#8B5CF6", glowColor: "rgba(139,92,246,0.3)", status: "idle" },
+  { id: "a14", name: "Accountant", emoji: "🧮", color: "#14B8A6", glowColor: "rgba(20,184,166,0.3)", status: "idle" },
+  { id: "a12", name: "Orchestrator", emoji: "🧠", color: "#F59E0B", glowColor: "rgba(245,158,11,0.4)", status: "idle" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -78,10 +75,9 @@ function generateRevenueData() {
   for (let i = 29; i >= 0; i--) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
-    const base = 800 + Math.sin(i * 0.3) * 300 + Math.random() * 400;
     data.push({
       date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      revenue: Math.round(base),
+      revenue: 0,
     });
   }
   return data;
@@ -127,6 +123,22 @@ function useCountUp(target: number, duration: number, delay: number = 0) {
   }, [target, duration, delay]);
 
   return value;
+}
+
+function formatRelativeTime(isoString: string): string {
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+
+  if (diffSec < 60) return "Just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHour < 24) return `${diffHour}h ago`;
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 /* ------------------------------------------------------------------ */
@@ -178,6 +190,25 @@ function StatCard({
         >
           {icon}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Stat Card Skeleton */
+function StatCardSkeleton({ delay }: { delay: number }) {
+  return (
+    <div
+      className="glass-card card-lift p-5 animate-fade-up"
+      style={{ animationDelay: `${delay}s` }}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex-1 space-y-3">
+          <div className="h-3.5 w-24 rounded bg-white/5 animate-pulse" />
+          <div className="h-8 w-20 rounded bg-white/5 animate-pulse" />
+          <div className="h-3 w-32 rounded bg-white/5 animate-pulse" />
+        </div>
+        <div className="flex size-10 items-center justify-center rounded-xl bg-white/5 animate-pulse" />
       </div>
     </div>
   );
@@ -276,6 +307,58 @@ function ActivityFeedItem({
   );
 }
 
+/** Activity Feed Skeleton */
+function ActivityFeedSkeleton() {
+  return (
+    <div className="space-y-1">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="flex items-start gap-3 py-3">
+          <div className="mt-1.5 size-2 shrink-0 rounded-full bg-white/5 animate-pulse" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-3/4 rounded bg-white/5 animate-pulse" />
+            <div className="h-3 w-16 rounded bg-white/5 animate-pulse" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Error State */
+function ErrorState({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div
+      className="flex flex-col items-center justify-center gap-3 rounded-2xl border p-8"
+      style={{
+        background: "var(--bg-card)",
+        borderColor: "var(--border-subtle)",
+      }}
+    >
+      <AlertCircle className="size-8" style={{ color: "#EF4444" }} />
+      <p className="text-sm text-center" style={{ color: "var(--text-secondary)" }}>
+        {message}
+      </p>
+      <button
+        onClick={onRetry}
+        className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 hover:scale-[1.02]"
+        style={{
+          background: "rgba(245, 158, 11, 0.15)",
+          color: "var(--accent-primary)",
+        }}
+      >
+        <RefreshCw className="size-4" />
+        Retry
+      </button>
+    </div>
+  );
+}
+
 /** Quick Task Item */
 function QuickTask({
   text,
@@ -361,17 +444,69 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const greeting = useGreeting();
 
-  /* Animated count-up values */
-  const revenueValue = useCountUp(24892, 1.5, 0.3);
-  const campaignsValue = useCountUp(3, 0.8, 0.4);
-  const agentsOnlineValue = useCountUp(8, 1.0, 0.5);
-  const contentValue = useCountUp(147, 1.2, 0.6);
+  /* tRPC queries for real data */
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    error: statsError,
+    refetch: refetchStats,
+  } = trpc.analytics.stats.useQuery();
+
+  const {
+    data: events,
+    isLoading: eventsLoading,
+    error: eventsError,
+    refetch: refetchEvents,
+  } = trpc.analytics.events.useQuery({ limit: 50 });
+
+  const {
+    data: campaigns,
+    isLoading: campaignsLoading,
+    error: campaignsError,
+    refetch: refetchCampaigns,
+  } = trpc.agent.getCampaigns.useQuery();
+
+  /* Derived values */
+  const activeCampaignsCount = useMemo(
+    () => campaigns?.filter((c) => c.status === "running").length ?? 0,
+    [campaigns]
+  );
+
+  const totalEngagement = stats?.totalEngagement ?? 0;
+  const totalContentPieces = stats?.totalContentPieces ?? 0;
+  const agentsOnline = stats?.agentsOnline ?? 0;
+  const totalViews = stats?.totalViews ?? 0;
+
+  /* Animated count-up values — animate from 0 to real values */
+  const engagementValue = useCountUp(totalEngagement, 0.5, 0.3);
+  const campaignsValue = useCountUp(activeCampaignsCount, 0.5, 0.4);
+  const agentsOnlineValue = useCountUp(agentsOnline, 0.5, 0.5);
+  const contentValue = useCountUp(totalContentPieces, 0.5, 0.6);
 
   /* Chart data */
   const revenueData = useMemo(() => generateRevenueData(), []);
 
-  /* Online agents count */
-  const onlineCount = AGENTS.filter((a) => a.status === "online").length;
+  /* Activity items from real events */
+  const activities: ActivityItem[] = useMemo(() => {
+    if (!events) return [];
+    return events.map((evt) => ({
+      id: evt.id,
+      agentColor: evt.agentColor ?? "#F59E0B",
+      agentName: evt.agentName ?? "System",
+      description: evt.description,
+      timestamp: formatRelativeTime(evt.timestamp),
+    }));
+  }, [events]);
+
+  /* Combined loading & error states */
+  const isLoading = statsLoading || eventsLoading || campaignsLoading;
+  const hasError = statsError || eventsError || campaignsError;
+
+  const handleRetry = () => {
+    if (statsError) refetchStats();
+    if (eventsError) refetchEvents();
+    if (campaignsError) refetchCampaigns();
+  };
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-6">
@@ -397,10 +532,10 @@ export default function Dashboard() {
               className="text-3xl font-bold tracking-tight"
               style={{ color: "var(--text-primary)" }}
             >
-              {greeting}, Isaac
+              {greeting}
             </h1>
             <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-              Your Swarm is active. {onlineCount} agents online, {campaignsValue} campaigns running.
+              {agentsOnline} agents ready, {activeCampaignsCount} campaigns active.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -431,44 +566,62 @@ export default function Dashboard() {
       </div>
 
       {/* ═══════════════════ Section 2: Stats Row ═══════════════════ */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          icon={<DollarSign className="size-5 text-emerald-400" />}
-          iconBg="rgba(132, 204, 22, 0.12)"
-          label="Revenue this month"
-          value={`$${revenueValue.toLocaleString()}`}
-          trend="+12.5%"
-          trendColor="#84CC16"
-          delay={0.3}
+      {hasError && !isLoading ? (
+        <ErrorState
+          message="Failed to load dashboard data. Please try again."
+          onRetry={handleRetry}
         />
-        <StatCard
-          icon={<Rocket className="size-5 text-amber-400" />}
-          iconBg="rgba(245, 158, 11, 0.12)"
-          label="Active campaigns"
-          value={String(campaignsValue)}
-          trend="+1 new this week"
-          trendColor="var(--text-muted)"
-          delay={0.42}
-        />
-        <StatCard
-          icon={<Bot className="size-5 text-cyan-400" />}
-          iconBg="rgba(6, 182, 212, 0.12)"
-          label="Agents online"
-          value={`${agentsOnlineValue} / 12`}
-          trend="8 active"
-          trendColor="var(--text-muted)"
-          delay={0.54}
-        />
-        <StatCard
-          icon={<FileText className="size-5 text-purple-400" />}
-          iconBg="rgba(168, 85, 247, 0.12)"
-          label="Content pieces created"
-          value={String(contentValue)}
-          trend="+23 this week"
-          trendColor="var(--text-muted)"
-          delay={0.66}
-        />
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {isLoading ? (
+            <>
+              <StatCardSkeleton delay={0.3} />
+              <StatCardSkeleton delay={0.42} />
+              <StatCardSkeleton delay={0.54} />
+              <StatCardSkeleton delay={0.66} />
+            </>
+          ) : (
+            <>
+              <StatCard
+                icon={<DollarSign className="size-5 text-emerald-400" />}
+                iconBg="rgba(132, 204, 22, 0.12)"
+                label="Total Engagement"
+                value={engagementValue.toLocaleString()}
+                trend={`${totalViews.toLocaleString()} total views`}
+                trendColor="var(--text-muted)"
+                delay={0.3}
+              />
+              <StatCard
+                icon={<Rocket className="size-5 text-amber-400" />}
+                iconBg="rgba(245, 158, 11, 0.12)"
+                label="Active campaigns"
+                value={String(campaignsValue)}
+                trend={`${campaigns?.length ?? 0} total campaigns`}
+                trendColor="var(--text-muted)"
+                delay={0.42}
+              />
+              <StatCard
+                icon={<Bot className="size-5 text-cyan-400" />}
+                iconBg="rgba(6, 182, 212, 0.12)"
+                label="Agents online"
+                value={`${agentsOnlineValue} / 14`}
+                trend="All available"
+                trendColor="var(--text-muted)"
+                delay={0.54}
+              />
+              <StatCard
+                icon={<FileText className="size-5 text-purple-400" />}
+                iconBg="rgba(168, 85, 247, 0.12)"
+                label="Content pieces created"
+                value={String(contentValue)}
+                trend={`${stats?.totalPosts ?? 0} posts, ${stats?.totalVideos ?? 0} videos`}
+                trendColor="var(--text-muted)"
+                delay={0.66}
+              />
+            </>
+          )}
+        </div>
+      )}
 
       {/* ═══════════════════ Section 3: Two-Column Layout ═══════════════════ */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
@@ -571,11 +724,26 @@ export default function Dashboard() {
                 View All
               </button>
             </div>
-            <div className="divide-y" style={{ borderColor: "var(--border-subtle)" }}>
-              {ACTIVITIES.map((activity, idx) => (
-                <ActivityFeedItem key={activity.id} activity={activity} index={idx} />
-              ))}
-            </div>
+            {eventsError ? (
+              <ErrorState
+                message="Failed to load activity feed."
+                onRetry={refetchEvents}
+              />
+            ) : eventsLoading ? (
+              <ActivityFeedSkeleton />
+            ) : activities.length === 0 ? (
+              <div className="py-8 text-center">
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  No recent activity yet.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y" style={{ borderColor: "var(--border-subtle)" }}>
+                {activities.map((activity, idx) => (
+                  <ActivityFeedItem key={activity.id} activity={activity} index={idx} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -706,113 +874,215 @@ export default function Dashboard() {
       </div>
 
       {/* ═══════════════════ Section 4: Campaign Preview ═══════════════════ */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {[
-          {
-            name: "Savannah Summer Sale",
-            status: "Active",
-            statusColor: "#22C55E",
-            progress: 68,
-            agentColor: "#EF4444",
-            budget: "$8,400 spent",
-            days: "12 days left",
-            content: "24 pieces",
-          },
-          {
-            name: "Brand Awareness Q3",
-            status: "Active",
-            statusColor: "#22C55E",
-            progress: 42,
-            agentColor: "#A855F7",
-            budget: "$5,200 spent",
-            days: "28 days left",
-            content: "18 pieces",
-          },
-          {
-            name: "SEO Refresh 2025",
-            status: "Completed",
-            statusColor: "#6B7280",
-            progress: 100,
-            agentColor: "#84CC16",
-            budget: "$3,800 spent",
-            days: "Completed",
-            content: "31 pieces",
-          },
-        ].map((campaign, idx) => (
-          <div
-            key={campaign.name}
-            className="glass-card card-lift p-5 animate-fade-up"
-            style={{ animationDelay: `${0.8 + idx * 0.15}s` }}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h3
-                className="text-base font-semibold"
-                style={{ color: "var(--text-primary)" }}
-              >
-                {campaign.name}
-              </h3>
-              <span
-                className="rounded-full px-2.5 py-0.5 text-[10px] font-medium"
-                style={{
-                  background: `${campaign.statusColor}15`,
-                  color: campaign.statusColor,
-                }}
-              >
-                {campaign.status}
-              </span>
-            </div>
-
-            {/* Progress bar */}
-            <div className="mb-4">
-              <div className="mb-1.5 flex items-center justify-between">
-                <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                  Progress
-                </span>
-                <span
-                  className="text-[11px] font-semibold"
-                  style={{ color: "var(--text-primary)", fontFamily: "var(--font-mono)" }}
-                >
-                  {campaign.progress}%
-                </span>
-              </div>
-              <div
-                className="h-1.5 w-full overflow-hidden rounded-full"
-                style={{ background: "var(--border-subtle)" }}
-              >
-                <div
-                  className="h-full rounded-full transition-all duration-1000 ease-out"
-                  style={{
-                    width: `${campaign.progress}%`,
-                    background: campaign.agentColor,
-                    boxShadow: `0 0 8px ${campaign.agentColor}40`,
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Stats row */}
-            <div className="mb-3 flex items-center gap-4">
-              <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                {campaign.budget}
-              </span>
-              <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                {campaign.days}
-              </span>
-              <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                {campaign.content}
-              </span>
-            </div>
-
-            {/* View Details link */}
-            <button
-              className="text-xs font-medium transition-colors duration-200 hover:underline"
-              style={{ color: "var(--accent-primary)" }}
+      {campaignsError ? (
+        <ErrorState
+          message="Failed to load campaigns."
+          onRetry={refetchCampaigns}
+        />
+      ) : campaignsLoading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="glass-card card-lift p-5 animate-fade-up"
+              style={{ animationDelay: `${0.8 + i * 0.15}s` }}
             >
-              View Details
-            </button>
-          </div>
-        ))}
-      </div>
+              <div className="h-5 w-3/4 rounded bg-white/5 animate-pulse mb-3" />
+              <div className="h-1.5 w-full rounded bg-white/5 animate-pulse mb-4" />
+              <div className="flex gap-4 mb-3">
+                <div className="h-3 w-16 rounded bg-white/5 animate-pulse" />
+                <div className="h-3 w-12 rounded bg-white/5 animate-pulse" />
+                <div className="h-3 w-14 rounded bg-white/5 animate-pulse" />
+              </div>
+              <div className="h-3 w-24 rounded bg-white/5 animate-pulse" />
+            </div>
+          ))}
+        </div>
+      ) : campaigns && campaigns.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {campaigns.slice(0, 6).map((campaign, idx) => {
+            const completedOutputs = campaign.outputs.filter((o) => o.status === "completed").length;
+            const totalOutputs = campaign.outputs.length;
+            const progress = totalOutputs > 0 ? Math.round((completedOutputs / totalOutputs) * 100) : 0;
+            const statusColor =
+              campaign.status === "running"
+                ? "#22C55E"
+                : campaign.status === "completed"
+                  ? "#3B82F6"
+                  : campaign.status === "failed"
+                    ? "#EF4444"
+                    : "#F59E0B";
+            const daysSince = Math.floor(
+              (Date.now() - new Date(campaign.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+            );
+
+            return (
+              <div
+                key={campaign.id}
+                className="glass-card card-lift p-5 animate-fade-up"
+                style={{ animationDelay: `${0.8 + idx * 0.15}s` }}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h3
+                    className="text-base font-semibold truncate"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    {campaign.title}
+                  </h3>
+                  <span
+                    className="rounded-full px-2.5 py-0.5 text-[10px] font-medium shrink-0"
+                    style={{
+                      background: `${statusColor}15`,
+                      color: statusColor,
+                    }}
+                  >
+                    {campaign.status}
+                  </span>
+                </div>
+
+                {/* Progress bar */}
+                <div className="mb-4">
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                      Progress
+                    </span>
+                    <span
+                      className="text-[11px] font-semibold"
+                      style={{ color: "var(--text-primary)", fontFamily: "var(--font-mono)" }}
+                    >
+                      {progress}%
+                    </span>
+                  </div>
+                  <div
+                    className="h-1.5 w-full overflow-hidden rounded-full"
+                    style={{ background: "var(--border-subtle)" }}
+                  >
+                    <div
+                      className="h-full rounded-full transition-all duration-1000 ease-out"
+                      style={{
+                        width: `${progress}%`,
+                        background: statusColor,
+                        boxShadow: `0 0 8px ${statusColor}40`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Stats row */}
+                <div className="mb-3 flex items-center gap-4">
+                  <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                    {campaign.budget}
+                  </span>
+                  <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                    {daysSince}d
+                  </span>
+                  <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                    {completedOutputs}/{totalOutputs} done
+                  </span>
+                </div>
+
+                {/* View Details link */}
+                <button
+                  onClick={() => navigate("/mission-control")}
+                  className="text-xs font-medium transition-colors duration-200 hover:underline"
+                  style={{ color: "var(--accent-primary)" }}
+                >
+                  View Details
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {[
+            {
+              name: "No campaigns yet",
+              status: "Start",
+              statusColor: "#6B7280",
+              progress: 0,
+              agentColor: "#F59E0B",
+              budget: "$0 spent",
+              days: "—",
+              content: "0 pieces",
+            },
+          ].map((campaign, idx) => (
+            <div
+              key={campaign.name}
+              className="glass-card card-lift p-5 animate-fade-up"
+              style={{ animationDelay: `${0.8 + idx * 0.15}s` }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h3
+                  className="text-base font-semibold"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  {campaign.name}
+                </h3>
+                <span
+                  className="rounded-full px-2.5 py-0.5 text-[10px] font-medium"
+                  style={{
+                    background: `${campaign.statusColor}15`,
+                    color: campaign.statusColor,
+                  }}
+                >
+                  {campaign.status}
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="mb-4">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                    Progress
+                  </span>
+                  <span
+                    className="text-[11px] font-semibold"
+                    style={{ color: "var(--text-primary)", fontFamily: "var(--font-mono)" }}
+                  >
+                    {campaign.progress}%
+                  </span>
+                </div>
+                <div
+                  className="h-1.5 w-full overflow-hidden rounded-full"
+                  style={{ background: "var(--border-subtle)" }}
+                >
+                  <div
+                    className="h-full rounded-full transition-all duration-1000 ease-out"
+                    style={{
+                      width: `${campaign.progress}%`,
+                      background: campaign.agentColor,
+                      boxShadow: `0 0 8px ${campaign.agentColor}40`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Stats row */}
+              <div className="mb-3 flex items-center gap-4">
+                <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                  {campaign.budget}
+                </span>
+                <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                  {campaign.days}
+                </span>
+                <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                  {campaign.content}
+                </span>
+              </div>
+
+              {/* View Details link */}
+              <button
+                onClick={() => navigate("/mission-control")}
+                className="text-xs font-medium transition-colors duration-200 hover:underline"
+                style={{ color: "var(--accent-primary)" }}
+              >
+                Start New Mission
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Bottom spacing */}
       <div className="h-4" />
