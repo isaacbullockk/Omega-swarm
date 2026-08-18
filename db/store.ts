@@ -153,6 +153,50 @@ export interface Booking {
   createdAt: string;
 }
 
+/** Client / Project type for managing brand accounts */
+export interface Client {
+  id: string;
+  name: string;
+  handle: string;
+  tagline: string;
+  tier: number;
+  status: "active" | "paused" | "archived";
+  bioFull: string;
+  bioMedium: string;
+  bioShort: string;
+  location: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  photoHeadshot?: string;
+  photoPerformance?: string;
+  photoCasual?: string;
+  website?: string;
+  socialLinks: Record<string, string>;
+  brandHierarchy: { tier: number; brand: string; role: string; handle: string; url: string }[];
+  namingRules: Record<string, { rule: string; wrong: string; right: string }>;
+  toneWords: string[];
+  bannedPhrases: string[];
+  contentPillars: { name: string; description: string; cta: string; platforms: string[] }[];
+  storyBank: { title: string; description: string }[];
+  calendarEntries: { week: number; day: string; platform: string; pillar: string; content: string; cta: string }[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* ─── User-uploaded asset ─── */
+export interface Asset {
+  id: string;
+  name: string;
+  type: "image" | "video" | "audio" | "reference";
+  dataUrl?: string;
+  url?: string;
+  description?: string;
+  tags: string[];
+  usedIn: string[]; // post IDs that reference this asset
+  createdAt: string;
+}
+
 /* ─── Store Data Shape ─── */
 interface StoreData {
   campaigns: Campaign[];
@@ -166,6 +210,8 @@ interface StoreData {
   analyticsEvents: AnalyticsEvent[];
   services: Service[];
   bookings: Booking[];
+  clients: Client[];
+  assets: Asset[];
 }
 
 const defaultData: StoreData = {
@@ -178,33 +224,77 @@ const defaultData: StoreData = {
   contentPosts: [],
   generatedVideos: [],
   analyticsEvents: [],
-  services: [
+  services: [],
+  bookings: [],
+  clients: [
     {
-      id: "svc_social_audit",
-      name: "Social Media Audit",
-      description: "Comprehensive review of your social presence with actionable recommendations",
-      duration: "3-5 business days",
-      price: "$499",
-      category: "Audit",
-    },
-    {
-      id: "svc_content_strategy",
-      name: "Content Strategy",
-      description: "30-day content calendar with AI-generated posts and hashtag research",
-      duration: "1 week",
-      price: "$799",
-      category: "Strategy",
-    },
-    {
-      id: "svc_brand_voice",
-      name: "Brand Voice Development",
-      description: "Define your unique brand voice with AI-powered tone analysis and guidelines",
-      duration: "5-7 business days",
-      price: "$599",
-      category: "Branding",
+      id: "client_isaac_bullock",
+      name: "Isaac Bullock",
+      handle: "@isaacbullockk",
+      tagline: "The people who build bridges between worlds are the ones who change them.",
+      tier: 1,
+      status: "active",
+      bioFull: "Isaac Bullock fled Uganda as a child and built a life in the Netherlands that most people only imagine. He spent years as a strategist at Accenture before the music he'd been making in secret won him an ISC Award with a jury that included Dua Lipa, Coldplay, and Tom Waits. Today he's an award-winning singer-songwriter, a TEDx speaker, and the founder of six ventures — from the 800+ musician collective Wildnoff to the recording project Kyakuwa. His work sits at the intersection of music, migration, and social innovation. He lives in the Netherlands and performs wherever stories need to be told.",
+      bioMedium: "Ex-refugee. Ex-Accenture strategist. ISC award-winning singer-songwriter (jury: Dua Lipa, Coldplay, Tom Waits). TEDx speaker. Founder of Wildnoff (800+ musicians) and five more ventures. I build bridges between worlds — and turn the crossing into art.",
+      bioShort: "Ex-refugee → Accenture → ISC Award → TEDx → 6 ventures. Building bridges between worlds. @isaacbullockk",
+      location: "The Netherlands",
+      primaryColor: "#D97706",
+      secondaryColor: "#1E3A5F",
+      accentColor: "#F5F5F0",
+      website: "https://isaacbullock.org",
+      socialLinks: {
+        instagram: "https://instagram.com/isaacbullockk",
+        twitter: "https://twitter.com/isaacbullockk",
+        linkedin: "https://linkedin.com/in/isaacbullockk",
+        youtube: "https://youtube.com/@isaacbullockk",
+        tiktok: "https://tiktok.com/@isaacbullockk",
+        spotify: "https://open.spotify.com/artist/kyakuwa",
+      },
+      brandHierarchy: [
+        { tier: 1, brand: "Isaac Bullock", role: "The story, the person, the speaking funnel", handle: "@isaacbullockk", url: "isaacbullock.org" },
+        { tier: 2, brand: "Kyakuwa", role: "Recording project — releases out now", handle: "@kyakuwamusic", url: "kyakuwa.com" },
+        { tier: 3, brand: "Wildnoff", role: "Live collective — 800+ musicians", handle: "@wildnoff", url: "wildnoff.nl" },
+        { tier: 4, brand: "Sessiecat", role: "Session musician brand — LIVE at sessiecat.com", handle: "@sessiecat", url: "sessiecat.com" },
+      ],
+      namingRules: {
+        handle: { rule: "@isaacbullockk everywhere", wrong: "@isaacbullock", right: "@isaacbullockk" },
+        name: { rule: "Isaac Bullock — first + last", wrong: "I. Bullock, Isaac B.", right: "Isaac Bullock" },
+        location: { rule: "Based in the Netherlands", wrong: "Amsterdam, NL, Holland", right: "The Netherlands" },
+        accenture: { rule: "Former strategist at Accenture", wrong: "Ex-Accenture consultant", right: "Former strategist at Accenture" },
+        isc: { rule: "ISC Award-winning singer-songwriter (2020)", wrong: "Won a music award", right: "ISC Award-winning singer-songwriter (2020)" },
+        tedx: { rule: "TEDx speaker", wrong: "Gave a TED talk", right: "TEDx speaker" },
+        wildnoff: { rule: "800+ musician collective", wrong: "Big music group", right: "800+ musician collective" },
+      },
+      toneWords: ["Bridge-builder", "Warm", "Sharp", "Generous"],
+      bannedPhrases: ["So grateful to be...", "Believe in yourself", "Link in bio", "DM for bookings", "Humbled and honored..."],
+      contentPillars: [
+        { name: "The Music", description: "What Isaac makes. Releases, sessions, collaborations.", cta: "Listen / Watch", platforms: ["Instagram", "TikTok", "YouTube", "Spotify"] },
+        { name: "The Story", description: "Refugee-to-strategist-to-musician arc. Migration, identity, belonging.", cta: "Follow / Share", platforms: ["LinkedIn", "Instagram", "Medium", "press"] },
+        { name: "The Craft", description: "How Isaac does it. Songwriting, studio, performance, running a collective.", cta: "Watch / Save", platforms: ["YouTube", "Instagram", "TikTok", "LinkedIn"] },
+        { name: "The Ideas", description: "Music x social innovation. Speaking. Art + impact.", cta: "Book / Share", platforms: ["LinkedIn", "TEDx", "Medium", "press"] },
+      ],
+      storyBank: [
+        { title: "The border crossing", description: "The night Isaac left Uganda, what he carried, what he left behind." },
+        { title: "The Accenture desk", description: "The spreadsheet that made him quit. The song he wrote in the bathroom." },
+        { title: "The ISC Award call", description: "Who called, what they said, the jury room story." },
+        { title: "The first Wildnoff session", description: "12 musicians in a basement, no plan, magic." },
+        { title: "The TEDx rehearsal", description: "The line he forgot on stage, the recovery." },
+        { title: "The Kyakuwa recording", description: "The take that happened at 3am, the mistake that became the hook." },
+        { title: "Home", description: "The moment the Netherlands stopped being 'where I live' and started being 'home.'" },
+        { title: "The strategist mind", description: "How Accenture taught systems thinking — and why music broke the system." },
+      ],
+      calendarEntries: [
+        { week: 1, day: "Mon", platform: "Instagram", pillar: "The Music", content: "The song I wrote in an Accenture bathroom — 30s clip", cta: "Listen on Spotify" },
+        { week: 1, day: "Tue", platform: "LinkedIn", pillar: "The Story", content: "I was a strategist who made music in secret. Here's why I stopped hiding.", cta: "Follow" },
+        { week: 1, day: "Wed", platform: "TikTok", pillar: "The Craft", content: "How I write a chorus in 10 minutes — process video", cta: "Watch full on YouTube" },
+        { week: 1, day: "Thu", platform: "Instagram", pillar: "The Ideas", content: "800 musicians. One basement. No plan. This is Wildnoff.", cta: "Follow @wildnoff" },
+        { week: 1, day: "Fri", platform: "LinkedIn", pillar: "The Music", content: "The song that made Dua Lipa's jury notice me — ISC story", cta: "Listen on Spotify" },
+      ],
+      createdAt: "2026-08-12T00:00:00.000Z",
+      updatedAt: "2026-08-12T00:00:00.000Z",
     },
   ],
-  bookings: [],
+  assets: [],
 };
 
 /* ─── Persistence ─── */
@@ -223,8 +313,10 @@ function load(): StoreData {
         contentPosts: parsed.contentPosts ?? [],
         generatedVideos: parsed.generatedVideos ?? [],
         analyticsEvents: parsed.analyticsEvents ?? [],
-        services: parsed.services ?? defaultData.services,
+        services: parsed.services ?? [],
         bookings: parsed.bookings ?? [],
+        clients: parsed.clients ?? defaultData.clients,
+        assets: parsed.assets ?? [],
       };
     }
   } catch {
@@ -375,6 +467,43 @@ export function deleteBooking(id: string) {
   return undefined;
 }
 
+/* ─── Client helpers ─── */
+export function getClients(): Client[] { return store.clients; }
+export function getClient(id: string): Client | undefined { return store.clients.find((c) => c.id === id); }
+export function addClient(client: Client) { store.clients.unshift(client); save(store); return client; }
+export function updateClient(id: string, updates: Partial<Client>) {
+  const idx = store.clients.findIndex((c) => c.id === id);
+  if (idx >= 0) { store.clients[idx] = { ...store.clients[idx], ...updates, updatedAt: new Date().toISOString() }; save(store); }
+  return store.clients[idx];
+}
+export function deleteClient(id: string) {
+  const idx = store.clients.findIndex((c) => c.id === id);
+  if (idx >= 0) { const removed = store.clients.splice(idx, 1)[0]; save(store); return removed; }
+  return undefined;
+}
+
+/* ─── Asset helpers (user-uploaded reference content) ─── */
+export function getAssets(): Asset[] { return store.assets; }
+export function getAsset(id: string): Asset | undefined { return store.assets.find((a) => a.id === id); }
+export function addAsset(asset: Asset) { store.assets.unshift(asset); save(store); return asset; }
+export function updateAsset(id: string, updates: Partial<Asset>) {
+  const idx = store.assets.findIndex((a) => a.id === id);
+  if (idx >= 0) { store.assets[idx] = { ...store.assets[idx], ...updates }; save(store); }
+  return store.assets[idx];
+}
+export function deleteAsset(id: string) {
+  const idx = store.assets.findIndex((a) => a.id === id);
+  if (idx >= 0) { const removed = store.assets.splice(idx, 1)[0]; save(store); return removed; }
+  return undefined;
+}
+export function searchAssets(query?: string, type?: Asset["type"]): Asset[] {
+  return store.assets.filter((asset) => {
+    if (type && asset.type !== type) return false;
+    if (query) { const q = query.toLowerCase(); return asset.name.toLowerCase().includes(q) || asset.tags.some((t) => t.toLowerCase().includes(q)); }
+    return true;
+  });
+}
+
 /* ─── Stats helpers ─── */
 export function getStats() {
   return {
@@ -385,6 +514,6 @@ export function getStats() {
     totalContentPieces: store.contentPosts.length + store.generatedVideos.length + store.contentAssets.length,
     totalEngagement: store.contentPosts.reduce((sum, p) => sum + p.likes + p.comments, 0),
     totalViews: store.contentPosts.reduce((sum, p) => sum + p.views, 0),
-    agentsOnline: 14, // All agents are always available
+    agentsOnline: 0, // Real count — no fake data
   };
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import {
   AreaChart,
@@ -103,69 +103,7 @@ const CHANNELS: ChannelData[] = [
   { name: "Email", percent: 0, color: "#84CC16", leads: 0 },
 ];
 
-const AGENT_LEADERS: AgentLeader[] = [
-  { rank: 1, name: "Ace", role: "Sales", tasks: 0, successRate: 0, avgQuality: 0, color: "#EF4444" },
-  { rank: 2, name: "Maya", role: "Copywriter", tasks: 0, successRate: 0, avgQuality: 0, color: "#F59E0B" },
-  { rank: 3, name: "Scout", role: "SEO", tasks: 0, successRate: 0, avgQuality: 0, color: "#84CC16" },
-  { rank: 4, name: "Pulse", role: "Social Media", tasks: 0, successRate: 0, avgQuality: 0, color: "#EC4899" },
-  { rank: 5, name: "Nexus", role: "Analytics", tasks: 0, successRate: 0, avgQuality: 0, color: "#06B6D4" },
-  { rank: 6, name: "Vision", role: "Creative Director", tasks: 0, successRate: 0, avgQuality: 0, color: "#A855F7" },
-];
-
-/* ------------------------------------------------------------------ */
-/*  Animation helpers                                                  */
-/* ------------------------------------------------------------------ */
-
-function useCountUp(target: number, duration = 1500) {
-  const [value, setValue] = useState(0);
-  useEffect(() => {
-    let start: number | null = null;
-    const step = (ts: number) => {
-      if (!start) start = ts;
-      const progress = Math.min((ts - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setValue(Math.floor(eased * target));
-      if (progress < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  }, [target, duration]);
-  return value;
-}
-
-function useCountUpFloat(target: number, duration = 1500, decimals = 1) {
-  const [value, setValue] = useState(0);
-  useEffect(() => {
-    let start: number | null = null;
-    const step = (ts: number) => {
-      if (!start) start = ts;
-      const progress = Math.min((ts - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setValue(Number((eased * target).toFixed(decimals)));
-      if (progress < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  }, [target, duration, decimals]);
-  return value;
-}
-
-function useAnimatedWidth(target: number, duration = 1000, delay = 0) {
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      let start: number | null = null;
-      const step = (ts: number) => {
-        if (!start) start = ts;
-        const progress = Math.min((ts - start) / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3);
-        setWidth(Math.floor(eased * target));
-        if (progress < 1) requestAnimationFrame(step);
-      };
-      requestAnimationFrame(step);
-    }, delay);
-    return () => clearTimeout(timer);
-  }, [target, duration, delay]);
-  return width;
-}
+const AGENT_LEADERS: AgentLeader[] = [];
 
 /* ------------------------------------------------------------------ */
 /*  Sub-components                                                     */
@@ -190,13 +128,12 @@ function StatCard({
   color: string;
   index: number;
 }) {
-  const count = useCountUp(value, 1500);
   const formatted =
     value >= 1000
       ? suffix === "%"
-        ? `${count}${suffix}`
-        : `${(count / 1000).toFixed(suffix === "K" ? 1 : 0)}${suffix || "K"}`
-      : `${count}${suffix}`;
+        ? `${value}${suffix}`
+        : `${(value / 1000).toFixed(suffix === "K" ? 1 : 0)}${suffix || "K"}`
+      : `${value}${suffix}`;
 
   return (
     <div
@@ -226,7 +163,7 @@ function StatCard({
         </div>
       </div>
       <div className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
-        {suffix === "€" ? `€${count.toFixed(2)}` : formatted}
+        {suffix === "€" ? `€${value.toFixed(2)}` : formatted}
       </div>
       <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
         {label}
@@ -236,8 +173,6 @@ function StatCard({
 }
 
 function FunnelBar({ stage, index }: { stage: FunnelStage; index: number }) {
-  const width = useAnimatedWidth(stage.percent, 800, index * 150);
-
   return (
     <div
       className="animate-stagger-in stagger-dynamic"
@@ -258,7 +193,7 @@ function FunnelBar({ stage, index }: { stage: FunnelStage; index: number }) {
         <div
           className="absolute left-0 top-0 h-full rounded-lg transition-all duration-700 flex items-center justify-end px-3"
           style={{
-            width: `${width}%`,
+            width: `${stage.percent}%`,
             background: `linear-gradient(90deg, ${stage.color}40, ${stage.color}80)`,
           }}
         >
@@ -281,8 +216,6 @@ function FunnelBar({ stage, index }: { stage: FunnelStage; index: number }) {
 }
 
 function ChannelBar({ channel, index }: { channel: ChannelData; index: number }) {
-  const width = useAnimatedWidth(channel.percent, 800, 300 + index * 100);
-
   return (
     <div className="flex items-center gap-3">
       <span className="w-20 text-xs font-medium" style={{ color: "var(--text-primary)" }}>
@@ -292,7 +225,7 @@ function ChannelBar({ channel, index }: { channel: ChannelData; index: number })
         <div
           className="h-full rounded-full transition-all duration-700 flex items-center justify-end px-2"
           style={{
-            width: `${width}%`,
+            width: `${channel.percent}%`,
             background: `linear-gradient(90deg, ${channel.color}60, ${channel.color})`,
           }}
         />
@@ -305,8 +238,6 @@ function ChannelBar({ channel, index }: { channel: ChannelData; index: number })
 }
 
 function LeaderRow({ agent, index }: { agent: AgentLeader; index: number }) {
-  const barWidth = useAnimatedWidth(agent.successRate, 800, 600 + index * 100);
-
   const getRankIcon = () => {
     if (agent.rank === 1) return <Award className="size-4" style={{ color: "#FBBF24" }} />;
     if (agent.rank === 2) return <Medal className="size-4" style={{ color: "#C0C0C0" }} />;
@@ -344,7 +275,7 @@ function LeaderRow({ agent, index }: { agent: AgentLeader; index: number }) {
             <div
               className="h-full rounded-full transition-all duration-700"
               style={{
-                width: `${barWidth}%`,
+                width: `${agent.successRate}%`,
                 background: `linear-gradient(90deg, ${agent.color}, ${agent.color}80)`,
               }}
             />
@@ -443,12 +374,13 @@ export default function Pipeline() {
       label: "Cost / Conv",
       value: 0,
       suffix: "€",
-      display: "€0.00",
       trend: "No data yet",
       trendUp: true,
       color: "#84CC16",
     },
   ];
+
+  const totalLeads = CHANNELS.reduce((sum, ch) => sum + ch.leads, 0);
 
   return (
     <div className="flex flex-col gap-8">
@@ -491,18 +423,9 @@ export default function Pipeline() {
 
       {/* ── Stats Row ── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((s, i) =>
-          i === 3 ? (
-            <StatCard
-              key={i}
-              {...s}
-              value={42}
-              index={i}
-            />
-          ) : (
-            <StatCard key={i} {...s} index={i} />
-          )
-        )}
+        {stats.map((s, i) => (
+          <StatCard key={i} {...s} index={i} />
+        ))}
       </div>
 
       {/* ── Performance Chart ── */}
@@ -620,7 +543,7 @@ export default function Pipeline() {
           </div>
           <div className="mt-5 rounded-xl border p-3 text-center" style={{ borderColor: "var(--border-subtle)", background: "var(--bg-input)" }}>
             <div className="text-lg font-bold" style={{ color: "var(--accent-primary)" }}>
-              3,847
+              {totalLeads.toLocaleString()}
             </div>
             <div className="text-xs" style={{ color: "var(--text-muted)" }}>
               Total Leads
@@ -639,11 +562,23 @@ export default function Pipeline() {
           <h3 className="mb-4 text-base font-semibold" style={{ color: "var(--text-primary)" }}>
             Agent Leaderboard
           </h3>
-          <div className="space-y-2">
-            {AGENT_LEADERS.map((agent, i) => (
-              <LeaderRow key={agent.name} agent={agent} index={i} />
-            ))}
-          </div>
+          {AGENT_LEADERS.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Users className="size-8" style={{ color: "var(--text-muted)", opacity: 0.3 }} />
+              <p className="mt-3 text-sm" style={{ color: "var(--text-muted)" }}>
+                No agents active yet
+              </p>
+              <p className="mt-1 text-xs" style={{ color: "var(--text-muted)", opacity: 0.6 }}>
+                Run campaigns to see agent rankings
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {AGENT_LEADERS.map((agent, i) => (
+                <LeaderRow key={agent.name} agent={agent} index={i} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

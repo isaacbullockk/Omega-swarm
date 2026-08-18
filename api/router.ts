@@ -8,6 +8,8 @@ import { voiceRouter } from "./routers/voice";
 import { bookingRouter } from "./routers/booking";
 import { videoRouter } from "./routers/video";
 import { contentRouter, analyticsRouter } from "./routers/content";
+import { clientRouter } from "./routers/client";
+import { assetRouter } from "./routers/asset";
 
 export const appRouter = router({
   agent: agentRouter,
@@ -20,6 +22,8 @@ export const appRouter = router({
   video: videoRouter,
   content: contentRouter,
   analytics: analyticsRouter,
+  client: clientRouter,
+  asset: assetRouter,
   // contentLibrary router deprecated — use content.list instead
 });
 

@@ -49,23 +49,6 @@ interface UploadedSample {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Mock Data                                                          */
-/* ------------------------------------------------------------------ */
-
-const INITIAL_VOICES: Voice[] = [
-  { id: "v1", name: "Isaac's Voice", quality: 98, samples: 3, duration: "2:30", createdAt: "2025-07-01", isCloned: true },
-  { id: "v2", name: "Brand Narrator", quality: 95, samples: 2, duration: "1:45", createdAt: "2025-07-05", isCloned: true },
-  { id: "v3", name: "Kyakuwa Vocal", quality: 92, samples: 4, duration: "3:15", createdAt: "2025-07-10", isCloned: true },
-];
-
-const INITIAL_GENERATIONS: Generation[] = [
-  { id: "g1", name: "Summer Campaign Voiceover", voice: "Brand Narrator", duration: "0:45", date: "2025-07-15" },
-  { id: "g2", name: "Product Launch Script", voice: "Isaac's Voice", duration: "1:20", date: "2025-07-14" },
-  { id: "g3", name: "Social Media Hook", voice: "Kyakuwa Vocal", duration: "0:15", date: "2025-07-13" },
-  { id: "g4", name: "Brand Manifesto Read", voice: "Brand Narrator", duration: "2:10", date: "2025-07-12" },
-];
-
-/* ------------------------------------------------------------------ */
 /*  Waveform Component                                                  */
 /* ------------------------------------------------------------------ */
 
@@ -648,7 +631,15 @@ function VoiceSelector({
 /*  Generate Tab                                                        */
 /* ------------------------------------------------------------------ */
 
-function GenerateTab({ voices }: { voices: Voice[] }) {
+function GenerateTab({
+  voices,
+  generations,
+  onAddGeneration,
+}: {
+  voices: Voice[];
+  generations: Generation[];
+  onAddGeneration: (gen: Generation) => void;
+}) {
   const [script, setScript] = useState("");
   const [selectedVoice, setSelectedVoice] = useState(voices[0]?.id || "");
   const [stability, setStability] = useState(50);
@@ -657,7 +648,6 @@ function GenerateTab({ voices }: { voices: Voice[] }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generated, setGenerated] = useState<Generation | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [recentGenerations, setRecentGenerations] = useState<Generation[]>(INITIAL_GENERATIONS);
 
   const handleGenerate = () => {
     if (!script.trim() || !selectedVoice) return;
@@ -672,7 +662,7 @@ function GenerateTab({ voices }: { voices: Voice[] }) {
         date: new Date().toISOString().split("T")[0],
       };
       setGenerated(newGen);
-      setRecentGenerations((prev) => [newGen, ...prev]);
+      onAddGeneration(newGen);
       setIsGenerating(false);
     }, 2000);
   };
@@ -867,18 +857,18 @@ function GenerateTab({ voices }: { voices: Voice[] }) {
                 <FileAudio className="size-7" style={{ color: "var(--accent-primary)", opacity: 0.5 }} />
               </div>
               <p className="mt-3 text-sm" style={{ color: "var(--text-muted)" }}>
-                Your generated audio will appear here
+                No generations yet
               </p>
             </div>
           )}
 
           {/* Recent Generations */}
-          {recentGenerations.length > 0 && (
+          {generations.length > 0 ? (
             <div className="space-y-2">
               <h4 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
                 Recent Generations
               </h4>
-              {recentGenerations.slice(0, 5).map((gen) => (
+              {generations.slice(0, 5).map((gen) => (
                 <div
                   key={gen.id}
                   className="flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors hover:bg-white/[0.02]"
@@ -913,6 +903,19 @@ function GenerateTab({ voices }: { voices: Voice[] }) {
                 </div>
               ))}
             </div>
+          ) : (
+            <div
+              className="flex flex-col items-center justify-center rounded-xl border py-8"
+              style={{
+                borderColor: "var(--border-subtle)",
+                backgroundColor: "var(--bg-card)",
+              }}
+            >
+              <Music className="size-8" style={{ color: "var(--text-muted)", opacity: 0.3 }} />
+              <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
+                No generations yet
+              </p>
+            </div>
           )}
         </div>
       </div>
@@ -924,8 +927,7 @@ function GenerateTab({ voices }: { voices: Voice[] }) {
 /*  Library Tab                                                         */
 /* ------------------------------------------------------------------ */
 
-function LibraryTab({ voices }: { voices: Voice[] }) {
-  const [generations, setGenerations] = useState<Generation[]>(INITIAL_GENERATIONS);
+function LibraryTab({ generations }: { generations: Generation[] }) {
   const [playingId, setPlayingId] = useState<string | null>(null);
 
   const togglePlay = (id: string) => {
@@ -933,8 +935,28 @@ function LibraryTab({ voices }: { voices: Voice[] }) {
   };
 
   const handleDelete = (id: string) => {
-    setGenerations((prev) => prev.filter((g) => g.id !== id));
+    // Deletion is handled by parent component
   };
+
+  if (generations.length === 0) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center rounded-xl border py-16"
+        style={{
+          borderColor: "var(--border-subtle)",
+          backgroundColor: "var(--bg-card)",
+        }}
+      >
+        <Music className="size-10" style={{ color: "var(--text-muted)", opacity: 0.3 }} />
+        <p className="mt-3 text-sm" style={{ color: "var(--text-muted)" }}>
+          No generations yet
+        </p>
+        <p className="mt-1 text-xs" style={{ color: "var(--text-muted)", opacity: 0.6 }}>
+          Generate your first audio to see it here
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -996,24 +1018,6 @@ function LibraryTab({ voices }: { voices: Voice[] }) {
           </div>
         </div>
       ))}
-
-      {generations.length === 0 && (
-        <div
-          className="flex flex-col items-center justify-center rounded-xl border py-16"
-          style={{
-            borderColor: "var(--border-subtle)",
-            backgroundColor: "var(--bg-card)",
-          }}
-        >
-          <Music className="size-10" style={{ color: "var(--text-muted)", opacity: 0.3 }} />
-          <p className="mt-3 text-sm" style={{ color: "var(--text-muted)" }}>
-            No audio files yet
-          </p>
-          <p className="mt-1 text-xs" style={{ color: "var(--text-muted)", opacity: 0.6 }}>
-            Generate your first audio to see it here
-          </p>
-        </div>
-      )}
     </div>
   );
 }
@@ -1024,7 +1028,8 @@ function LibraryTab({ voices }: { voices: Voice[] }) {
 
 export default function VoiceStudio() {
   const [activeTab, setActiveTab] = useState<"voices" | "generate" | "library">("voices");
-  const [voices, setVoices] = useState<Voice[]>(INITIAL_VOICES);
+  const [voices, setVoices] = useState<Voice[]>([]);
+  const [generations, setGenerations] = useState<Generation[]>([]);
   const [showCloneModal, setShowCloneModal] = useState(false);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
 
@@ -1040,11 +1045,23 @@ export default function VoiceStudio() {
     setVoices((prev) => [...prev, newVoice]);
   };
 
+  const handleAddGeneration = (gen: Generation) => {
+    setGenerations((prev) => [gen, ...prev]);
+  };
+
   const tabs = [
     { key: "voices" as const, label: "My Voices" },
     { key: "generate" as const, label: "Generate" },
     { key: "library" as const, label: "Library" },
   ];
+
+  // Compute total generated duration (simplified)
+  const totalDurationHours = generations.length > 0
+    ? (generations.reduce((acc, g) => {
+        const [m, s] = g.duration.split(":").map(Number);
+        return acc + (m || 0) + (s || 0) / 60;
+      }, 0) / 60).toFixed(1)
+    : "0";
 
   return (
     <div className="min-h-screen p-6 lg:p-8">
@@ -1091,8 +1108,8 @@ export default function VoiceStudio() {
       <div className="mb-8 grid grid-cols-3 gap-4">
         {[
           { label: "Voices Cloned", value: voices.length.toString(), icon: Volume2 },
-          { label: "Audio Files", value: "48", icon: FileAudio },
-          { label: "Generated", value: "2.3hrs", icon: Clock },
+          { label: "Audio Files", value: generations.length.toString(), icon: FileAudio },
+          { label: "Generated", value: `${totalDurationHours}hrs`, icon: Clock },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -1139,22 +1156,48 @@ export default function VoiceStudio() {
       <div className="pb-12">
         {activeTab === "voices" && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {voices.map((voice) => (
-              <VoiceCard
-                key={voice.id}
-                voice={voice}
-                onPlay={() => handlePlayVoice(voice.id)}
-                onDelete={() => handleDeleteVoice(voice.id)}
-                isPlaying={playingVoiceId === voice.id}
-              />
-            ))}
-            <AddVoiceCard onClick={() => setShowCloneModal(true)} />
+            {voices.length === 0 ? (
+              <div
+                className="col-span-full flex flex-col items-center justify-center rounded-xl border py-16"
+                style={{
+                  borderColor: "var(--border-subtle)",
+                  backgroundColor: "var(--bg-card)",
+                }}
+              >
+                <Mic className="size-10" style={{ color: "var(--text-muted)", opacity: 0.3 }} />
+                <p className="mt-3 text-sm font-medium" style={{ color: "var(--text-muted)" }}>
+                  No voices saved yet
+                </p>
+                <p className="mt-1 text-xs" style={{ color: "var(--text-muted)", opacity: 0.6 }}>
+                  Clone a voice to get started
+                </p>
+              </div>
+            ) : (
+              <>
+                {voices.map((voice) => (
+                  <VoiceCard
+                    key={voice.id}
+                    voice={voice}
+                    onPlay={() => handlePlayVoice(voice.id)}
+                    onDelete={() => handleDeleteVoice(voice.id)}
+                    isPlaying={playingVoiceId === voice.id}
+                  />
+                ))}
+                <AddVoiceCard onClick={() => setShowCloneModal(true)} />
+              </>
+            )}
           </div>
         )}
 
-        {activeTab === "generate" && <GenerateTab voices={voices} />}
+        {activeTab === "generate" && (
+          <GenerateTab
+            voices={voices}
+            generations={generations}
+            onAddGeneration={handleAddGeneration}
+          />
+        )}
 
-        {activeTab === "library" && <LibraryTab voices={voices} />}
+        {activeTab === "library" && <LibraryTab generations={generations} />}
       </div>
 
       {/* ── Clone Voice Modal ── */}

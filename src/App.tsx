@@ -15,6 +15,7 @@ const Pipeline = lazy(() => import("@/pages/Pipeline"));
 const Originals = lazy(() => import("@/pages/Originals"));
 const VoiceStudio = lazy(() => import("@/pages/VoiceStudio"));
 const Settings = lazy(() => import("@/pages/Settings"));
+const Projects = lazy(() => import("@/pages/Projects"));
 
 /**
  * ToastRouteHandler — Shows toast notifications for route-level events
@@ -130,6 +131,11 @@ export default function App() {
         <Route path="/settings" element={
           <Suspense fallback={<PageSkeleton />}>
             <Settings />
+          </Suspense>
+        } />
+        <Route path="/projects" element={
+          <Suspense fallback={<PageSkeleton />}>
+            <Projects />
           </Suspense>
         } />
       </Route>

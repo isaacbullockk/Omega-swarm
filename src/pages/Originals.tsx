@@ -35,114 +35,6 @@ interface OriginalContent {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Demo Data                                                          */
-/* ------------------------------------------------------------------ */
-
-const INITIAL_CONTENT: OriginalContent[] = [
-  {
-    id: "1",
-    title: "Kyakuwa Love Story",
-    type: "lyrics",
-    content: "Lost in the rhythm of your heartbeat...",
-    date: "2025-01-15",
-    status: "draft",
-    tags: ["music", "afrobeats", "love"],
-    isAiAssisted: false,
-  },
-  {
-    id: "2",
-    title: "Wildnoff Brand Manifesto",
-    type: "brand",
-    content: "We don't follow trends, we set them. Every creation is a statement, every drop is an event...",
-    date: "2025-01-10",
-    status: "published",
-    tags: ["branding", "manifesto"],
-    isAiAssisted: false,
-  },
-  {
-    id: "3",
-    title: "Summer Collection Script",
-    type: "script",
-    content: "Camera pans across golden savannah. Sunlight filters through acacia trees...",
-    date: "2025-01-08",
-    status: "draft",
-    tags: ["film", "summer"],
-    isAiAssisted: true,
-  },
-  {
-    id: "4",
-    title: "Sunday Release Strategy",
-    type: "idea",
-    content: "Weekly drops at sunset, always. The consistency builds anticipation...",
-    date: "2025-01-05",
-    status: "published",
-    tags: ["strategy", "content"],
-    isAiAssisted: false,
-  },
-  {
-    id: "5",
-    title: "Ndeku Domain Vision",
-    type: "brand",
-    content: "A digital home for creators who dare. Where ideas become movements...",
-    date: "2024-12-28",
-    status: "published",
-    tags: ["vision", "domain"],
-    isAiAssisted: false,
-  },
-  {
-    id: "6",
-    title: "Agent Swarm Concept",
-    type: "idea",
-    content: "12 minds, one mission, infinite output. Each agent specializes, the swarm collaborates...",
-    date: "2024-12-20",
-    status: "draft",
-    tags: ["ai", "automation"],
-    isAiAssisted: true,
-  },
-  {
-    id: "7",
-    title: "Savannah Logo Reveal",
-    type: "video",
-    content: "Gold dust particles forming the W mark against a sunset gradient...",
-    date: "2024-12-15",
-    status: "published",
-    tags: ["motion", "logo"],
-    isAiAssisted: true,
-  },
-  {
-    id: "8",
-    title: "Studio Launch Photos",
-    type: "photo",
-    content: "Behind-the-scenes shots from the Wildnoff studio launch event...",
-    date: "2024-12-10",
-    status: "published",
-    tags: ["event", "photography"],
-    isAiAssisted: false,
-  },
-];
-
-const MY_VOICE_SAMPLES = [
-  {
-    id: "v1",
-    title: "Brand Voice Sample",
-    excerpt: "We don't follow trends, we set them. Every creation is a statement, every drop is an event. Wildnoff isn't just a label — it's a movement for those who refuse to be ordinary.",
-    tone: "Bold & Visionary",
-  },
-  {
-    id: "v2",
-    title: "Creative Direction",
-    excerpt: "Let the light guide the shot. Natural golden hour, no filters. The savannah teaches us that beauty needs no enhancement — only the courage to capture it as it is.",
-    tone: "Poetic & Visual",
-  },
-  {
-    id: "v3",
-    title: "Strategic Thinking",
-    excerpt: "Consistency beats intensity. A drop every Sunday at sunset isn't just scheduling — it's building a ritual. Our audience doesn't just consume content, they anticipate it.",
-    tone: "Analytical & Clear",
-  },
-];
-
-/* ------------------------------------------------------------------ */
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -358,7 +250,7 @@ function AuthenticityGauge({ percentage }: { percentage: number }) {
 /* ------------------------------------------------------------------ */
 
 export default function Originals() {
-  const [content, setContent] = useState<OriginalContent[]>(INITIAL_CONTENT);
+  const [content, setContent] = useState<OriginalContent[]>([]);
   const [activeFilter, setActiveFilter] = useState("all");
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState<{
@@ -703,200 +595,239 @@ export default function Originals() {
       </div>
 
       {/* ======================== CONTENT GRID ======================== */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 20,
-          marginBottom: 48,
-        }}
-      >
-        {filteredContent.map((item, index) => {
-          const typeCfg = TYPE_CONFIG[item.type];
-          const statusCfg = STATUS_CONFIG[item.status];
-          const StatusIcon = statusCfg.icon;
-          const TypeIcon = typeCfg.icon;
+      {filteredContent.length === 0 ? (
+        <div
+          className="animate-fade-up"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "80px 24px",
+            borderRadius: 16,
+            background: "rgba(28,25,23,0.75)",
+            border: "1px solid rgba(245,158,11,0.12)",
+            marginBottom: 48,
+          }}
+        >
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 14,
+              background: "rgba(245,158,11,0.1)",
+              border: "1px solid rgba(245,158,11,0.2)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 16,
+            }}
+          >
+            <PenTool size={24} color="#F59E0B" opacity={0.5} />
+          </div>
+          <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "#FAF5EF" }}>
+            No original content yet
+          </p>
+          <p style={{ margin: "6px 0 0", fontSize: 14, color: "#7A6E5F" }}>
+            Generate your first piece to see it here
+          </p>
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 20,
+            marginBottom: 48,
+          }}
+        >
+          {filteredContent.map((item, index) => {
+            const typeCfg = TYPE_CONFIG[item.type];
+            const statusCfg = STATUS_CONFIG[item.status];
+            const StatusIcon = statusCfg.icon;
+            const TypeIcon = typeCfg.icon;
 
-          return (
-            <div
-              key={item.id}
-              className="animate-stagger-in card-hover-amber"
-              style={{
-                padding: "24px",
-                borderRadius: 16,
-                background: "rgba(28,25,23,0.75)",
-                border: "1px solid rgba(245,158,11,0.12)",
-                animationDelay: `${index * 0.08}s`,
-                opacity: 0,
-                display: "flex",
-                flexDirection: "column",
-                gap: 14,
-              }}
-            >
-              {/* Card header */}
+            return (
               <div
+                key={item.id}
+                className="animate-stagger-in card-hover-amber"
                 style={{
+                  padding: "24px",
+                  borderRadius: 16,
+                  background: "rgba(28,25,23,0.75)",
+                  border: "1px solid rgba(245,158,11,0.12)",
+                  animationDelay: `${index * 0.08}s`,
+                  opacity: 0,
                   display: "flex",
-                  alignItems: "flex-start",
-                  justifyContent: "space-between",
+                  flexDirection: "column",
+                  gap: 14,
                 }}
               >
+                {/* Card header */}
                 <div
                   style={{
                     display: "flex",
-                    alignItems: "center",
-                    gap: 10,
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
                   }}
                 >
                   <div
                     style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 10,
-                      background: typeCfg.bg,
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "center",
+                      gap: 10,
                     }}
                   >
-                    <TypeIcon size={18} color={typeCfg.color} />
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 10,
+                        background: typeCfg.bg,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <TypeIcon size={18} color={typeCfg.color} />
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                        color: typeCfg.color,
+                      }}
+                    >
+                      {typeCfg.label}
+                    </span>
                   </div>
-                  <span
+                  <div
                     style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                      color: typeCfg.color,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: "4px 10px",
+                      borderRadius: 20,
+                      background: `${statusCfg.color}15`,
+                      border: `1px solid ${statusCfg.color}30`,
                     }}
                   >
-                    {typeCfg.label}
-                  </span>
+                    <StatusIcon size={12} color={statusCfg.color} />
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 500,
+                        color: statusCfg.color,
+                      }}
+                    >
+                      {statusCfg.label}
+                    </span>
+                  </div>
                 </div>
+
+                {/* Title */}
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: 17,
+                    fontWeight: 600,
+                    color: "#FAF5EF",
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {item.title}
+                </h3>
+
+                {/* Content preview */}
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 13,
+                    color: "#C4B5A0",
+                    lineHeight: 1.5,
+                    flex: 1,
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }}
+                >
+                  {item.content}
+                </p>
+
+                {/* Tags */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {item.tags.map((tag, ti) => (
+                    <span
+                      key={tag}
+                      className="animate-tag-pop"
+                      style={{
+                        animationDelay: `${0.2 + ti * 0.05}s`,
+                        opacity: 0,
+                        padding: "3px 10px",
+                        borderRadius: 6,
+                        background: "rgba(245,158,11,0.08)",
+                        border: "1px solid rgba(245,158,11,0.15)",
+                        fontSize: 11,
+                        color: "#C4B5A0",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                  {item.isAiAssisted && (
+                    <span
+                      style={{
+                        padding: "3px 10px",
+                        borderRadius: 6,
+                        background: "rgba(6,182,212,0.08)",
+                        border: "1px solid rgba(6,182,212,0.2)",
+                        fontSize: 11,
+                        color: "#06B6D4",
+                        fontWeight: 500,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <Sparkles size={10} />
+                      AI-assisted
+                    </span>
+                  )}
+                </div>
+
+                {/* Date */}
                 <div
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 4,
-                    padding: "4px 10px",
-                    borderRadius: 20,
-                    background: `${statusCfg.color}15`,
-                    border: `1px solid ${statusCfg.color}30`,
+                    justifyContent: "space-between",
+                    paddingTop: 12,
+                    borderTop: "1px solid rgba(41,34,29,0.6)",
                   }}
                 >
-                  <StatusIcon size={12} color={statusCfg.color} />
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 500,
-                      color: statusCfg.color,
-                    }}
-                  >
-                    {statusCfg.label}
+                  <span style={{ fontSize: 12, color: "#7A6E5F" }}>
+                    {new Date(item.date).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
                   </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <PenTool size={12} color="#7A6E5F" />
+                    <span style={{ fontSize: 11, color: "#7A6E5F" }}>
+                      {item.isAiAssisted ? "AI + Human" : "100% Original"}
+                    </span>
+                  </div>
                 </div>
               </div>
-
-              {/* Title */}
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: 17,
-                  fontWeight: 600,
-                  color: "#FAF5EF",
-                  lineHeight: 1.3,
-                }}
-              >
-                {item.title}
-              </h3>
-
-              {/* Content preview */}
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 13,
-                  color: "#C4B5A0",
-                  lineHeight: 1.5,
-                  flex: 1,
-                  display: "-webkit-box",
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                }}
-              >
-                {item.content}
-              </p>
-
-              {/* Tags */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {item.tags.map((tag, ti) => (
-                  <span
-                    key={tag}
-                    className="animate-tag-pop"
-                    style={{
-                      animationDelay: `${0.2 + ti * 0.05}s`,
-                      opacity: 0,
-                      padding: "3px 10px",
-                      borderRadius: 6,
-                      background: "rgba(245,158,11,0.08)",
-                      border: "1px solid rgba(245,158,11,0.15)",
-                      fontSize: 11,
-                      color: "#C4B5A0",
-                      fontWeight: 500,
-                    }}
-                  >
-                    {tag}
-                  </span>
-                ))}
-                {item.isAiAssisted && (
-                  <span
-                    style={{
-                      padding: "3px 10px",
-                      borderRadius: 6,
-                      background: "rgba(6,182,212,0.08)",
-                      border: "1px solid rgba(6,182,212,0.2)",
-                      fontSize: 11,
-                      color: "#06B6D4",
-                      fontWeight: 500,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                  >
-                    <Sparkles size={10} />
-                    AI-assisted
-                  </span>
-                )}
-              </div>
-
-              {/* Date */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  paddingTop: 12,
-                  borderTop: "1px solid rgba(41,34,29,0.6)",
-                }}
-              >
-                <span style={{ fontSize: 12, color: "#7A6E5F" }}>
-                  {new Date(item.date).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </span>
-                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <PenTool size={12} color="#7A6E5F" />
-                  <span style={{ fontSize: 11, color: "#7A6E5F" }}>
-                    {item.isAiAssisted ? "AI + Human" : "100% Original"}
-                  </span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* ======================== MY VOICE SECTION ======================== */}
       <div className="animate-fade-up stagger-4">
@@ -941,70 +872,37 @@ export default function Originals() {
 
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 20,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "60px 24px",
+            borderRadius: 16,
+            background: "rgba(28,25,23,0.75)",
+            border: "1px solid rgba(245,158,11,0.12)",
           }}
         >
-          {MY_VOICE_SAMPLES.map((sample, index) => (
-            <div
-              key={sample.id}
-              className="animate-voice-slide voice-card-hover"
-              style={{
-                animationDelay: `${0.15 * (index + 1)}s`,
-                padding: "24px",
-                borderRadius: 16,
-                background: "rgba(28,25,23,0.75)",
-                border: "1px solid rgba(245,158,11,0.12)",
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <h4
-                  style={{
-                    margin: 0,
-                    fontSize: 15,
-                    fontWeight: 600,
-                    color: "#F59E0B",
-                  }}
-                >
-                  {sample.title}
-                </h4>
-                <span
-                  style={{
-                    padding: "3px 10px",
-                    borderRadius: 20,
-                    background: "rgba(245,158,11,0.1)",
-                    border: "1px solid rgba(245,158,11,0.2)",
-                    fontSize: 11,
-                    color: "#C4B5A0",
-                    fontWeight: 500,
-                  }}
-                >
-                  {sample.tone}
-                </span>
-              </div>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 14,
-                  color: "#C4B5A0",
-                  lineHeight: 1.65,
-                  fontStyle: "italic",
-                }}
-              >
-                &ldquo;{sample.excerpt}&rdquo;
-              </p>
-            </div>
-          ))}
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              background: "rgba(245,158,11,0.1)",
+              border: "1px solid rgba(245,158,11,0.2)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 12,
+            }}
+          >
+            <TrendingUp size={20} color="#F59E0B" opacity={0.5} />
+          </div>
+          <p style={{ margin: 0, fontSize: 15, fontWeight: 500, color: "#FAF5EF" }}>
+            No voice samples yet
+          </p>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: "#7A6E5F" }}>
+            Add content to build your voice profile
+          </p>
         </div>
       </div>
 

@@ -71,11 +71,39 @@ export const socialRouter = router({
       const accounts = getSocialAccounts().filter(
         (a) => a.platform === input.platform
       );
+
+      // Also check environment variables as fallback
+      const hasInstagramEnv = !!(
+        process.env.INSTAGRAM_ACCESS_TOKEN &&
+        process.env.INSTAGRAM_ACCOUNT_ID
+      );
+      const hasBufferEnv = !!process.env.BUFFER_API_KEY;
+
+      let envAccount = null;
+      if (input.platform === "instagram" && hasInstagramEnv && accounts.length === 0) {
+        envAccount = {
+          id: "instagram_env",
+          platform: "instagram" as const,
+          accountName: "Instagram (ENV)",
+          handle: "@connected",
+          connected: true,
+          accessToken: "[from env]",
+          pageId: process.env.INSTAGRAM_ACCOUNT_ID,
+          connectedAt: new Date().toISOString(),
+        };
+      }
+
+      const allAccounts = envAccount ? [...accounts, envAccount] : accounts;
+
       return {
         platform: input.platform,
-        total: accounts.length,
-        connected: accounts.filter((a) => a.connected).length,
-        accounts,
+        total: allAccounts.length,
+        connected: allAccounts.filter((a) => a.connected).length,
+        accounts: allAccounts,
+        envConnected: {
+          instagram: hasInstagramEnv,
+          buffer: hasBufferEnv,
+        },
       };
     }),
 

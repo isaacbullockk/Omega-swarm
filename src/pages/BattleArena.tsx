@@ -2,18 +2,16 @@ import React, { useState } from "react";
 import {
   Swords,
   Trophy,
-  Timer,
-  TrendingUp,
-  ChevronDown,
-  ChevronUp,
-  Swords as SwordsIcon,
   Zap,
   Target,
   DollarSign,
   MousePointerClick,
   Users,
+  TrendingUp,
   ShoppingCart,
-  Flame,
+  ChevronDown,
+  ChevronUp,
+  Swords as SwordsIcon,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -50,50 +48,6 @@ const metrics: MetricOption[] = [
 const championOptions = ["No campaigns yet"];
 
 const challengerOptions = ["Start your first mission"];
-
-// ─── Mini Sparkline Component ────────────────────────────────────────────────
-
-const MiniSparkline: React.FC<{ color?: string }> = ({ color = "#22C55E" }) => {
-  const points = [20, 35, 28, 45, 38, 52, 48, 65, 58, 72, 68, 78];
-  const width = 120;
-  const height = 36;
-  const max = Math.max(...points);
-  const min = Math.min(...points);
-  const range = max - min || 1;
-
-  const svgPoints = points
-    .map((p, i) => {
-      const x = (i / (points.length - 1)) * width;
-      const y = height - ((p - min) / range) * height;
-      return `${x},${y}`;
-    })
-    .join(" ");
-
-  const areaPoints = `0,${height} ${svgPoints} ${width},${height}`;
-
-  return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="opacity-80">
-      <defs>
-        <linearGradient id={`sparklineGrad-${color.replace("#", "")}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity={0.3} />
-          <stop offset="100%" stopColor={color} stopOpacity={0} />
-        </linearGradient>
-      </defs>
-      <polygon
-        points={areaPoints}
-        fill={`url(#sparklineGrad-${color.replace("#", "")})`}
-      />
-      <polyline
-        points={svgPoints}
-        fill="none"
-        stroke={color}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-};
 
 // ─── Components ──────────────────────────────────────────────────────────────
 
@@ -147,113 +101,26 @@ const BattleArena: React.FC = () => {
         </div>
 
         {/* ═══════════════════════════════════════════
-            SECTION 2: Active Battle
+            SECTION 2: Active Battle (Empty State)
         ═══════════════════════════════════════════ */}
         <div className="mb-8">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Flame size={18} className="text-[#F59E0B]" />
+            <Zap size={18} className="text-[#F59E0B]" />
             Active Battle
           </h2>
 
-          <div className="bg-[#0D1117] border border-[#21262D] rounded-2xl overflow-hidden">
-            {/* Champion vs Challenger */}
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-0">
-              {/* Champion (A) */}
-              <div className="p-6 md:p-8 border-b md:border-b-0 md:border-r border-[#21262D] bg-[#22C55E]/[0.02]">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 rounded-lg bg-[#22C55E]/10 border border-[#22C55E]/20 flex items-center justify-center">
-                    <Trophy size={16} className="text-[#22C55E]" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-[#22C55E] font-bold uppercase tracking-wider">Champion (A)</div>
-                  </div>
-                </div>
-                <h3 className="text-xl font-bold text-[#F0F6FC] mb-1">Current Best Campaign</h3>
-                <div className="flex items-center gap-4 mb-4">
-                  <div>
-                    <div className="text-3xl font-bold text-[#22C55E]">78.2%</div>
-                    <div className="text-xs text-[#8B949E] mt-0.5">Win Rate</div>
-                  </div>
-                  <div className="text-xs text-[#484F58] bg-[#161B22] px-2 py-1 rounded-md">
-                    Conversion Rate
-                  </div>
-                </div>
-                <div className="flex items-end justify-between">
-                  <MiniSparkline color="#22C55E" />
-                  <div className="text-xs text-[#22C55E] font-mono flex items-center gap-1">
-                    <TrendingUp size={10} />
-                    +12.4%
-                  </div>
-                </div>
-              </div>
-
-              {/* VS */}
-              <div className="flex items-center justify-center py-4 md:py-0 md:px-6 bg-[#0A0A0F]/50">
-                <div className="text-center">
-                  <div className="text-2xl font-black text-[#484F58] tracking-widest">VS</div>
-                  <div className="text-[10px] text-[#484F58] mt-1 uppercase tracking-widest">Live</div>
-                </div>
-              </div>
-
-              {/* Challenger (B) */}
-              <div className="p-6 md:p-8 border-t md:border-t-0 md:border-l border-[#21262D] bg-[#F59E0B]/[0.02]">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 rounded-lg bg-[#F59E0B]/10 border border-[#F59E0B]/20 flex items-center justify-center">
-                    <Zap size={16} className="text-[#F59E0B]" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-[#F59E0B] font-bold uppercase tracking-wider">Challenger (B)</div>
-                  </div>
-                </div>
-                <h3 className="text-xl font-bold text-[#F0F6FC] mb-1">New Variant #44</h3>
-                <div className="flex items-center gap-4 mb-4">
-                  <div>
-                    <div className="text-3xl font-bold text-[#F59E0B]">—</div>
-                    <div className="text-xs text-[#8B949E] mt-0.5">Win Rate</div>
-                  </div>
-                  <div className="text-xs text-[#484F58] bg-[#161B22] px-2 py-1 rounded-md">
-                    Conversion Rate
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-[#F59E0B]">
-                  <Timer size={12} />
-                  <span className="font-medium animate-pulse">Running test...</span>
-                </div>
-                <div className="mt-3 h-9" /> {/* spacer to align with sparkline */}
-              </div>
+          <div
+            className="flex flex-col items-center justify-center rounded-2xl border border-[#21262D] bg-[#0D1117] py-20"
+          >
+            <div className="w-16 h-16 rounded-2xl bg-[#9333EA]/10 border border-[#9333EA]/20 flex items-center justify-center mb-6">
+              <Swords size={32} className="text-[#9333EA] opacity-50" />
             </div>
-
-            {/* Live Battle Progress Bar */}
-            <div className="px-6 md:px-8 py-5 border-t border-[#21262D] bg-[#161B22]/30">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-[#22C55E] animate-pulse" />
-                  <span className="text-xs text-[#8B949E] font-medium">Live Results</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs font-mono text-[#484F58]">
-                  <Timer size={12} />
-                  Running 00:04:23
-                </div>
-              </div>
-              <div className="flex gap-1 h-3">
-                <div
-                  className="bg-gradient-to-r from-[#22C55E] to-[#22C55E]/70 rounded-l-full transition-all duration-700 flex items-center justify-end pr-1"
-                  style={{ width: "58%" }}
-                >
-                  <span className="text-[9px] font-bold text-white/80">A</span>
-                </div>
-                <div
-                  className="bg-gradient-to-l from-[#F59E0B] to-[#F59E0B]/70 rounded-r-full transition-all duration-700 flex items-center pl-1"
-                  style={{ width: "42%" }}
-                >
-                  <span className="text-[9px] font-bold text-white/80">B</span>
-                </div>
-              </div>
-              <div className="flex justify-between mt-2">
-                <span className="text-xs text-[#22C55E] font-bold">58%</span>
-                <span className="text-xs text-[#F59E0B] font-bold">42%</span>
-              </div>
-            </div>
+            <p className="text-lg font-semibold text-[#F0F6FC]">
+              No battles fought yet
+            </p>
+            <p className="text-sm text-[#8B949E] mt-2">
+              Start a battle to compare agents
+            </p>
           </div>
         </div>
 
@@ -321,6 +188,16 @@ const BattleArena: React.FC = () => {
                 </div>
               ))}
             </div>
+
+            {/* Empty state for battle history */}
+            {battleHistory.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16">
+                <Target size={32} className="text-[#3B82F6] opacity-30" />
+                <p className="mt-3 text-sm text-[#8B949E]">
+                  No battle history yet
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

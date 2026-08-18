@@ -122,31 +122,43 @@ export const postRouter = router({
       topic: z.string().min(1),
       brandVoice: z.string().optional(),
       imageProvider: z.enum(["pollinations", "openai"]).optional().default("pollinations"),
+      referenceAssets: z.array(z.object({
+        name: z.string(),
+        url: z.string().optional(),
+        dataUrl: z.string().optional(),
+        description: z.string().optional(),
+      })).optional().default([]),
     }))
     .mutation(async ({ input }) => {
       const id = `post_${Date.now()}`;
 
+      // Build reference context from uploaded assets
+      const refContext = input.referenceAssets.length > 0
+        ? "\n\nReference materials to incorporate:\n" +
+          input.referenceAssets.map((a, i) => `  [Ref ${i + 1}] ${a.name}${a.description ? `: ${a.description}` : ""}`).join("\n")
+        : "";
+
       // 1. Generate caption with AI (Groq — fast, ~1s)
       let caption: string;
       try {
-        caption = await generateCaption(input.topic, input.brandVoice);
+        caption = await generateCaption(input.topic + refContext, input.brandVoice);
       } catch (e) {
         throw new Error(`AI caption failed: ${e instanceof Error ? e.message : "Unknown"}`);
       }
 
       // 2. Build image URL immediately
       let imageUrl: string | undefined;
+      const imagePromptBase = input.referenceAssets.length > 0
+        ? `Instagram post inspired by references: ${input.topic}. Professional marketing visual. Reference style: ${input.referenceAssets[0]?.description || input.referenceAssets[0]?.name || ""}.`
+        : `Instagram post: ${input.topic}. Professional marketing visual.`;
       if (input.imageProvider === "openai") {
         try {
-          imageUrl = await generateImage(
-            `Instagram post: ${input.topic}. Professional marketing visual.`,
-            "openai"
-          );
+          imageUrl = await generateImage(imagePromptBase, "openai");
         } catch (e) {
           console.log("DALL-E image failed:", e);
         }
       } else {
-        const encoded = encodeURIComponent(`Instagram post: ${input.topic}. Professional marketing visual.`);
+        const encoded = encodeURIComponent(imagePromptBase);
         imageUrl = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true&seed=${Math.floor(Math.random() * 1000000)}`;
       }
 

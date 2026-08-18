@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Hexagon,
+  Briefcase,
 } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -52,6 +53,12 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Brand Voice", path: "/brand-voice", icon: <Mic className="size-[18px]" /> },
       { label: "Analytics", path: "/pipeline", icon: <BarChart3 className="size-[18px]" /> },
       { label: "Originals", path: "/originals", icon: <Sparkles className="size-[18px]" /> },
+    ],
+  },
+  {
+    title: "Clients",
+    items: [
+      { label: "Projects", path: "/projects", icon: <Briefcase className="size-[18px]" /> },
     ],
   },
   {

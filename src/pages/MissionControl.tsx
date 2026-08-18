@@ -8,11 +8,6 @@ import {
   Swords,
   Terminal,
   Activity,
-  Shield,
-  Globe,
-  Lock,
-  Flower2,
-  TrendingUp,
   ChevronDown,
   Volume2,
 } from "lucide-react";
@@ -103,60 +98,14 @@ const TIMELINE_OPTIONS = [
   { value: "3m", label: "3 months" },
 ];
 
-const INITIAL_LOGS: LogEntry[] = [
-  { timestamp: "--:--:--", agent: "System", agentColor: "#7A6E5F", message: "Omega Swarm initialized. Waiting for mission..." },
-];
-
-const DEPLOY_SEQUENCE: LogEntry[] = [
-  { timestamp: "--:--:--", agent: "Prime", agentColor: "#F59E0B", message: ">> Awaiting mission parameters..." },
-];
-
 /* ───────── Helper: get position on circle ───────── */
 function getCirclePos(angleDeg: number, radius: number, cx: number, cy: number) {
   const rad = (angleDeg * Math.PI) / 180;
   return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) };
 }
 
-/* ───────── AnimatedTypingLine component ───────── */
-function AnimatedTypingLine({ log }: { log: LogEntry }) {
-  const [displayed, setDisplayed] = useState("");
-  const fullText = log.message;
-  const speed = 15; // ms per char
-
-  useEffect(() => {
-    let i = 0;
-    const timer = setInterval(() => {
-      i++;
-      setDisplayed(fullText.slice(0, i));
-      if (i >= fullText.length) clearInterval(timer);
-    }, speed);
-    return () => clearInterval(timer);
-  }, [fullText]);
-
-  return (
-    <div className="flex items-start gap-2">
-      <span className="shrink-0" style={{ color: "#7A6E5F", fontFamily: "var(--font-mono)" }}>
-        [{log.timestamp}]
-      </span>
-      <span className="shrink-0 font-semibold min-w-[80px]" style={{ color: log.agentColor, fontFamily: "var(--font-mono)" }}>
-        {log.agent}:
-      </span>
-      <span style={{ color: "#FAF5EF", fontFamily: "var(--font-mono)" }}>
-        {displayed}
-        {displayed.length < fullText.length && (
-          <span className="animate-blink" style={{ color: "#F59E0B" }}>|</span>
-        )}
-      </span>
-    </div>
-  );
-}
-
-/* ───────── ConsoleLine component ───────── */
-function ConsoleLine({ log, index }: { log: LogEntry; index: number }) {
-  const isNew = index >= 7; // first 7 are initial logs
-  if (isNew) {
-    return <AnimatedTypingLine log={log} />;
-  }
+/* ───────── Log line component ───────── */
+function LogLine({ log }: { log: LogEntry }) {
   return (
     <div className="flex items-start gap-2">
       <span className="shrink-0" style={{ color: "#7A6E5F", fontFamily: "var(--font-mono)" }}>
@@ -179,7 +128,7 @@ export default function MissionControl() {
   const [swarmMode, setSwarmMode] = useState("parallel");
   const [activeLayers, setActiveLayers] = useState<string[]>(LAYERS.map((l) => l.id));
   const [isDeploying, setIsDeploying] = useState(false);
-  const [logs, setLogs] = useState<LogEntry[]>(INITIAL_LOGS);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; data: AgentTooltipData } | null>(null);
   const [deployed, setDeployed] = useState(false);
   const consoleRef = useRef<HTMLDivElement>(null);
@@ -198,48 +147,75 @@ export default function MissionControl() {
     );
   }, []);
 
+  /* Deploy mission via tRPC */
+  const deployMutation = trpc.agent.executeMission.useMutation({
+    onSuccess: (data) => {
+      setIsDeploying(false);
+      setDeployed(true);
+      setLogs((prev) => [
+        ...prev,
+        {
+          timestamp: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+          agent: "Prime",
+          agentColor: "#F59E0B",
+          message: `Campaign deployed. ${data.agentsExecuted} agents executed (ID: ${data.campaignId})`,
+        },
+      ]);
+    },
+    onError: (err) => {
+      setIsDeploying(false);
+      setLogs((prev) => [
+        ...prev,
+        {
+          timestamp: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+          agent: "System",
+          agentColor: "#EF4444",
+          message: `Deployment failed: ${err.message}`,
+        },
+      ]);
+    },
+  });
+
+  const handleDeploy = useCallback(() => {
+    if (!objective.trim() || !budget || !timeline) return;
+    setIsDeploying(true);
+    setLogs((prev) => [
+      ...prev,
+      {
+        timestamp: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+        agent: "Prime",
+        agentColor: "#F59E0B",
+        message: "\u2501\u2501\u2501 DEPLOYMENT INITIATED \u2501\u2501\u2501",
+      },
+    ]);
+    deployMutation.mutate({
+      objective,
+      budget,
+      timeline,
+      mode: swarmMode,
+    });
+  }, [objective, budget, timeline, swarmMode, deployMutation]);
+
   /* Post to social */
   const postMutation = trpc.post.create.useMutation({
     onSuccess: (data) => {
       setLogs((prev) => [...prev, {
         timestamp: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-        agent: "Pulse", agentColor: "#EC4899", message: `✅ POSTED: "${data.caption.substring(0, 60)}..."`,
+        agent: "Pulse", agentColor: "#EC4899", message: `POSTED: "${data.caption.substring(0, 60)}..."`,
       }]);
     },
     onError: (err) => {
       setLogs((prev) => [...prev, {
         timestamp: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-        agent: "Pulse", agentColor: "#EF4444", message: `❌ Post failed: ${err.message}`,
+        agent: "Pulse", agentColor: "#EF4444", message: `Post failed: ${err.message}`,
       }]);
     },
   });
 
   const handlePost = useCallback(() => {
     if (!objective.trim()) return;
-    postMutation.mutate({ topic: objective, brandVoice: brandVoice.tone });
+    postMutation.mutate({ topic: objective, brandVoice });
   }, [objective, brandVoice, postMutation]);
-
-  /* Deploy handler */
-  const handleDeploy = useCallback(() => {
-    if (!objective.trim() || !budget || !timeline) return;
-    setIsDeploying(true);
-    setDeployed(true);
-    setLogs((prev) => [
-      ...prev,
-      { timestamp: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }), agent: "Prime", agentColor: "#F59E0B", message: "\u2501\u2501\u2501 DEPLOYMENT INITIATED \u2501\u2501\u2501" },
-    ]);
-
-    let i = 0;
-    const interval = setInterval(() => {
-      if (i >= DEPLOY_SEQUENCE.length) {
-        clearInterval(interval);
-        setIsDeploying(false);
-        return;
-      }
-      setLogs((prev) => [...prev, DEPLOY_SEQUENCE[i]]);
-      i++;
-    }, 700);
-  }, [objective, budget, timeline]);
 
   /* SVG Topology dimensions */
   const svgSize = 400;
@@ -674,9 +650,13 @@ export default function MissionControl() {
                 }}
               >
                 <div className="space-y-1.5">
-                  {logs.map((log, i) => (
-                    <ConsoleLine key={i} log={log} index={i} />
-                  ))}
+                  {logs.length === 0 ? (
+                    <div className="flex items-center justify-center h-full" style={{ color: "var(--text-muted)" }}>
+                      <span>Submit a mission to see deployment logs</span>
+                    </div>
+                  ) : (
+                    logs.map((log, i) => <LogLine key={i} log={log} />)
+                  )}
                 </div>
               </div>
             </div>

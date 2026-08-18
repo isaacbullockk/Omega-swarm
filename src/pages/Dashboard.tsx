@@ -20,6 +20,7 @@ import {
   Brain,
   RefreshCw,
   AlertCircle,
+  BarChart3,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
@@ -27,60 +28,12 @@ import { trpc } from "@/lib/trpc";
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-interface AgentData {
-  id: string;
-  name: string;
-  emoji: string;
-  color: string;
-  glowColor: string;
-  status: "online" | "busy" | "offline" | "idle";
-}
-
 interface ActivityItem {
   id: string;
   agentColor: string;
   agentName: string;
   description: string;
   timestamp: string;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Agent Data                                                         */
-/* ------------------------------------------------------------------ */
-
-const AGENTS: AgentData[] = [
-  { id: "a1", name: "Copywriter", emoji: "✍️", color: "#F59E0B", glowColor: "rgba(245,158,11,0.3)", status: "idle" },
-  { id: "a2", name: "Social Media", emoji: "📱", color: "#EC4899", glowColor: "rgba(236,72,153,0.3)", status: "idle" },
-  { id: "a3", name: "Sales", emoji: "💰", color: "#EF4444", glowColor: "rgba(239,68,68,0.3)", status: "idle" },
-  { id: "a4", name: "Creative Dir.", emoji: "🎨", color: "#A855F7", glowColor: "rgba(168,85,247,0.3)", status: "idle" },
-  { id: "a5", name: "SEO", emoji: "🔍", color: "#84CC16", glowColor: "rgba(132,204,22,0.3)", status: "idle" },
-  { id: "a6", name: "Analytics", emoji: "📊", color: "#06B6D4", glowColor: "rgba(6,182,212,0.3)", status: "idle" },
-  { id: "a7", name: "Sentinel", emoji: "🛡️", color: "#3B82F6", glowColor: "rgba(59,130,246,0.3)", status: "idle" },
-  { id: "a8", name: "GEO", emoji: "🌍", color: "#14B8A6", glowColor: "rgba(20,184,166,0.3)", status: "idle" },
-  { id: "a9", name: "Privacy", emoji: "🔒", color: "#6366F1", glowColor: "rgba(99,102,241,0.3)", status: "idle" },
-  { id: "a10", name: "Ambient", emoji: "🌸", color: "#D946EF", glowColor: "rgba(217,70,239,0.3)", status: "idle" },
-  { id: "a11", name: "Budget RL", emoji: "💹", color: "#22C55E", glowColor: "rgba(34,197,94,0.3)", status: "idle" },
-  { id: "a13", name: "Legal", emoji: "⚖️", color: "#8B5CF6", glowColor: "rgba(139,92,246,0.3)", status: "idle" },
-  { id: "a14", name: "Accountant", emoji: "🧮", color: "#14B8A6", glowColor: "rgba(20,184,166,0.3)", status: "idle" },
-  { id: "a12", name: "Orchestrator", emoji: "🧠", color: "#F59E0B", glowColor: "rgba(245,158,11,0.4)", status: "idle" },
-];
-
-/* ------------------------------------------------------------------ */
-/*  Chart Data                                                         */
-/* ------------------------------------------------------------------ */
-
-function generateRevenueData() {
-  const data: { date: string; revenue: number }[] = [];
-  const now = new Date();
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    data.push({
-      date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      revenue: 0,
-    });
-  }
-  return data;
 }
 
 /* ------------------------------------------------------------------ */
@@ -214,67 +167,6 @@ function StatCardSkeleton({ delay }: { delay: number }) {
   );
 }
 
-/** Agent Orb */
-function AgentOrb({
-  agent,
-  index,
-  onClick,
-}: {
-  agent: AgentData;
-  index: number;
-  onClick: () => void;
-}) {
-  const statusColor =
-    agent.status === "online"
-      ? "#22C55E"
-      : agent.status === "busy"
-        ? "#F59E0B"
-        : "#6B7280";
-
-  return (
-    <button
-      onClick={onClick}
-      className="group flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all duration-200 hover:bg-white/5 animate-scale-in"
-      style={{ animationDelay: `${0.3 + index * 0.1}s` }}
-    >
-      <div className="relative">
-        {/* Glow ring for active agents */}
-        {agent.status === "online" && (
-          <div
-            className="absolute inset-0 rounded-full animate-pulse-glow"
-            style={{
-              margin: -4,
-              border: `2px solid ${agent.color}`,
-              opacity: 0.4,
-            }}
-          />
-        )}
-        <div
-          className="flex size-12 items-center justify-center rounded-full border-2 text-xl transition-transform duration-200 group-hover:scale-110"
-          style={{
-            borderColor: agent.color,
-            background: `${agent.color}15`,
-            boxShadow: agent.status === "online" ? `0 0 12px ${agent.glowColor}` : "none",
-          }}
-        >
-          {agent.emoji}
-        </div>
-        {/* Status dot */}
-        <span
-          className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2"
-          style={{ borderColor: "var(--bg-base)", background: statusColor }}
-        />
-      </div>
-      <span
-        className="text-[10px] font-medium truncate max-w-[60px]"
-        style={{ color: "var(--text-secondary)" }}
-      >
-        {agent.name}
-      </span>
-    </button>
-  );
-}
-
 /** Activity Feed Item */
 function ActivityFeedItem({
   activity,
@@ -359,53 +251,33 @@ function ErrorState({
   );
 }
 
-/** Quick Task Item */
-function QuickTask({
-  text,
-  agentColor,
-  agentName,
-  index,
+/** Empty State */
+function EmptyState({
+  icon,
+  title,
+  description,
+  action,
 }: {
-  text: string;
-  agentColor: string;
-  agentName: string;
-  index: number;
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  action?: React.ReactNode;
 }) {
-  const [checked, setChecked] = useState(false);
   return (
-    <div
-      className="flex items-center gap-3 py-2.5 animate-fade-up"
-      style={{ animationDelay: `${0.7 + index * 0.08}s` }}
-    >
-      <button
-        onClick={() => setChecked(!checked)}
-        className="flex size-5 shrink-0 items-center justify-center rounded border transition-colors duration-200"
-        style={{
-          borderColor: checked ? agentColor : "var(--border-subtle)",
-          background: checked ? `${agentColor}20` : "transparent",
-        }}
+    <div className="flex flex-col items-center justify-center gap-3 py-10">
+      <div
+        className="flex size-12 items-center justify-center rounded-full"
+        style={{ background: "rgba(245, 158, 11, 0.1)" }}
       >
-        {checked && (
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M2 6L5 9L10 3" stroke={agentColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        )}
-      </button>
-      <span
-        className="flex-1 text-sm transition-all duration-200"
-        style={{
-          color: checked ? "var(--text-muted)" : "var(--text-secondary)",
-          textDecoration: checked ? "line-through" : "none",
-        }}
-      >
-        {text}
-      </span>
-      <span
-        className="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-medium"
-        style={{ background: `${agentColor}15`, color: agentColor }}
-      >
-        {agentName}
-      </span>
+        {icon}
+      </div>
+      <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+        {title}
+      </p>
+      <p className="text-xs text-center max-w-[240px]" style={{ color: "var(--text-muted)" }}>
+        {description}
+      </p>
+      {action}
     </div>
   );
 }
@@ -477,14 +349,11 @@ export default function Dashboard() {
   const agentsOnline = stats?.agentsOnline ?? 0;
   const totalViews = stats?.totalViews ?? 0;
 
-  /* Animated count-up values — animate from 0 to real values */
+  /* Animated count-up values -- animate from 0 to real values */
   const engagementValue = useCountUp(totalEngagement, 0.5, 0.3);
   const campaignsValue = useCountUp(activeCampaignsCount, 0.5, 0.4);
   const agentsOnlineValue = useCountUp(agentsOnline, 0.5, 0.5);
   const contentValue = useCountUp(totalContentPieces, 0.5, 0.6);
-
-  /* Chart data */
-  const revenueData = useMemo(() => generateRevenueData(), []);
 
   /* Activity items from real events */
   const activities: ActivityItem[] = useMemo(() => {
@@ -510,7 +379,7 @@ export default function Dashboard() {
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-6">
-      {/* ═══════════════════ Section 1: Welcome Banner ═══════════════════ */}
+      {/* =================== Section 1: Welcome Banner =================== */}
       <div
         className="relative overflow-hidden rounded-2xl p-8 animate-fade-up"
         style={{
@@ -565,7 +434,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ═══════════════════ Section 2: Stats Row ═══════════════════ */}
+      {/* =================== Section 2: Stats Row =================== */}
       {hasError && !isLoading ? (
         <ErrorState
           message="Failed to load dashboard data. Please try again."
@@ -604,7 +473,7 @@ export default function Dashboard() {
                 icon={<Bot className="size-5 text-cyan-400" />}
                 iconBg="rgba(6, 182, 212, 0.12)"
                 label="Agents online"
-                value={`${agentsOnlineValue} / 14`}
+                value={String(agentsOnlineValue)}
                 trend="All available"
                 trendColor="var(--text-muted)"
                 delay={0.54}
@@ -623,9 +492,9 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ═══════════════════ Section 3: Two-Column Layout ═══════════════════ */}
+      {/* =================== Section 3: Two-Column Layout =================== */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-        {/* ── Left Column (65% ~ 3/5) ── */}
+        {/* -- Left Column (65% ~ 3/5) -- */}
         <div className="xl:col-span-3 space-y-6">
           {/* Revenue Chart */}
           <div
@@ -644,60 +513,25 @@ export default function Dashboard() {
               >
                 Revenue Overview
               </h2>
-              <div className="flex gap-1">
-                {["7D", "30D", "90D"].map((t) => (
-                  <button
-                    key={t}
-                    className="rounded-lg px-3 py-1 text-xs font-medium transition-colors duration-200"
-                    style={{
-                      color: t === "30D" ? "var(--text-primary)" : "var(--text-muted)",
-                      background: t === "30D" ? "rgba(245, 158, 11, 0.15)" : "transparent",
-                    }}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
             </div>
-            <div className="h-[280px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={revenueData}>
-                  <defs>
-                    <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#F59E0B" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="#F59E0B" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="var(--border-subtle)"
-                    strokeOpacity={0.5}
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-                    axisLine={{ stroke: "var(--border-subtle)" }}
-                    tickLine={false}
-                    interval={4}
-                  />
-                  <YAxis
-                    tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(v: number) => `$${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`}
-                  />
-                  <Tooltip content={<ChartTooltipContent />} />
-                  <Area
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="#F59E0B"
-                    strokeWidth={2}
-                    fill="url(#revGradient)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            <EmptyState
+              icon={<BarChart3 className="size-6" style={{ color: "var(--accent-primary)" }} />}
+              title="No revenue data yet"
+              description="Deploy your first campaign to start tracking revenue performance."
+              action={
+                <button
+                  onClick={() => navigate("/mission-control")}
+                  className="mt-2 flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-medium transition-all duration-200 hover:scale-[1.02]"
+                  style={{
+                    background: "rgba(245, 158, 11, 0.15)",
+                    color: "var(--accent-primary)",
+                  }}
+                >
+                  <Rocket className="size-3.5" />
+                  Start a Mission
+                </button>
+              }
+            />
           </div>
 
           {/* Activity Feed */}
@@ -747,9 +581,9 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ── Right Column (35% ~ 2/5) ── */}
+        {/* -- Right Column (35% ~ 2/5) -- */}
         <div className="xl:col-span-2 space-y-6">
-          {/* Agent Status Orbs */}
+          {/* Agent Status */}
           <div
             className="rounded-2xl border p-6 animate-fade-up"
             style={{
@@ -765,16 +599,24 @@ export default function Dashboard() {
             >
               Active Agents
             </h2>
-            <div className="grid grid-cols-4 gap-2">
-              {AGENTS.map((agent, idx) => (
-                <AgentOrb
-                  key={agent.id}
-                  agent={agent}
-                  index={idx}
-                  onClick={() => navigate("/agents")}
-                />
-              ))}
-            </div>
+            <EmptyState
+              icon={<Bot className="size-6" style={{ color: "var(--accent-primary)" }} />}
+              title="No agents deployed yet"
+              description="Launch a mission to activate your AI agents."
+              action={
+                <button
+                  onClick={() => navigate("/mission-control")}
+                  className="mt-2 flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-medium transition-all duration-200 hover:scale-[1.02]"
+                  style={{
+                    background: "rgba(245, 158, 11, 0.15)",
+                    color: "var(--accent-primary)",
+                  }}
+                >
+                  <Rocket className="size-3.5" />
+                  Deploy Agents
+                </button>
+              }
+            />
           </div>
 
           {/* Quick Tasks */}
@@ -793,26 +635,11 @@ export default function Dashboard() {
             >
               Quick Tasks
             </h2>
-            <div>
-              <QuickTask
-                text="Write product description for new collection"
-                agentColor="#F59E0B"
-                agentName="Copywriter"
-                index={0}
-              />
-              <QuickTask
-                text="Schedule social posts for next week"
-                agentColor="#EC4899"
-                agentName="Social Media"
-                index={1}
-              />
-              <QuickTask
-                text="Review SEO report and approve changes"
-                agentColor="#84CC16"
-                agentName="SEO"
-                index={2}
-              />
-            </div>
+            <EmptyState
+              icon={<FileText className="size-6" style={{ color: "var(--accent-primary)" }} />}
+              title="No tasks yet"
+              description="Create a mission to generate tasks for your agents."
+            />
           </div>
 
           {/* Quick Actions */}
@@ -873,7 +700,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ═══════════════════ Section 4: Campaign Preview ═══════════════════ */}
+      {/* =================== Section 4: Campaign Preview =================== */}
       {campaignsError ? (
         <ErrorState
           message="Failed to load campaigns."
@@ -994,93 +821,32 @@ export default function Dashboard() {
           })}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {[
-            {
-              name: "No campaigns yet",
-              status: "Start",
-              statusColor: "#6B7280",
-              progress: 0,
-              agentColor: "#F59E0B",
-              budget: "$0 spent",
-              days: "—",
-              content: "0 pieces",
-            },
-          ].map((campaign, idx) => (
-            <div
-              key={campaign.name}
-              className="glass-card card-lift p-5 animate-fade-up"
-              style={{ animationDelay: `${0.8 + idx * 0.15}s` }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <h3
-                  className="text-base font-semibold"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  {campaign.name}
-                </h3>
-                <span
-                  className="rounded-full px-2.5 py-0.5 text-[10px] font-medium"
-                  style={{
-                    background: `${campaign.statusColor}15`,
-                    color: campaign.statusColor,
-                  }}
-                >
-                  {campaign.status}
-                </span>
-              </div>
-
-              {/* Progress bar */}
-              <div className="mb-4">
-                <div className="mb-1.5 flex items-center justify-between">
-                  <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                    Progress
-                  </span>
-                  <span
-                    className="text-[11px] font-semibold"
-                    style={{ color: "var(--text-primary)", fontFamily: "var(--font-mono)" }}
-                  >
-                    {campaign.progress}%
-                  </span>
-                </div>
-                <div
-                  className="h-1.5 w-full overflow-hidden rounded-full"
-                  style={{ background: "var(--border-subtle)" }}
-                >
-                  <div
-                    className="h-full rounded-full transition-all duration-1000 ease-out"
-                    style={{
-                      width: `${campaign.progress}%`,
-                      background: campaign.agentColor,
-                      boxShadow: `0 0 8px ${campaign.agentColor}40`,
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Stats row */}
-              <div className="mb-3 flex items-center gap-4">
-                <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                  {campaign.budget}
-                </span>
-                <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                  {campaign.days}
-                </span>
-                <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                  {campaign.content}
-                </span>
-              </div>
-
-              {/* View Details link */}
-              <button
-                onClick={() => navigate("/mission-control")}
-                className="text-xs font-medium transition-colors duration-200 hover:underline"
-                style={{ color: "var(--accent-primary)" }}
-              >
-                Start New Mission
-              </button>
-            </div>
-          ))}
+        <div
+          className="flex flex-col items-center justify-center gap-3 rounded-2xl border p-10 animate-fade-up"
+          style={{
+            background: "var(--bg-card)",
+            borderColor: "var(--border-subtle)",
+            animationDelay: "0.8s",
+          }}
+        >
+          <Rocket className="size-10" style={{ color: "var(--accent-primary)", opacity: 0.5 }} />
+          <p className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
+            No campaigns yet
+          </p>
+          <p className="text-xs text-center max-w-[300px]" style={{ color: "var(--text-muted)" }}>
+            Start your first mission to see campaign progress and results here.
+          </p>
+          <button
+            onClick={() => navigate("/mission-control")}
+            className="mt-2 flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all duration-200 hover:scale-[1.02]"
+            style={{
+              background: "var(--gradient-gold)",
+              color: "#0C0A09",
+            }}
+          >
+            <Plus className="size-4" />
+            Start New Mission
+          </button>
         </div>
       )}
 
