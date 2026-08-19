@@ -7,8 +7,9 @@ const NODE_ENV = process.env.NODE_ENV || "development";
 const SHUTDOWN_TIMEOUT_MS = parseInt(process.env.SHUTDOWN_TIMEOUT_MS || "10000");
 
 // ─── Startup Validation ───
-const requiredEnvVars: string[] = ["OPENAI_API_KEY"];
+const requiredEnvVars: string[] = [];
 const optionalEnvVars = [
+  "OPENAI_API_KEY",
   "GROQ_API_KEY",
   "INSTAGRAM_ACCESS_TOKEN",
   "INSTAGRAM_ACCOUNT_ID",
