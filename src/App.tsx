@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router";
 import { Toaster } from "sonner";
 import Layout from "@/components/Layout";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import AuthGuard from "@/components/AuthGuard";
 
 /* ── Eager imports (small / always-needed) ── */
 import Login from "@/pages/Login";
@@ -77,7 +78,13 @@ export default function App() {
       />
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route element={<Layout />}>
+        <Route
+          element={
+            <AuthGuard>
+              <Layout />
+            </AuthGuard>
+          }
+        >
           {ROUTES.map(({ path, element, withBoundary }) => (
             <Route
               key={path}

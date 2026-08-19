@@ -1,1 +1,12 @@
-# Docker build context exclusions — keep image small and build fast node_modules .git .github *.log .env .env.* .DS_Store .vscode .idea *.md docker-compose*.yml Dockerfile* .dockerignore data/ coverage/ tmp/ temp/ *.tmp
+node_modules
+npm-debug.log
+.git
+.gitignore
+README.md
+.env
+.env.local
+.env.*.local
+dist
+.github
+.vscode
+*.md

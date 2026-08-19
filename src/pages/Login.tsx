@@ -1,26 +1,128 @@
-import { useState } from "react";
+/**
+ * Omega Swarm v5.0 — Login / Register Page
+ *
+ * Toggle between login and register modes.
+ * Email + password validation, name field for registration.
+ * "Continue as Guest" button with 1-day expiry.
+ * Full error handling, loading states, lucide-react icons, Tailwind CSS.
+ */
+
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router";
-import { LogIn, Sparkles, ArrowRight, Loader2 } from "lucide-react";
+import {
+  Lock,
+  Mail,
+  User,
+  Eye,
+  EyeOff,
+  Sparkles,
+  ArrowRight,
+  Loader2,
+  UserCircle,
+  LogIn,
+  UserPlus,
+} from "lucide-react";
 import { toast } from "sonner";
+import { useAuthContext } from "@/components/AuthProvider";
+
+/* ─── Constants ─── */
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/* ─── Component ─── */
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login, register, guest, isLoading, user } = useAuthContext();
+
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
+  /* Redirect if already authenticated */
+  if (user) {
+    navigate("/", { replace: true });
+    return null;
+  }
+
+  /* ─── Validation ─── */
+  const validate = useCallback((): boolean => {
+    const nextErrors: Record<string, string> = {};
+
+    if (mode === "register" && name.trim().length < 2) {
+      nextErrors.name = "Name must be at least 2 characters";
+    }
+
+    if (!email.trim()) {
+      nextErrors.email = "Email is required";
+    } else if (!EMAIL_REGEX.test(email)) {
+      nextErrors.email = "Please enter a valid email address";
+    }
+
+    if (!password) {
+      nextErrors.password = "Password is required";
+    } else if (password.length < 6) {
+      nextErrors.password = "Password must be at least 6 characters";
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  }, [email, password, name, mode]);
+
+  /* ─── Submit ─── */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) {
-      toast.error("Please enter both email and password");
-      return;
+    setSubmitError(null);
+
+    if (!validate()) return;
+
+    try {
+      if (mode === "login") {
+        await login(email.trim(), password);
+        toast.success("Welcome back to Omega Swarm!");
+      } else {
+        await register(name.trim(), email.trim(), password);
+        toast.success("Account created — welcome to Omega Swarm!");
+      }
+      navigate("/", { replace: true });
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "string"
+            ? err
+            : "Something went wrong. Please try again.";
+      setSubmitError(message);
+      toast.error(message);
     }
-    setIsLoading(true);
-    // Simulate auth delay
-    await new Promise((r) => setTimeout(r, 800));
-    setIsLoading(false);
-    toast.success("Welcome back to Omega Swarm!");
-    navigate("/");
+  };
+
+  /* ─── Guest ─── */
+  const handleGuest = async () => {
+    setSubmitError(null);
+    try {
+      await guest();
+      toast.success("Guest session started — limited features available.");
+      navigate("/", { replace: true });
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Failed to create guest session.";
+      setSubmitError(message);
+      toast.error(message);
+    }
+  };
+
+  /* ─── Toggle mode ─── */
+  const toggleMode = () => {
+    setMode((m) => (m === "login" ? "register" : "login"));
+    setSubmitError(null);
+    setErrors({});
   };
 
   return (
@@ -29,21 +131,19 @@ export default function Login() {
       style={{ background: "var(--bg-base, #0C0A09)" }}
     >
       <div className="w-full max-w-md">
-        {/* Logo */}
+        {/* ─── Logo ─── */}
         <div className="text-center mb-8">
           <div className="relative mx-auto mb-4 flex size-16 items-center justify-center">
             <div
               className="absolute inset-0 rounded-2xl animate-ping opacity-20"
               style={{
-                background:
-                  "linear-gradient(135deg, #F59E0B, #F97316)",
+                background: "linear-gradient(135deg, #F59E0B, #F97316)",
               }}
             />
             <div
               className="relative flex size-16 items-center justify-center rounded-2xl"
               style={{
-                background:
-                  "linear-gradient(135deg, #F59E0B, #F97316)",
+                background: "linear-gradient(135deg, #F59E0B, #F97316)",
                 boxShadow: "0 0 40px rgba(245,158,11,0.3)",
               }}
             >
@@ -64,7 +164,7 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Card */}
+        {/* ─── Card ─── */}
         <div
           className="rounded-3xl p-8"
           style={{
@@ -73,70 +173,170 @@ export default function Login() {
             backdropFilter: "blur(20px)",
           }}
         >
-          <h2
-            className="text-lg font-bold mb-6"
-            style={{ color: "var(--text-primary, #FAFAF9)" }}
-          >
-            Sign In
-          </h2>
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-6">
+            {mode === "login" ? (
+              <LogIn className="size-5" style={{ color: "var(--text-primary, #FAFAF9)" }} />
+            ) : (
+              <UserPlus className="size-5" style={{ color: "var(--text-primary, #FAFAF9)" }} />
+            )}
+            <h2
+              className="text-lg font-bold"
+              style={{ color: "var(--text-primary, #FAFAF9)" }}
+            >
+              {mode === "login" ? "Sign In" : "Create Account"}
+            </h2>
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Server Error */}
+          {submitError && (
+            <div
+              className="mb-4 rounded-xl px-4 py-3 text-sm font-medium"
+              style={{
+                background: "rgba(239,68,68,0.15)",
+                color: "#EF4444",
+                border: "1px solid rgba(239,68,68,0.25)",
+              }}
+            >
+              {submitError}
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            {/* Name (register only) */}
+            {mode === "register" && (
+              <div>
+                <label
+                  className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider mb-2"
+                  style={{ color: "var(--text-muted, #78716C)" }}
+                >
+                  <User className="size-3.5" />
+                  Full Name
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      if (errors.name) setErrors((p) => ({ ...p, name: "" }));
+                    }}
+                    placeholder="John Doe"
+                    autoComplete="name"
+                    className="w-full px-4 py-3 rounded-xl text-sm transition-all focus:outline-none"
+                    style={{
+                      background: "var(--bg-elevated, #29221D)",
+                      border: `1px solid ${errors.name ? "#EF4444" : "var(--border-subtle, #29221D)"}`,
+                      color: "var(--text-primary, #FAFAF9)",
+                    }}
+                    onFocus={(e) => {
+                      if (!errors.name) e.currentTarget.style.borderColor = "#F59E0B";
+                    }}
+                    onBlur={(e) => {
+                      if (!errors.name) e.currentTarget.style.borderColor = "var(--border-subtle, #29221D)";
+                    }}
+                  />
+                </div>
+                {errors.name && (
+                  <p className="mt-1.5 text-xs" style={{ color: "#EF4444" }}>
+                    {errors.name}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Email */}
             <div>
               <label
-                className="block text-xs font-bold uppercase tracking-wider mb-2"
+                className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider mb-2"
                 style={{ color: "var(--text-muted, #78716C)" }}
               >
+                <Mail className="size-3.5" />
                 Email
               </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                className="w-full px-4 py-3 rounded-xl text-sm transition-all focus:outline-none"
-                style={{
-                  background: "var(--bg-elevated, #29221D)",
-                  border: "1px solid var(--border-subtle, #29221D)",
-                  color: "var(--text-primary, #FAFAF9)",
-                }}
-                onFocus={(e) =>
-                  (e.currentTarget.style.borderColor = "#F59E0B")
-                }
-                onBlur={(e) =>
-                  (e.currentTarget.style.borderColor =
-                    "var(--border-subtle, #29221D)")
-                }
-              />
+              <div className="relative">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (errors.email) setErrors((p) => ({ ...p, email: "" }));
+                  }}
+                  placeholder="you@company.com"
+                  autoComplete={mode === "login" ? "email" : "username"}
+                  className="w-full px-4 py-3 rounded-xl text-sm transition-all focus:outline-none"
+                  style={{
+                    background: "var(--bg-elevated, #29221D)",
+                    border: `1px solid ${errors.email ? "#EF4444" : "var(--border-subtle, #29221D)"}`,
+                    color: "var(--text-primary, #FAFAF9)",
+                  }}
+                  onFocus={(e) => {
+                    if (!errors.email) e.currentTarget.style.borderColor = "#F59E0B";
+                  }}
+                  onBlur={(e) => {
+                    if (!errors.email) e.currentTarget.style.borderColor = "var(--border-subtle, #29221D)";
+                  }}
+                />
+              </div>
+              {errors.email && (
+                <p className="mt-1.5 text-xs" style={{ color: "#EF4444" }}>
+                  {errors.email}
+                </p>
+              )}
             </div>
 
+            {/* Password */}
             <div>
               <label
-                className="block text-xs font-bold uppercase tracking-wider mb-2"
+                className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider mb-2"
                 style={{ color: "var(--text-muted, #78716C)" }}
               >
+                <Lock className="size-3.5" />
                 Password
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-4 py-3 rounded-xl text-sm transition-all focus:outline-none"
-                style={{
-                  background: "var(--bg-elevated, #29221D)",
-                  border: "1px solid var(--border-subtle, #29221D)",
-                  color: "var(--text-primary, #FAFAF9)",
-                }}
-                onFocus={(e) =>
-                  (e.currentTarget.style.borderColor = "#F59E0B")
-                }
-                onBlur={(e) =>
-                  (e.currentTarget.style.borderColor =
-                    "var(--border-subtle, #29221D)")
-                }
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (errors.password) setErrors((p) => ({ ...p, password: "" }));
+                  }}
+                  placeholder="••••••••"
+                  autoComplete={mode === "login" ? "current-password" : "new-password"}
+                  className="w-full px-4 py-3 pr-12 rounded-xl text-sm transition-all focus:outline-none"
+                  style={{
+                    background: "var(--bg-elevated, #29221D)",
+                    border: `1px solid ${errors.password ? "#EF4444" : "var(--border-subtle, #29221D)"}`,
+                    color: "var(--text-primary, #FAFAF9)",
+                  }}
+                  onFocus={(e) => {
+                    if (!errors.password) e.currentTarget.style.borderColor = "#F59E0B";
+                  }}
+                  onBlur={(e) => {
+                    if (!errors.password) e.currentTarget.style.borderColor = "var(--border-subtle, #29221D)";
+                  }}
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md transition-colors hover:opacity-80"
+                  style={{ color: "var(--text-muted, #78716C)" }}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="mt-1.5 text-xs" style={{ color: "#EF4444" }}>
+                  {errors.password}
+                </p>
+              )}
             </div>
 
+            {/* Submit */}
             <button
               type="submit"
               disabled={isLoading}
@@ -147,34 +347,115 @@ export default function Login() {
                   : "linear-gradient(135deg, #F59E0B, #F97316)",
                 color: isLoading ? "var(--text-muted)" : "#0C0A09",
                 cursor: isLoading ? "not-allowed" : "pointer",
-                boxShadow: isLoading
-                  ? "none"
-                  : "0 0 20px rgba(245,158,11,0.3)",
+                boxShadow: isLoading ? "none" : "0 0 20px rgba(245,158,11,0.3)",
               }}
             >
               {isLoading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Signing in...
+                  {mode === "login" ? "Signing in..." : "Creating account..."}
                 </>
               ) : (
                 <>
-                  <LogIn className="size-4" />
-                  Sign In
+                  {mode === "login" ? <LogIn className="size-4" /> : <UserPlus className="size-4" />}
+                  {mode === "login" ? "Sign In" : "Create Account"}
                   <ArrowRight className="size-4" />
                 </>
               )}
             </button>
           </form>
 
-          <div
-            className="mt-6 pt-6 text-center text-xs"
+          {/* Divider */}
+          <div className="relative my-6">
+            <div
+              className="absolute inset-0 flex items-center"
+              style={{ color: "var(--border-subtle, #29221D)" }}
+            >
+              <div className="w-full border-t" style={{ borderColor: "var(--border-subtle, #29221D)" }} />
+            </div>
+            <div className="relative flex justify-center">
+              <span
+                className="px-4 text-xs font-medium uppercase tracking-wider"
+                style={{
+                  background: "var(--bg-card, rgba(28,25,23,0.85))",
+                  color: "var(--text-muted, #78716C)",
+                }}
+              >
+                or
+              </span>
+            </div>
+          </div>
+
+          {/* Guest button */}
+          <button
+            type="button"
+            disabled={isLoading}
+            onClick={handleGuest}
+            className="w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all border"
             style={{
-              color: "var(--text-muted, #78716C)",
-              borderTop: "1px solid var(--border-subtle, #29221D)",
+              background: "transparent",
+              borderColor: "var(--border-subtle, #29221D)",
+              color: "var(--text-secondary, #A8A29E)",
+              cursor: isLoading ? "not-allowed" : "pointer",
+            }}
+            onMouseEnter={(e) => {
+              if (!isLoading) {
+                e.currentTarget.style.borderColor = "#F59E0B";
+                e.currentTarget.style.color = "#FAFAF9";
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "var(--border-subtle, #29221D)";
+              e.currentTarget.style.color = "var(--text-secondary, #A8A29E)";
             }}
           >
-            Demo credentials: any email / any password
+            {isLoading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <UserCircle className="size-4" />
+            )}
+            Continue as Guest
+          </button>
+          <p
+            className="text-center mt-2 text-xs"
+            style={{ color: "var(--text-muted, #78716C)" }}
+          >
+            Guest sessions expire after 1 day
+          </p>
+
+          {/* Toggle mode */}
+          <div
+            className="mt-6 pt-6 text-center text-sm"
+            style={{
+              borderTop: "1px solid var(--border-subtle, #29221D)",
+              color: "var(--text-secondary, #A8A29E)",
+            }}
+          >
+            {mode === "login" ? (
+              <>
+                New here?{" "}
+                <button
+                  type="button"
+                  onClick={toggleMode}
+                  className="font-bold transition-colors hover:underline"
+                  style={{ color: "#F59E0B" }}
+                >
+                  Create an account
+                </button>
+              </>
+            ) : (
+              <>
+                Already have an account?{" "}
+                <button
+                  type="button"
+                  onClick={toggleMode}
+                  className="font-bold transition-colors hover:underline"
+                  style={{ color: "#F59E0B" }}
+                >
+                  Sign in
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

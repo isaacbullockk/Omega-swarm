@@ -6,6 +6,7 @@ import "@/index.css";
 import { trpc, trpcClient } from "@/lib/trpc";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Toaster } from "@/components/Toaster";
+import { AuthProvider } from "@/components/AuthProvider";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,8 +29,10 @@ createRoot(document.getElementById("root")!).render(
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <App />
-          <Toaster />
+          <AuthProvider>
+            <App />
+            <Toaster />
+          </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>
     </trpc.Provider>

@@ -1,43 +1,175 @@
+/**
+ * Omega Swarm v5.0 — Asset Router (PostgreSQL + Auth)
+ *
+ * All operations require authentication. Data is filtered by user_id.
+ * Replaces JSON store with Drizzle ORM + PostgreSQL.
+ */
+
 import { z } from "zod";
-import { router, publicProcedure } from "../trpc";
-import { addAsset, getAssets, deleteAsset, updateAsset, searchAssets } from "../../db/store";
+import { TRPCError } from "@trpc/server";
+import { router, authedProcedure } from "../trpc";
+import { db, isPostgresAvailable } from "../../db/connection";
+import { assets } from "../../db/schema";
+import { eq, and, like } from "drizzle-orm";
+
+/* ─── Zod Schemas ─── */
+
+const assetUploadSchema = z.object({
+  clientId: z.string().uuid().optional(),
+  name: z.string().min(1, "Name is required"),
+  type: z.enum(["image", "video", "audio", "reference"]),
+  dataUrl: z.string().optional(),
+  url: z.string().url().optional(),
+  description: z.string().optional(),
+  tags: z.array(z.string()).default([]),
+});
+
+const assetUpdateSchema = z.object({
+  name: z.string().min(1).optional(),
+  type: z.enum(["image", "video", "audio", "reference"]).optional(),
+  dataUrl: z.string().optional(),
+  url: z.string().url().optional(),
+  description: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  usedIn: z.array(z.string()).optional(),
+});
 
 export const assetRouter = router({
-  list: publicProcedure.query(() => getAssets()),
+  /* ─── List all assets for the authenticated user ─── */
+  list: authedProcedure.query(async ({ ctx }) => {
+    if (!isPostgresAvailable()) return [];
+    try {
+      return await db!
+        .select()
+        .from(assets)
+        .where(eq(assets.userId, ctx.user.id))
+        .orderBy(assets.createdAt);
+    } catch (err) {
+      console.error("[Asset] List error:", (err as Error).message);
+      return [];
+    }
+  }),
 
-  upload: publicProcedure
+  /* ─── Upload/create a new asset ─── */
+  upload: authedProcedure
+    .input(assetUploadSchema)
+    .mutation(async ({ ctx, input }) => {
+      if (!isPostgresAvailable()) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database not available",
+        });
+      }
+      try {
+        const result = await db!
+          .insert(assets)
+          .values({
+            userId: ctx.user.id,
+            ...input,
+            usedIn: [],
+          })
+          .returning();
+        return result[0];
+      } catch (err) {
+        console.error("[Asset] Upload error:", (err as Error).message);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to upload asset",
+        });
+      }
+    }),
+
+  /* ─── Update an asset (user-scoped) ─── */
+  update: authedProcedure
     .input(
       z.object({
-        name: z.string().min(1),
-        type: z.enum(["image", "video", "audio", "reference"]),
-        dataUrl: z.string().optional(),
-        url: z.string().optional(),
-        description: z.string().optional(),
-        tags: z.array(z.string()).default([]),
+        id: z.string().uuid(),
+        updates: assetUpdateSchema,
       })
     )
-    .mutation(({ input }) => {
-      const asset = addAsset({
-        id: `asset_${Date.now()}`,
-        ...input,
-        usedIn: [],
-        createdAt: new Date().toISOString(),
-      });
-      return asset;
+    .mutation(async ({ ctx, input }) => {
+      if (!isPostgresAvailable()) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database not available",
+        });
+      }
+      try {
+        const result = await db!
+          .update(assets)
+          .set(input.updates)
+          .where(and(eq(assets.id, input.id), eq(assets.userId, ctx.user.id)))
+          .returning();
+        if (!result[0]) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Asset not found" });
+        }
+        return result[0];
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        console.error("[Asset] Update error:", (err as Error).message);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to update asset",
+        });
+      }
     }),
 
-  update: publicProcedure
-    .input(z.object({ id: z.string(), updates: z.record(z.any()) }))
-    .mutation(({ input }) => updateAsset(input.id, input.updates)),
-
-  delete: publicProcedure
-    .input(z.object({ id: z.string() }))
-    .mutation(({ input }) => {
-      deleteAsset(input.id);
-      return { success: true };
+  /* ─── Delete an asset (user-scoped) ─── */
+  delete: authedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      if (!isPostgresAvailable()) return { success: false };
+      try {
+        const result = await db!
+          .delete(assets)
+          .where(and(eq(assets.id, input.id), eq(assets.userId, ctx.user.id)))
+          .returning();
+        if (result.length === 0) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Asset not found" });
+        }
+        return { success: true };
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        console.error("[Asset] Delete error:", (err as Error).message);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to delete asset",
+        });
+      }
     }),
 
-  search: publicProcedure
-    .input(z.object({ query: z.string().optional(), type: z.enum(["image", "video", "audio", "reference"]).optional() }))
-    .query(({ input }) => searchAssets(input.query, input.type)),
+  /* ─── Search assets (user-scoped) ─── */
+  search: authedProcedure
+    .input(
+      z.object({
+        query: z.string().optional(),
+        type: z.enum(["image", "video", "audio", "reference"]).optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      if (!isPostgresAvailable()) return [];
+      try {
+        let conditions = eq(assets.userId, ctx.user.id);
+
+        if (input.type) {
+          conditions = and(conditions, eq(assets.type, input.type)) as any;
+        }
+
+        if (input.query) {
+          conditions = and(
+            conditions,
+            like(assets.name, `%${input.query}%`)
+          ) as any;
+        }
+
+        return await db!
+          .select()
+          .from(assets)
+          .where(conditions)
+          .orderBy(assets.createdAt);
+      } catch (err) {
+        console.error("[Asset] Search error:", (err as Error).message);
+        return [];
+      }
+    }),
 });

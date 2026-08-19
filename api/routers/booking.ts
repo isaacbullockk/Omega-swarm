@@ -1,83 +1,179 @@
+/**
+ * Omega Swarm v5.0 — Booking Router (PostgreSQL + Auth)
+ *
+ * All operations require authentication. Data is filtered by user_id.
+ * Replaces JSON store with Drizzle ORM + PostgreSQL.
+ */
+
 import { z } from "zod";
-import { router, publicProcedure } from "../trpc";
-import * as store from "../../db/store";
+import { TRPCError } from "@trpc/server";
+import { router, authedProcedure } from "../trpc";
+import { db, isPostgresAvailable } from "../../db/connection";
+import { bookings } from "../../db/schema";
+import { eq, and } from "drizzle-orm";
+
+/* ─── Zod Schemas ─── */
+
+const bookingCreateSchema = z.object({
+  clientId: z.string().uuid().optional(),
+  clientName: z.string().min(1, "Client name is required"),
+  clientEmail: z.string().email("Invalid email address"),
+  clientCompany: z.string().optional(),
+  serviceId: z.string().min(1, "Service ID is required"),
+  serviceName: z.string().min(1, "Service name is required"),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
+  time: z.string().regex(/^\d{2}:\d{2}$/, "Time must be in HH:MM format"),
+  notes: z.string().optional(),
+});
+
+const bookingStatusSchema = z.enum(["pending", "confirmed", "completed", "cancelled"]);
 
 export const bookingRouter = router({
-  /* ─── Services ─── */
-  services: publicProcedure.query(() => {
-    return store.getServices();
+  /* ─── List all bookings for the authenticated user ─── */
+  list: authedProcedure.query(async ({ ctx }) => {
+    if (!isPostgresAvailable()) return [];
+    try {
+      return await db!
+        .select()
+        .from(bookings)
+        .where(eq(bookings.userId, ctx.user.id))
+        .orderBy(bookings.createdAt);
+    } catch (err) {
+      console.error("[Booking] List error:", (err as Error).message);
+      return [];
+    }
   }),
 
-  service: publicProcedure
-    .input(z.object({ id: z.string() }))
-    .query(({ input }) => {
-      return store.getService(input.id);
-    }),
-
-  /* ─── Bookings ─── */
-  list: publicProcedure.query(() => {
-    return store.getBookings();
-  }),
-
-  myBookings: publicProcedure
+  /* ─── Get bookings by email (user-scoped) ─── */
+  myBookings: authedProcedure
     .input(z.object({ email: z.string().email() }))
-    .query(({ input }) => {
-      return store.getBookingsByEmail(input.email);
+    .query(async ({ ctx, input }) => {
+      if (!isPostgresAvailable()) return [];
+      try {
+        return await db!
+          .select()
+          .from(bookings)
+          .where(
+            and(
+              eq(bookings.userId, ctx.user.id),
+              eq(bookings.clientEmail, input.email)
+            )
+          )
+          .orderBy(bookings.createdAt);
+      } catch (err) {
+        console.error("[Booking] MyBookings error:", (err as Error).message);
+        return [];
+      }
     }),
 
-  get: publicProcedure
-    .input(z.object({ id: z.string() }))
-    .query(({ input }) => {
-      return store.getBooking(input.id);
+  /* ─── Get a single booking by ID (user-scoped) ─── */
+  get: authedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      if (!isPostgresAvailable()) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found" });
+      }
+      try {
+        const result = await db!
+          .select()
+          .from(bookings)
+          .where(and(eq(bookings.id, input.id), eq(bookings.userId, ctx.user.id)))
+          .limit(1);
+        if (!result[0]) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found" });
+        }
+        return result[0];
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        console.error("[Booking] Get error:", (err as Error).message);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to fetch booking" });
+      }
     }),
 
-  create: publicProcedure
+  /* ─── Create a new booking ─── */
+  create: authedProcedure
+    .input(bookingCreateSchema)
+    .mutation(async ({ ctx, input }) => {
+      if (!isPostgresAvailable()) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database not available",
+        });
+      }
+      try {
+        const result = await db!
+          .insert(bookings)
+          .values({
+            userId: ctx.user.id,
+            ...input,
+          })
+          .returning();
+        return result[0];
+      } catch (err) {
+        console.error("[Booking] Create error:", (err as Error).message);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create booking",
+        });
+      }
+    }),
+
+  /* ─── Update booking status ─── */
+  updateStatus: authedProcedure
     .input(
       z.object({
-        clientName: z.string().min(1),
-        clientEmail: z.string().email(),
-        clientCompany: z.string().optional(),
-        serviceId: z.string(),
-        date: z.string(),
-        time: z.string(),
-        notes: z.string().optional(),
+        id: z.string().uuid(),
+        status: bookingStatusSchema,
       })
     )
-    .mutation(({ input }) => {
-      const service = store.getService(input.serviceId);
-      if (!service) throw new Error("Service not found");
-
-      const booking: store.Booking = {
-        id: `bk_${Date.now()}`,
-        clientName: input.clientName,
-        clientEmail: input.clientEmail,
-        clientCompany: input.clientCompany,
-        serviceId: input.serviceId,
-        serviceName: service.name,
-        date: input.date,
-        time: input.time,
-        status: "pending",
-        notes: input.notes,
-        createdAt: new Date().toISOString(),
-      };
-
-      return store.addBooking(booking);
+    .mutation(async ({ ctx, input }) => {
+      if (!isPostgresAvailable()) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Database not available",
+        });
+      }
+      try {
+        const result = await db!
+          .update(bookings)
+          .set({ status: input.status })
+          .where(and(eq(bookings.id, input.id), eq(bookings.userId, ctx.user.id)))
+          .returning();
+        if (!result[0]) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found" });
+        }
+        return result[0];
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        console.error("[Booking] UpdateStatus error:", (err as Error).message);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to update booking status",
+        });
+      }
     }),
 
-  updateStatus: publicProcedure
-    .input(
-      z.object({
-        id: z.string(),
-        status: z.enum(["pending", "confirmed", "completed", "cancelled"]),
-      })
-    )
-    .mutation(({ input }) => {
-      return store.updateBookingStatus(input.id, input.status);
-    }),
-
-  delete: publicProcedure
-    .input(z.object({ id: z.string() }))
-    .mutation(({ input }) => {
-      return store.deleteBooking(input.id);
+  /* ─── Delete a booking (user-scoped) ─── */
+  delete: authedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      if (!isPostgresAvailable()) return { success: false };
+      try {
+        const result = await db!
+          .delete(bookings)
+          .where(and(eq(bookings.id, input.id), eq(bookings.userId, ctx.user.id)))
+          .returning();
+        if (result.length === 0) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Booking not found" });
+        }
+        return { success: true };
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        console.error("[Booking] Delete error:", (err as Error).message);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to delete booking",
+        });
+      }
     }),
 });

@@ -2,29 +2,13 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "DOCKERFILE",
-    "dockerfilePath": "Dockerfile",
-    "watchPatterns": [
-      "package.json",
-      "package-lock.json",
-      "Dockerfile",
-      "api/**",
-      "db/**",
-      "server.ts",
-      "dist/**"
-    ]
+    "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 3,
+    "startCommand": "npx tsx server.ts",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 30,
-    "healthcheckInterval": 15,
-    "startCommand": null,
-    "sleepApplication": false,
-    "numReplicas": 1
-  },
-  "network": {
-    "allowedIps": [],
-    "allowedOutboundIps": []
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 5
   }
 }

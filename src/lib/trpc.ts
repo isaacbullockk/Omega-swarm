@@ -25,8 +25,10 @@ export const trpcClient = trpc.createClient({
     httpBatchLink({
       url: "/api/trpc",
       headers() {
+        const token = typeof window !== "undefined" ? localStorage.getItem("omega_swarm_token") : null;
         return {
           "x-trpc-source": "react-client",
+          ...(token ? { "x-session-token": token } : {}),
         };
       },
       maxURLLength: 2083,

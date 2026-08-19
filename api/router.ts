@@ -7,9 +7,13 @@ import { viralRouter } from "./routers/viral";
 import { voiceRouter } from "./routers/voice";
 import { bookingRouter } from "./routers/booking";
 import { videoRouter } from "./routers/video";
-import { contentRouter, analyticsRouter } from "./routers/content";
+import { contentRouter } from "./routers/content";
+import { contentLibraryRouter } from "./routers/contentLibrary";
+import { analyticsRouter } from "./routers/analytics";
+import { campaignRouter } from "./routers/campaign";
 import { clientRouter } from "./routers/client";
 import { assetRouter } from "./routers/asset";
+import { authRouter } from "./routers/auth";
 
 export const appRouter = router({
   agent: agentRouter,
@@ -21,10 +25,12 @@ export const appRouter = router({
   booking: bookingRouter,
   video: videoRouter,
   content: contentRouter,
+  contentLibrary: contentLibraryRouter,
   analytics: analyticsRouter,
+  campaign: campaignRouter,
   client: clientRouter,
   asset: assetRouter,
-  // contentLibrary router deprecated — use content.list instead
+  auth: authRouter,
 });
 
 export type AppRouter = typeof appRouter;
