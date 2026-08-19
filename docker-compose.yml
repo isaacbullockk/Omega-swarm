@@ -1,0 +1,86 @@
+# Omega Swarm — Local Development & Production Orchestration
+# Version: 4.4.0-PROD
+# Usage:
+#   docker compose up --build                    (dev)
+#   docker compose -f docker-compose.yml up --build  (prod)
+
+services:
+  # ─── Development Environment ───
+  app-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - LOG_LEVEL=debug
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - INSTAGRAM_ACCESS_TOKEN=${INSTAGRAM_ACCESS_TOKEN}
+      - INSTAGRAM_ACCOUNT_ID=${INSTAGRAM_ACCOUNT_ID}
+      - META_APP_SECRET=${META_APP_SECRET}
+      - BUFFER_API_KEY=${BUFFER_API_KEY}
+      - POLLINATIONS_API_KEY=${POLLINATIONS_API_KEY}
+      - KLING_API_KEY=${KLING_API_KEY}
+    volumes:
+      # Mount source for hot-reload (dev only)
+      - ./api:/app/api:ro
+      - ./db:/app/db:ro
+      - ./server.ts:/app/server.ts:ro
+      - ./dist:/app/dist:ro
+      - ./package.json:/app/package.json:ro
+      # Named volume for data persistence
+      - omega-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ─── Production Environment (single container) ───
+  app-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - LOG_LEVEL=info
+    volumes:
+      - omega-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # ─── Uptime Kuma (Self-Hosted Monitoring) ───
+  # Uncomment to run monitoring stack locally
+  # uptime-kuma:
+  #   image: louislam/uptime-kuma:latest
+  #   ports:
+  #     - "3002:3001"
+  #   volumes:
+  #     - uptime-kuma-data:/app/data
+  #   restart: unless-stopped
+
+volumes:
+  omega-data:
+  # uptime-kuma-data:

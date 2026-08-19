@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, memo, useMemo } from "react";
 import { Copy, Check, Bot, User } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -158,7 +158,7 @@ function parseInline(text: string): React.ReactNode {
 /*  Typing Indicator                                                    */
 /* ------------------------------------------------------------------ */
 
-export function TypingIndicator({ agent }: { agent?: AgentInfo }) {
+export const TypingIndicator = memo(function TypingIndicator({ agent }: { agent?: AgentInfo }) {
   return (
     <div className="flex gap-3 animate-fade-up">
       <div
@@ -191,7 +191,7 @@ export function TypingIndicator({ agent }: { agent?: AgentInfo }) {
       </div>
     </div>
   );
-}
+});
 
 /* ------------------------------------------------------------------ */
 /*  Chat Message Bubble                                               */
@@ -202,7 +202,7 @@ interface ChatMessageProps {
   agent?: AgentInfo;
 }
 
-export function ChatMessage({ message, agent }: ChatMessageProps) {
+export const ChatMessage = memo(function ChatMessage({ message, agent }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const isUser = message.role === "user";
 
@@ -213,10 +213,16 @@ export function ChatMessage({ message, agent }: ChatMessageProps) {
     });
   }, [message.content]);
 
-  const timeStr = message.timestamp.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const timeStr = useMemo(
+    () =>
+      message.timestamp.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    [message.timestamp]
+  );
+
+  const renderedContent = useMemo(() => renderContent(message.content), [message.content]);
 
   if (isUser) {
     return (
@@ -310,20 +316,18 @@ export function ChatMessage({ message, agent }: ChatMessageProps) {
             {copied ? <Check className="size-3.5" style={{ color: "#84CC16" }} /> : <Copy className="size-3.5" />}
           </button>
 
-          <div className="pr-6">
-            {renderContent(message.content)}
-          </div>
+          <div className="pr-6">{renderedContent}</div>
         </div>
       </div>
     </div>
   );
-}
+});
 
 /* ------------------------------------------------------------------ */
 /*  Empty State                                                       */
 /* ------------------------------------------------------------------ */
 
-export function ChatEmptyState({ agent }: { agent: AgentInfo }) {
+export const ChatEmptyState = memo(function ChatEmptyState({ agent }: { agent: AgentInfo }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4">
       <div
@@ -361,4 +365,4 @@ export function ChatEmptyState({ agent }: { agent: AgentInfo }) {
       </div>
     </div>
   );
-}
+});

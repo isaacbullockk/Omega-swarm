@@ -1,847 +1,688 @@
-import { useState, useRef, type ChangeEvent } from "react";
+import { useState, useCallback } from "react";
 import {
-  User,
   Bell,
+  Globe,
   Shield,
-  Palette,
-  CreditCard,
   Zap,
-  Save,
+  ChevronRight,
+  AlertTriangle,
   CheckCircle,
-  Check,
+  RefreshCw,
+  Server,
+  Sun,
+  Moon,
+  Monitor,
+  Download,
   Upload,
-  Image,
+  Trash2,
+  Info,
+  Save,
+  Sliders,
+  Fingerprint,
+  Braces,
+  Webhook,
 } from "lucide-react";
-import { useTheme } from "@/context/ThemeContext";
+
+/* ─────────────────────────── Sub-components ─────────────────────────── */
+
+function ToggleSwitch({
+  id,
+  label,
+  description,
+  checked,
+  onChange,
+  icon: Icon,
+  badge,
+  danger = false,
+}: {
+  id: string;
+  label: string;
+  description?: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  icon?: React.ElementType;
+  badge?: string;
+  danger?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-4 p-4 rounded-xl" style={{ background: "var(--bg-elevated)" }}>
+      {Icon && (
+        <div
+          className="size-10 flex items-center justify-center rounded-lg shrink-0"
+          style={{ background: danger ? "rgba(239,68,68,0.1)" : "var(--bg-card-solid)" }}
+        >
+          <Icon className="size-5" style={{ color: danger ? "#EF4444" : "var(--accent-primary)" }} />
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <label htmlFor={id} className="text-sm font-medium cursor-pointer" style={{ color: "var(--text-primary)" }}>
+            {label}
+          </label>
+          {badge && (
+            <span
+              className="px-2 py-0.5 rounded-full text-[10px] font-medium uppercase"
+              style={{ background: "var(--accent-primary)", color: "#fff" }}
+            >
+              {badge}
+            </span>
+          )}
+        </div>
+        {description && (
+          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+            {description}
+          </p>
+        )}
+      </div>
+      <button
+        id={id}
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className="relative shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
+        style={{
+          background: checked ? "var(--accent-primary)" : "var(--bg-card-solid)",
+          border: "1px solid var(--border-subtle)",
+          focusRing: "var(--accent-primary)",
+        }}
+      >
+        <span
+          className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full transition-transform duration-200"
+          style={{
+            background: "#fff",
+            left: checked ? "calc(100% - 1.25rem)" : "0.25rem",
+          }}
+        />
+      </button>
+    </div>
+  );
+}
+
+function SectionHeader({ icon: Icon, title, description }: { icon: React.ElementType; title: string; description?: string }) {
+  return (
+    <div className="flex items-center gap-3 mb-4">
+      <div className="size-10 flex items-center justify-center rounded-xl" style={{ background: "var(--accent-primary)" }}>
+        <Icon className="size-5 text-white" />
+      </div>
+      <div>
+        <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+          {title}
+        </h2>
+        {description && (
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            {description}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SelectField({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+  description,
+  icon: Icon,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  options: { value: string; label: string }[];
+  description?: string;
+  icon?: React.ElementType;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        {Icon && <Icon className="size-4" style={{ color: "var(--text-muted)" }} />}
+        <label htmlFor={id} className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+          {label}
+        </label>
+      </div>
+      {description && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{description}</p>}
+      <div className="relative">
+        <select
+          id={id}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full px-4 py-2.5 rounded-xl text-sm appearance-none focus:outline-none focus:ring-2"
+          style={{
+            background: "var(--bg-elevated)",
+            color: "var(--text-primary)",
+            border: "1px solid var(--border-subtle)",
+          }}
+        >
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 size-4 pointer-events-none rotate-90" style={{ color: "var(--text-muted)" }} />
+      </div>
+    </div>
+  );
+}
+
+function InputField({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+  description,
+  icon: Icon,
+  type = "text",
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  description?: string;
+  icon?: React.ElementType;
+  type?: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        {Icon && <Icon className="size-4" style={{ color: "var(--text-muted)" }} />}
+        <label htmlFor={id} className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+          {label}
+        </label>
+      </div>
+      {description && <p className="text-xs" style={{ color: "var(--text-muted)" }}>{description}</p>}
+      <input
+        id={id}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2"
+        style={{
+          background: "var(--bg-elevated)",
+          color: "var(--text-primary)",
+          border: "1px solid var(--border-subtle)",
+        }}
+      />
+    </div>
+  );
+}
+
+/* ─────────────────────────── Main Page ─────────────────────────── */
 
 export default function Settings() {
-  const {
-    themeId,
-    setTheme,
-    customAccent,
-    setCustomAccent,
-    brandName,
-    setBrandName,
-    logo,
-    setLogo,
-    favicon,
-    setFavicon,
-    primaryColor,
-    presets,
-  } = useTheme();
+  const [activeSection, setActiveSection] = useState<"general" | "agents" | "api" | "data">("general");
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const [saved, setSaved] = useState(false);
-  const [activeTab, setActiveTab] = useState("profile");
+  /* ── General ── */
+  const [autoLaunch, setAutoLaunch] = useState(true);
+  const [autoCreate, setAutoCreate] = useState(false);
+  const [notifications, setNotifications] = useState(true);
+  const [theme, setTheme] = useState("dark");
+  const [language, setLanguage] = useState("en");
+  const [timezone, setTimezone] = useState("UTC");
 
-  // Profile state
-  const [name, setName] = useState("Isaac Bullock Kintu");
-  const [email, setEmail] = useState("isaac@wildnoff.com");
-  const [company, setCompany] = useState("Wildnoff Collective");
-  const [role, setRole] = useState("Founder & Creative Director");
+  /* ── Agents ── */
+  const [parallelAgents, setParallelAgents] = useState(5);
+  const [maxRetries, setMaxRetries] = useState(3);
+  const [timeout, setTimeout] = useState(30);
+  const [debugMode, setDebugMode] = useState(false);
+  const [saveMemory, setSaveMemory] = useState(true);
+  const [strictMode, setStrictMode] = useState(false);
 
-  // Notifications state
-  const [emailNotifs, setEmailNotifs] = useState(true);
-  const [campaignAlerts, setCampaignAlerts] = useState(true);
-  const [agentUpdates, setAgentUpdates] = useState(false);
-  const [weeklyReport, setWeeklyReport] = useState(true);
+  /* ── API ── */
+  const [apiKey, setApiKey] = useState("sk-...omega-swarm-2024");
+  const [webhookUrl, setWebhookUrl] = useState("https://hooks.example.com/omega-swarm");
+  const [rateLimit, setRateLimit] = useState(100);
+  const [showApiKey, setShowApiKey] = useState(false);
 
-  // Appearance state (from context)
-  const [localBrandName, setLocalBrandName] = useState(brandName);
-  const [localAccent, setLocalAccent] = useState(customAccent ?? primaryColor);
+  const handleSave = useCallback(() => {
+    setSaving(true);
+    setSaveMessage(null);
+    setTimeout(() => {
+      setSaving(false);
+      setSaveMessage({ type: "success", text: "Settings saved successfully" });
+      setTimeout(() => setSaveMessage(null), 3000);
+    }, 800);
+  }, []);
 
-  // Refs for file inputs
-  const logoInputRef = useRef<HTMLInputElement>(null);
-  const faviconInputRef = useRef<HTMLInputElement>(null);
-
-  const handleSave = () => {
-    // Sync brand name
-    if (localBrandName !== brandName) {
-      setBrandName(localBrandName);
-    }
-    // Sync accent
-    if (localAccent !== customAccent) {
-      setCustomAccent(localAccent);
-    }
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
-
-  const handleLogoUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setLogo(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleFaviconUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setFavicon(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const tabs = [
-    { id: "profile", label: "Profile", icon: User },
-    { id: "notifications", label: "Notifications", icon: Bell },
-    { id: "appearance", label: "Appearance", icon: Palette },
-    { id: "billing", label: "Billing", icon: CreditCard },
-    { id: "security", label: "Security", icon: Shield },
+  const sections: { id: typeof activeSection; label: string; icon: React.ElementType }[] = [
+    { id: "general", label: "General", icon: Sliders },
+    { id: "agents", label: "AI Agents", icon: Zap },
+    { id: "api", label: "API & Integrations", icon: Webhook },
+    { id: "data", label: "Data & Privacy", icon: Shield },
   ];
 
-  /* ── Theme gallery data ── */
-  const themeIds = Object.keys(presets);
-
   return (
-    <div className="min-h-screen p-6 md:p-8">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen p-4 md:p-8">
+      <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-            <p
-              className="mt-1 text-sm"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              Manage your account, preferences, and Swarm configuration
+            <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
+              Settings
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+              Configure your Omega Swarm workspace
             </p>
           </div>
           <button
             onClick={handleSave}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all"
+            disabled={saving}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all hover:scale-105 disabled:opacity-50"
             style={{
-              background: saved
-                ? "var(--accent-success)"
-                : "linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))",
-              color: "var(--bg-base)",
-              boxShadow: saved
-                ? "0 0 20px rgba(132,204,22,0.3)"
-                : "0 0 20px rgba(245,158,11,0.3)",
+              background: "linear-gradient(135deg, #F59E0B, #F97316)",
+              color: "#0C0A09",
             }}
           >
-            {saved ? (
-              <CheckCircle className="w-4 h-4" />
+            {saving ? (
+              <RefreshCw className="size-4 animate-spin" />
             ) : (
-              <Save className="w-4 h-4" />
+              <Save className="size-4" />
             )}
-            {saved ? "Saved!" : "Save Changes"}
+            {saving ? "Saving..." : "Save Changes"}
           </button>
         </div>
 
-        <div className="flex gap-6">
-          {/* Sidebar Tabs */}
-          <div className="w-56 shrink-0 space-y-1">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-left"
-                  style={{
-                    background: isActive
-                      ? "rgba(245, 158, 11, 0.1)"
-                      : "transparent",
-                    borderLeft: isActive
-                      ? "3px solid var(--accent-primary)"
-                      : "3px solid transparent",
-                    color: isActive
-                      ? "var(--text-primary)"
-                      : "var(--text-secondary)",
-                  }}
-                >
-                  <Icon
-                    className="w-4 h-4"
-                    style={{
-                      color: isActive
-                        ? "var(--accent-primary)"
-                        : "var(--text-muted)",
-                    }}
-                  />
-                  {tab.label}
-                </button>
-              );
-            })}
+        {/* Save status */}
+        {saveMessage && (
+          <div
+            className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium"
+            role="alert"
+            aria-live="polite"
+            style={{
+              background: saveMessage.type === "success" ? "#22C55E11" : "#EF444411",
+              border: `1px solid ${saveMessage.type === "success" ? "#22C55E44" : "#EF444444"}`,
+              color: saveMessage.type === "success" ? "#22C55E" : "#EF4444",
+            }}
+          >
+            {saveMessage.type === "success" ? (
+              <CheckCircle className="size-4" />
+            ) : (
+              <AlertTriangle className="size-4" />
+            )}
+            {saveMessage.text}
+          </div>
+        )}
 
-            {/* Plan info */}
-            <div
-              className="mt-6 p-4 rounded-2xl"
-              style={{
-                background: "rgba(245, 158, 11, 0.05)",
-                border: "1px solid rgba(245, 158, 11, 0.15)",
-              }}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <Zap
-                  className="w-4 h-4"
-                  style={{ color: "var(--accent-primary)" }}
-                />
-                <span
-                  className="text-xs font-bold uppercase tracking-wider"
-                  style={{ color: "var(--accent-primary)" }}
-                >
-                  Pro Plan
-                </span>
-              </div>
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                12 agents, unlimited campaigns, full analytics
-              </p>
+        {/* Section Tabs */}
+        <div className="flex gap-1 p-1 rounded-xl" style={{ background: "var(--bg-elevated)" }}>
+          {sections.map((s) => {
+            const Icon = s.icon;
+            const active = activeSection === s.id;
+            return (
               <button
-                className="mt-3 w-full py-2 rounded-lg text-xs font-bold transition-colors"
+                key={s.id}
+                onClick={() => setActiveSection(s.id)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all"
                 style={{
-                  background: "var(--accent-primary)",
-                  color: "var(--bg-base)",
+                  background: active ? "var(--accent-primary)" : "transparent",
+                  color: active ? "#fff" : "var(--text-muted)",
                 }}
+                role="tab"
+                aria-selected={active}
+                aria-controls={`settings-panel-${s.id}`}
               >
-                Upgrade
+                <Icon className="size-4" />
+                {s.label}
               </button>
+            );
+          })}
+        </div>
+
+        {/* ═════════════════════ GENERAL ═════════════════════ */}
+        {activeSection === "general" && (
+          <div id="settings-panel-general" className="space-y-6">
+            <div
+              className="rounded-2xl p-6 space-y-6"
+              style={{ background: "var(--bg-card-solid)", border: "1px solid var(--border-subtle)" }}
+            >
+              <SectionHeader icon={Sliders} title="General Preferences" description="Workspace behavior and appearance" />
+
+              <div className="space-y-3">
+                <ToggleSwitch
+                  id="auto-launch"
+                  label="Auto-launch Campaigns"
+                  description="Automatically start campaigns when all content is ready"
+                  checked={autoLaunch}
+                  onChange={setAutoLaunch}
+                  icon={Zap}
+                  badge="Recommended"
+                />
+                <ToggleSwitch
+                  id="auto-create"
+                  label="Auto-create Content"
+                  description="Automatically create content when campaigns are launched"
+                  checked={autoCreate}
+                  onChange={setAutoCreate}
+                  icon={Zap}
+                />
+                <ToggleSwitch
+                  id="notifications"
+                  label="Push Notifications"
+                  description="Receive notifications about campaign progress and agent actions"
+                  checked={notifications}
+                  onChange={setNotifications}
+                  icon={Bell}
+                />
+              </div>
+
+              <div className="h-px" style={{ background: "var(--border-subtle)" }} />
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <SelectField
+                  id="theme-select"
+                  label="Theme"
+                  value={theme}
+                  onChange={setTheme}
+                  options={[
+                    { value: "dark", label: "Dark" },
+                    { value: "light", label: "Light" },
+                    { value: "system", label: "System" },
+                  ]}
+                  description="Choose your preferred color scheme"
+                  icon={theme === "dark" ? Moon : theme === "light" ? Sun : Monitor}
+                />
+                <SelectField
+                  id="language-select"
+                  label="Language"
+                  value={language}
+                  onChange={setLanguage}
+                  options={[
+                    { value: "en", label: "English" },
+                    { value: "es", label: "Spanish" },
+                    { value: "fr", label: "French" },
+                    { value: "de", label: "German" },
+                    { value: "zh", label: "Chinese" },
+                    { value: "ja", label: "Japanese" },
+                  ]}
+                  description="Interface language"
+                  icon={Globe}
+                />
+                <SelectField
+                  id="timezone-select"
+                  label="Timezone"
+                  value={timezone}
+                  onChange={setTimezone}
+                  options={[
+                    { value: "UTC", label: "UTC" },
+                    { value: "America/New_York", label: "Eastern Time" },
+                    { value: "America/Los_Angeles", label: "Pacific Time" },
+                    { value: "Europe/London", label: "London" },
+                    { value: "Europe/Paris", label: "Paris" },
+                    { value: "Asia/Tokyo", label: "Tokyo" },
+                    { value: "Asia/Shanghai", label: "Shanghai" },
+                  ]}
+                  description="Timezone for scheduling"
+                  icon={Globe}
+                />
+              </div>
             </div>
           </div>
+        )}
 
-          {/* Content */}
-          <div className="flex-1 space-y-4">
-            {/* ── PROFILE TAB ── */}
-            {activeTab === "profile" && (
-              <div
-                className="rounded-2xl p-6"
-                style={{
-                  background: "var(--card)",
-                  border: "1px solid var(--border)",
-                }}
-              >
-                <h2 className="text-lg font-bold mb-6">
-                  Profile Information
-                </h2>
-                <div className="space-y-4 max-w-lg">
-                  <div>
-                    <label
-                      className="block text-sm font-medium mb-2"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      Full Name
-                    </label>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl text-sm transition-colors"
-                      style={{
-                        background: "var(--input)",
-                        border: "1px solid var(--border)",
-                        color: "var(--text-primary)",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      className="block text-sm font-medium mb-2"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl text-sm transition-colors"
-                      style={{
-                        background: "var(--input)",
-                        border: "1px solid var(--border)",
-                        color: "var(--text-primary)",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      className="block text-sm font-medium mb-2"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      Company
-                    </label>
-                    <input
-                      type="text"
-                      value={company}
-                      onChange={(e) => setCompany(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl text-sm transition-colors"
-                      style={{
-                        background: "var(--input)",
-                        border: "1px solid var(--border)",
-                        color: "var(--text-primary)",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      className="block text-sm font-medium mb-2"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      Role
-                    </label>
-                    <input
-                      type="text"
-                      value={role}
-                      onChange={(e) => setRole(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl text-sm transition-colors"
-                      style={{
-                        background: "var(--input)",
-                        border: "1px solid var(--border)",
-                        color: "var(--text-primary)",
-                      }}
-                    />
-                  </div>
-                </div>
+        {/* ═════════════════════ AI AGENTS ═════════════════════ */}
+        {activeSection === "agents" && (
+          <div id="settings-panel-agents" className="space-y-6">
+            <div
+              className="rounded-2xl p-6 space-y-6"
+              style={{ background: "var(--bg-card-solid)", border: "1px solid var(--border-subtle)" }}
+            >
+              <SectionHeader icon={Zap} title="AI Agent Configuration" description="Behavior and performance tuning" />
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <InputField
+                  id="parallel-agents"
+                  label="Parallel Agents"
+                  type="number"
+                  value={String(parallelAgents)}
+                  onChange={(v) => setParallelAgents(Number(v))}
+                  description="Number of agents to run simultaneously (1-10)"
+                  icon={Zap}
+                />
+                <InputField
+                  id="max-retries"
+                  label="Max Retries"
+                  type="number"
+                  value={String(maxRetries)}
+                  onChange={(v) => setMaxRetries(Number(v))}
+                  description="Retry attempts for failed actions (0-10)"
+                  icon={RefreshCw}
+                />
+                <InputField
+                  id="timeout"
+                  label="Timeout (seconds)"
+                  type="number"
+                  value={String(timeout)}
+                  onChange={(v) => setTimeout(Number(v))}
+                  description="Maximum wait time for agent actions (10-300)"
+                  icon={Server}
+                />
               </div>
-            )}
 
-            {/* ── NOTIFICATIONS TAB ── */}
-            {activeTab === "notifications" && (
-              <div
-                className="rounded-2xl p-6"
-                style={{
-                  background: "var(--card)",
-                  border: "1px solid var(--border)",
-                }}
-              >
-                <h2 className="text-lg font-bold mb-6">
-                  Notification Preferences
-                </h2>
-                <div className="space-y-4">
-                  {[
-                    {
-                      label: "Email Notifications",
-                      desc: "Receive email updates about your campaigns",
-                      state: emailNotifs,
-                      set: setEmailNotifs,
-                    },
-                    {
-                      label: "Campaign Alerts",
-                      desc: "Get notified when campaigns start or complete",
-                      state: campaignAlerts,
-                      set: setCampaignAlerts,
-                    },
-                    {
-                      label: "Agent Status Updates",
-                      desc: "Real-time alerts when agents go online/offline",
-                      state: agentUpdates,
-                      set: setAgentUpdates,
-                    },
-                    {
-                      label: "Weekly Performance Report",
-                      desc: "Summary of your Swarm's weekly activity",
-                      state: weeklyReport,
-                      set: setWeeklyReport,
-                    },
-                  ].map((item) => (
-                    <div
-                      key={item.label}
-                      className="flex items-center justify-between py-3"
-                      style={{ borderBottom: "1px solid var(--border)" }}
-                    >
-                      <div>
-                        <p className="font-medium">{item.label}</p>
-                        <p
-                          className="text-xs mt-0.5"
-                          style={{ color: "var(--text-muted)" }}
-                        >
-                          {item.desc}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => item.set(!item.state)}
-                        className="w-12 h-7 rounded-full transition-all relative"
-                        style={{
-                          background: item.state
-                            ? "var(--accent-primary)"
-                            : "var(--border)",
-                        }}
-                      >
-                        <div
-                          className="absolute top-0.5 w-6 h-6 rounded-full transition-all"
-                          style={{
-                            background: "var(--text-primary)",
-                            left: item.state
-                              ? "calc(100% - 26px)"
-                              : "2px",
-                          }}
-                        />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+              <div className="h-px" style={{ background: "var(--border-subtle)" }} />
+
+              <div className="space-y-3">
+                <ToggleSwitch
+                  id="debug-mode"
+                  label="Debug Mode"
+                  description="Show detailed agent logs and reasoning in the UI"
+                  checked={debugMode}
+                  onChange={setDebugMode}
+                  icon={Server}
+                />
+                <ToggleSwitch
+                  id="save-memory"
+                  label="Save to Memory Bank"
+                  description="Store agent learnings and insights in the memory bank"
+                  checked={saveMemory}
+                  onChange={setSaveMemory}
+                  icon={Zap}
+                  badge="Recommended"
+                />
+                <ToggleSwitch
+                  id="strict-mode"
+                  label="Strict Mode"
+                  description="Require explicit approval for all agent actions"
+                  checked={strictMode}
+                  onChange={setStrictMode}
+                  icon={Shield}
+                />
               </div>
-            )}
-
-            {/* ── APPEARANCE TAB ── */}
-            {activeTab === "appearance" && (
-              <div className="space-y-6">
-                {/* Theme Gallery */}
-                <div
-                  className="rounded-2xl p-6"
-                  style={{
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  <h2 className="text-lg font-bold mb-2">Theme</h2>
-                  <p
-                    className="text-sm mb-6"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    Choose a color palette that matches your brand.
-                  </p>
-                  <div className="grid grid-cols-2 gap-4">
-                    {themeIds.map((id) => {
-                      const t = presets[id];
-                      const isActive = themeId === id;
-                      return (
-                        <button
-                          key={id}
-                          onClick={() => setTheme(id)}
-                          className="relative rounded-xl p-4 text-left transition-all border-2"
-                          style={{
-                            background: t.void,
-                            borderColor: isActive
-                              ? primaryColor
-                              : t.border,
-                            boxShadow: isActive
-                              ? `0 0 20px ${primaryColor}33`
-                              : "none",
-                          }}
-                        >
-                          {/* Checkmark */}
-                          {isActive && (
-                            <div
-                              className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
-                              style={{ background: primaryColor }}
-                            >
-                              <Check
-                                className="w-3 h-3"
-                                style={{ color: t.void }}
-                              />
-                            </div>
-                          )}
-                          {/* Mini preview */}
-                          <div className="flex gap-2 mb-3">
-                            {t.particleColors.map((c, i) => (
-                              <div
-                                key={i}
-                                className="w-6 h-6 rounded-full"
-                                style={{ background: c }}
-                              />
-                            ))}
-                          </div>
-                          <p
-                            className="font-semibold text-sm"
-                            style={{ color: t.cream }}
-                          >
-                            {t.name}
-                          </p>
-                          <p
-                            className="text-xs mt-0.5"
-                            style={{ color: t.creamMuted }}
-                          >
-                            {id.charAt(0).toUpperCase() + id.slice(1)}
-                          </p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Custom Accent */}
-                <div
-                  className="rounded-2xl p-6"
-                  style={{
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  <h2 className="text-lg font-bold mb-2">
-                    Custom Accent Color
-                  </h2>
-                  <p
-                    className="text-sm mb-4"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    Override the primary accent color for any theme.
-                  </p>
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <input
-                        type="color"
-                        value={localAccent}
-                        onChange={(e) => {
-                          setLocalAccent(e.target.value);
-                          setCustomAccent(e.target.value);
-                        }}
-                        className="w-12 h-12 rounded-lg cursor-pointer border-0 p-0 overflow-hidden"
-                        style={{ background: "transparent" }}
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <input
-                        type="text"
-                        value={localAccent}
-                        onChange={(e) => {
-                          setLocalAccent(e.target.value);
-                          setCustomAccent(e.target.value);
-                        }}
-                        className="w-full px-4 py-2.5 rounded-xl text-sm font-mono transition-colors"
-                        style={{
-                          background: "var(--input)",
-                          border: "1px solid var(--border)",
-                          color: "var(--text-primary)",
-                        }}
-                      />
-                    </div>
-                    <button
-                      onClick={() => {
-                        setLocalAccent(presets[themeId].primary);
-                        setCustomAccent(null);
-                      }}
-                      className="px-4 py-2.5 rounded-xl text-xs font-bold transition-colors"
-                      style={{
-                        background: "var(--input)",
-                        color: "var(--text-secondary)",
-                        border: "1px solid var(--border)",
-                      }}
-                    >
-                      Reset
-                    </button>
-                  </div>
-                </div>
-
-                {/* Branding */}
-                <div
-                  className="rounded-2xl p-6"
-                  style={{
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  <h2 className="text-lg font-bold mb-2">Branding</h2>
-                  <p
-                    className="text-sm mb-6"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    Customize how your Swarm appears in the sidebar.
-                  </p>
-
-                  {/* Brand Name */}
-                  <div className="mb-6">
-                    <label
-                      className="block text-sm font-medium mb-2"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      Brand Name
-                    </label>
-                    <input
-                      type="text"
-                      value={localBrandName}
-                      onChange={(e) => {
-                        setLocalBrandName(e.target.value);
-                        setBrandName(e.target.value);
-                      }}
-                      className="w-full px-4 py-3 rounded-xl text-sm transition-colors"
-                      style={{
-                        background: "var(--input)",
-                        border: "1px solid var(--border)",
-                        color: "var(--text-primary)",
-                      }}
-                    />
-                  </div>
-
-                  {/* Logo Upload */}
-                  <div className="mb-6">
-                    <label
-                      className="block text-sm font-medium mb-2"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      Logo
-                    </label>
-                    <input
-                      ref={logoInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoUpload}
-                      className="hidden"
-                    />
-                    <div className="flex items-center gap-4">
-                      {logo && (
-                        <img
-                          src={logo}
-                          alt="Logo preview"
-                          className="w-12 h-12 rounded-lg object-cover"
-                          style={{
-                            border: "1px solid var(--border)",
-                          }}
-                        />
-                      )}
-                      <button
-                        onClick={() => logoInputRef.current?.click()}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
-                        style={{
-                          background: "var(--input)",
-                          color: "var(--text-secondary)",
-                          border: "1px solid var(--border)",
-                        }}
-                      >
-                        <Upload className="w-4 h-4" />
-                        {logo ? "Change Logo" : "Upload Logo"}
-                      </button>
-                      {logo && (
-                        <button
-                          onClick={() => setLogo(null)}
-                          className="text-xs transition-colors"
-                          style={{ color: "var(--text-muted)" }}
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Favicon Upload */}
-                  <div>
-                    <label
-                      className="block text-sm font-medium mb-2"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      Favicon
-                    </label>
-                    <input
-                      ref={faviconInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFaviconUpload}
-                      className="hidden"
-                    />
-                    <div className="flex items-center gap-4">
-                      {favicon && (
-                        <img
-                          src={favicon}
-                          alt="Favicon preview"
-                          className="w-8 h-8 rounded object-cover"
-                          style={{
-                            border: "1px solid var(--border)",
-                          }}
-                        />
-                      )}
-                      <button
-                        onClick={() => faviconInputRef.current?.click()}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
-                        style={{
-                          background: "var(--input)",
-                          color: "var(--text-secondary)",
-                          border: "1px solid var(--border)",
-                        }}
-                      >
-                        <Image className="w-4 h-4" />
-                        {favicon ? "Change Favicon" : "Upload Favicon"}
-                      </button>
-                      {favicon && (
-                        <button
-                          onClick={() => setFavicon(null)}
-                          className="text-xs transition-colors"
-                          style={{ color: "var(--text-muted)" }}
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ── BILLING TAB ── */}
-            {activeTab === "billing" && (
-              <div className="space-y-4">
-                <div
-                  className="rounded-2xl p-6"
-                  style={{
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  <h2 className="text-lg font-bold mb-4">Current Plan</h2>
-                  <div
-                    className="flex items-center justify-between p-4 rounded-xl"
-                    style={{
-                      background: "rgba(245, 158, 11, 0.05)",
-                      border: "1px solid rgba(245, 158, 11, 0.15)",
-                    }}
-                  >
-                    <div>
-                      <p
-                        className="font-bold"
-                        style={{ color: "var(--accent-primary)" }}
-                      >
-                        Pro Plan
-                      </p>
-                      <p
-                        className="text-sm mt-1"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        €299/month — billed monthly
-                      </p>
-                    </div>
-                    <span
-                      className="px-3 py-1 rounded-full text-xs font-bold"
-                      style={{
-                        background: "rgba(132,204,22,0.1)",
-                        color: "var(--accent-success)",
-                      }}
-                    >
-                      Active
-                    </span>
-                  </div>
-                  <div className="mt-4 grid grid-cols-3 gap-4">
-                    {[
-                      { label: "Agents", value: "12 / 12", used: true },
-                      { label: "Campaigns", value: "Unlimited", used: false },
-                      { label: "API Calls", value: "50K / mo", used: true },
-                    ].map((item) => (
-                      <div
-                        key={item.label}
-                        className="p-3 rounded-xl text-center"
-                        style={{ background: "var(--input)" }}
-                      >
-                        <p className="text-lg font-bold">{item.value}</p>
-                        <p
-                          className="text-xs mt-1"
-                          style={{ color: "var(--text-muted)" }}
-                        >
-                          {item.label}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div
-                  className="rounded-2xl p-6"
-                  style={{
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  <h2 className="text-lg font-bold mb-4">Payment Method</h2>
-                  <div
-                    className="flex items-center gap-4 p-4 rounded-xl"
-                    style={{ background: "var(--input)" }}
-                  >
-                    <div
-                      className="w-10 h-7 rounded flex items-center justify-center text-xs font-bold"
-                      style={{
-                        background:
-                          "linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))",
-                        color: "var(--bg-base)",
-                      }}
-                    >
-                      VISA
-                    </div>
-                    <div>
-                      <p className="font-medium">
-                        •••• •••• •••• 4242
-                      </p>
-                      <p
-                        className="text-xs"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        Expires 12/26
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ── SECURITY TAB ── */}
-            {activeTab === "security" && (
-              <div
-                className="rounded-2xl p-6"
-                style={{
-                  background: "var(--card)",
-                  border: "1px solid var(--border)",
-                }}
-              >
-                <h2 className="text-lg font-bold mb-6">Security</h2>
-                <div className="space-y-4">
-                  <div
-                    className="flex items-center justify-between py-3"
-                    style={{ borderBottom: "1px solid var(--border)" }}
-                  >
-                    <div>
-                      <p className="font-medium">
-                        Two-Factor Authentication
-                      </p>
-                      <p
-                        className="text-xs mt-0.5"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        Add an extra layer of security
-                      </p>
-                    </div>
-                    <button
-                      className="px-4 py-2 rounded-lg text-xs font-bold transition-colors"
-                      style={{
-                        background: "var(--accent-primary)",
-                        color: "var(--bg-base)",
-                      }}
-                    >
-                      Enable
-                    </button>
-                  </div>
-                  <div
-                    className="flex items-center justify-between py-3"
-                    style={{ borderBottom: "1px solid var(--border)" }}
-                  >
-                    <div>
-                      <p className="font-medium">API Keys</p>
-                      <p
-                        className="text-xs mt-0.5"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        Manage your OpenAI and Buffer API keys
-                      </p>
-                    </div>
-                    <button
-                      className="px-4 py-2 rounded-lg text-xs font-bold transition-colors"
-                      style={{
-                        background: "var(--accent-primary)",
-                        color: "var(--bg-base)",
-                      }}
-                    >
-                      Manage
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between py-3">
-                    <div>
-                      <p className="font-medium text-red-400">
-                        Danger Zone
-                      </p>
-                      <p
-                        className="text-xs mt-0.5"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        Delete account and all data
-                      </p>
-                    </div>
-                    <button className="px-4 py-2 rounded-lg text-xs font-bold bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* ═════════════════════ API ═════════════════════ */}
+        {activeSection === "api" && (
+          <div id="settings-panel-api" className="space-y-6">
+            <div
+              className="rounded-2xl p-6 space-y-6"
+              style={{ background: "var(--bg-card-solid)", border: "1px solid var(--border-subtle)" }}
+            >
+              <SectionHeader icon={Webhook} title="API Configuration" description="Integrate with external services" />
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Fingerprint className="size-4" style={{ color: "var(--text-muted)" }} />
+                    <label htmlFor="api-key" className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                      API Key
+                    </label>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      id="api-key"
+                      type={showApiKey ? "text" : "password"}
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      className="flex-1 px-4 py-2.5 rounded-xl text-sm font-mono focus:outline-none focus:ring-2"
+                      style={{
+                        background: "var(--bg-elevated)",
+                        color: "var(--text-primary)",
+                        border: "1px solid var(--border-subtle)",
+                      }}
+                    />
+                    <button
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="px-4 py-2.5 rounded-xl text-sm font-medium transition-colors hover:bg-white/5"
+                      style={{ background: "var(--bg-elevated)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)" }}
+                    >
+                      {showApiKey ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    Your API key for external integrations. Keep this secret.
+                  </p>
+                </div>
+
+                <InputField
+                  id="webhook-url"
+                  label="Webhook URL"
+                  value={webhookUrl}
+                  onChange={setWebhookUrl}
+                  placeholder="https://hooks.example.com/omega-swarm"
+                  description="Receive real-time updates about agent actions and campaign events"
+                  icon={Webhook}
+                />
+
+                <InputField
+                  id="rate-limit"
+                  label="Rate Limit (requests/min)"
+                  type="number"
+                  value={String(rateLimit)}
+                  onChange={(v) => setRateLimit(Number(v))}
+                  description="Maximum API requests per minute (10-1000)"
+                  icon={Server}
+                />
+              </div>
+
+              <div className="h-px" style={{ background: "var(--border-subtle)" }} />
+
+              <div className="rounded-xl p-4 space-y-2" style={{ background: "var(--bg-elevated)" }}>
+                <div className="flex items-center gap-2">
+                  <Braces className="size-4" style={{ color: "var(--accent-primary)" }} />
+                  <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                    API Documentation
+                  </h3>
+                </div>
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  Access the full API documentation to integrate Omega Swarm with your existing tools.
+                </p>
+                <button
+                  className="flex items-center gap-2 text-sm font-medium transition-colors hover:opacity-80"
+                  style={{ color: "var(--accent-primary)" }}
+                >
+                  View Documentation
+                  <ChevronRight className="size-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═════════════════════ DATA ═════════════════════ */}
+        {activeSection === "data" && (
+          <div id="settings-panel-data" className="space-y-6">
+            <div
+              className="rounded-2xl p-6 space-y-6"
+              style={{ background: "var(--bg-card-solid)", border: "1px solid var(--border-subtle)" }}
+            >
+              <SectionHeader icon={Shield} title="Data & Privacy" description="Manage your data and privacy settings" />
+
+              <div className="space-y-3">
+                <div
+                  className="flex items-center gap-4 p-4 rounded-xl"
+                  style={{ background: "var(--bg-elevated)" }}
+                >
+                  <div className="size-10 flex items-center justify-center rounded-lg" style={{ background: "var(--bg-card-solid)" }}>
+                    <Download className="size-5" style={{ color: "var(--accent-primary)" }} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                      Export Data
+                    </h3>
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                      Download all your campaigns, content, and settings as JSON
+                    </p>
+                  </div>
+                  <button
+                    className="px-4 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-white/5"
+                    style={{ background: "var(--bg-card-solid)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)" }}
+                  >
+                    Export
+                  </button>
+                </div>
+
+                <div
+                  className="flex items-center gap-4 p-4 rounded-xl"
+                  style={{ background: "var(--bg-elevated)" }}
+                >
+                  <div className="size-10 flex items-center justify-center rounded-lg" style={{ background: "var(--bg-card-solid)" }}>
+                    <Upload className="size-5" style={{ color: "var(--accent-primary)" }} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                      Import Data
+                    </h3>
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                      Import campaigns, content, and settings from a JSON file
+                    </p>
+                  </div>
+                  <button
+                    className="px-4 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-white/5"
+                    style={{ background: "var(--bg-card-solid)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)" }}
+                  >
+                    Import
+                  </button>
+                </div>
+
+                <div
+                  className="flex items-center gap-4 p-4 rounded-xl"
+                  style={{ background: "var(--bg-elevated)" }}
+                >
+                  <div className="size-10 flex items-center justify-center rounded-lg" style={{ background: "#EF444411" }}>
+                    <Trash2 className="size-5" style={{ color: "#EF4444" }} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                      Clear All Data
+                    </h3>
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                      Permanently delete all campaigns, content, and settings. This cannot be undone.
+                    </p>
+                  </div>
+                  <button
+                    className="px-4 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-red-500/10"
+                    style={{ background: "#EF444411", color: "#EF4444", border: "1px solid #EF444422" }}
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              <div className="h-px" style={{ background: "var(--border-subtle)" }} />
+
+              <div className="rounded-xl p-4 flex items-start gap-3" style={{ background: "rgba(245,158,11,0.08)" }}>
+                <Info className="size-5 shrink-0 mt-0.5" style={{ color: "var(--accent-primary)" }} />
+                <div>
+                  <h3 className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                    Data Privacy
+                  </h3>
+                  <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                    Your data is stored locally in your browser and on your server. We do not send your content to third-party services except for AI generation, which uses your configured API keys. All API calls are made directly from your server.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

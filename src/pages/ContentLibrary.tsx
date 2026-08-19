@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { toast as sonnerToast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import {
@@ -973,70 +973,76 @@ export default function ContentLibrary() {
     return () => clearInterval(i);
   }, []);
 
-  const allContent: ContentItem[] = [];
-
-  if (posts) {
-    for (const p of posts) {
-      allContent.push({
-        id: p.id,
-        title: `AI Post: ${p.title}`,
-        caption: p.caption ?? undefined,
-        type: "social",
-        status: p.status as any,
-        date: p.date,
-        imageUrl: p.imageUrl ?? undefined,
-        instagramPostId: p.instagramPostId ?? undefined,
-        likes: p.likes ?? undefined,
-        comments: p.comments ?? undefined,
-        views: p.views ?? undefined,
-      });
+  const allContent = useMemo<ContentItem[]>(() => {
+    const items: ContentItem[] = [];
+    if (posts) {
+      for (const p of posts) {
+        items.push({
+          id: p.id,
+          title: `AI Post: ${p.title}`,
+          caption: p.caption ?? undefined,
+          type: "social",
+          status: p.status as any,
+          date: p.date,
+          imageUrl: p.imageUrl ?? undefined,
+          instagramPostId: p.instagramPostId ?? undefined,
+          likes: p.likes ?? undefined,
+          comments: p.comments ?? undefined,
+          views: p.views ?? undefined,
+        });
+      }
     }
-  }
-  if (videos) {
-    for (const v of videos) {
-      allContent.push({
-        id: v.id,
-        title: `AI Video: ${v.prompt ?? v.id}`,
-        prompt: v.prompt ?? undefined,
-        type: "video",
-        status: v.status as any,
-        date: v.date,
-        videoUrl: v.videoUrl ?? undefined,
-        thumbnailUrl: v.thumbnailUrl ?? undefined,
-        duration: v.duration ?? undefined,
-      });
+    if (videos) {
+      for (const v of videos) {
+        items.push({
+          id: v.id,
+          title: `AI Video: ${v.prompt ?? v.id}`,
+          prompt: v.prompt ?? undefined,
+          type: "video",
+          status: v.status as any,
+          date: v.date,
+          videoUrl: v.videoUrl ?? undefined,
+          thumbnailUrl: v.thumbnailUrl ?? undefined,
+          duration: v.duration ?? undefined,
+        });
+      }
     }
-  }
+    items.sort((a, b) => +new Date(b.date) - +new Date(a.date));
+    return items;
+  }, [posts, videos]);
 
-  allContent.sort((a, b) => +new Date(b.date) - +new Date(a.date));
+  const filtered = useMemo(() => {
+    return allContent.filter((item) => {
+      if (tab === "social" && item.type !== "social") return false;
+      if (tab === "video" && item.type !== "video") return false;
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        return item.title.toLowerCase().includes(q) || (item.caption ?? "").toLowerCase().includes(q);
+      }
+      return true;
+    });
+  }, [allContent, tab, search]);
 
-  const filtered = allContent.filter((item) => {
-    if (tab === "social" && item.type !== "social") return false;
-    if (tab === "video" && item.type !== "video") return false;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      return item.title.toLowerCase().includes(q) || (item.caption ?? "").toLowerCase().includes(q);
-    }
-    return true;
-  });
+  const stats = useMemo(() => {
+    const totalPosts = allContent.filter((c) => c.type === "social").length;
+    const totalVideos = allContent.filter((c) => c.type === "video").length;
+    const totalViews = allContent.reduce((sum, c) => sum + (c.views ?? 0), 0);
+    const engagement = totalPosts > 0 ? Math.round(((allContent.reduce((sum, c) => sum + (c.likes ?? 0) + (c.comments ?? 0), 0)) / totalPosts) * 100) / 100 : 0;
+    return { totalPosts, totalVideos, totalViews, engagement };
+  }, [allContent]);
 
-  const totalPosts = allContent.filter((c) => c.type === "social").length;
-  const totalVideos = allContent.filter((c) => c.type === "video").length;
-  const totalViews = allContent.reduce((sum, c) => sum + (c.views ?? 0), 0);
-  const engagement = totalPosts > 0 ? Math.round(((allContent.reduce((sum, c) => sum + (c.likes ?? 0) + (c.comments ?? 0), 0)) / totalPosts) * 100) / 100 : 0;
-
-  const handleDelete = (item: ContentItem) => {
+  const handleDelete = useCallback((item: ContentItem) => {
     if (item.type === "social") deletePost.mutate({ id: item.id });
     else if (item.type === "video") deleteVideo.mutate({ id: item.id });
-  };
+  }, [deletePost, deleteVideo]);
 
-  const handleView = (item: ContentItem) => {
+  const handleView = useCallback((item: ContentItem) => {
     if (item.type === "video" && item.videoUrl) {
       setVideoItem(item);
     } else {
       setViewedItem(item);
     }
-  };
+  }, []);
 
   const isLoading = postsLoading || videosLoading;
 
@@ -1092,10 +1098,10 @@ export default function ContentLibrary() {
 
         {/* ── Stats ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard icon={Layers} label="Total Posts" value={totalPosts} trend={totalPosts > 0 ? "+12%" : undefined} color="#F59E0B" />
-          <StatCard icon={Eye} label="Total Views" value={totalViews} trend={totalViews > 0 ? "+8%" : undefined} color="#06B6D4" />
-          <StatCard icon={Heart} label="Engagement" value={engagement} color="#EC4899" />
-          <StatCard icon={Video} label="Videos" value={totalVideos} trend={totalVideos > 0 ? "+5%" : undefined} color="#A855F7" />
+          <StatCard icon={Layers} label="Total Posts" value={stats.totalPosts} trend={stats.totalPosts > 0 ? "+12%" : undefined} color="#F59E0B" />
+          <StatCard icon={Eye} label="Total Views" value={stats.totalViews} trend={stats.totalViews > 0 ? "+8%" : undefined} color="#06B6D4" />
+          <StatCard icon={Heart} label="Engagement" value={stats.engagement} color="#EC4899" />
+          <StatCard icon={Video} label="Videos" value={stats.totalVideos} trend={stats.totalVideos > 0 ? "+5%" : undefined} color="#A855F7" />
         </div>
 
         {/* ── Tabs + Search ── */}

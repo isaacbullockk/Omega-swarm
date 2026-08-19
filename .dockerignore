@@ -1,4 +1,1 @@
-node_modules
-.git
-*.zip
-data
+# Docker build context exclusions — keep image small and build fast node_modules .git .github *.log .env .env.* .DS_Store .vscode .idea *.md docker-compose*.yml Dockerfile* .dockerignore data/ coverage/ tmp/ temp/ *.tmp

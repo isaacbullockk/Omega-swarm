@@ -1,1207 +1,846 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { cn } from "@/lib/utils";
+import { useState, useEffect, useCallback, useMemo, memo, useRef } from "react";
+import { trpc } from "@/lib/trpc";
 import {
-  Volume2,
-  Plus,
+  Mic,
   Play,
   Pause,
+  Plus,
   Trash2,
-  Upload,
-  Mic,
-  X,
-  ChevronDown,
-  Download,
-  Wand2,
-  Music,
-  Clock,
-  FileAudio,
+  ArrowRight,
+  ArrowLeft,
   Sparkles,
+  Wand2,
+  Volume2,
+  Loader2,
+  X,
   Check,
+  Music,
+  Type,
+  Settings,
+  ChevronDown,
+  ChevronUp,
+  GripVertical,
+  Copy,
+  Download,
+  Save,
+  FileText,
+  Headphones,
+  Radio,
+  Mic2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-interface Voice {
+interface VoiceSample {
   id: string;
   name: string;
-  quality: number;
-  samples: number;
-  duration: string;
+  text: string;
+  audioUrl?: string;
+  duration?: number;
+  status: "recording" | "processing" | "ready" | "error";
   createdAt: string;
-  isCloned: boolean;
 }
 
-interface Generation {
+interface VoiceProject {
   id: string;
   name: string;
-  voice: string;
-  duration: string;
-  date: string;
+  description: string;
+  samples: VoiceSample[];
+  status: "draft" | "training" | "ready" | "error";
+  createdAt: string;
+  updatedAt: string;
 }
 
-interface UploadedSample {
-  id: string;
-  name: string;
-  size: string;
-  duration: string;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Waveform Component                                                  */
-/* ------------------------------------------------------------------ */
-
-function WaveformBars({ count = 24, active = true, seed = 1, color = "var(--accent-primary)" }: { count?: number; active?: boolean; seed?: number; color?: string }) {
-  const bars = Array.from({ length: count }, (_, i) => {
-    const height = 30 + Math.sin((i + seed) * 1.3) * 20 + Math.cos((i + seed) * 0.7) * 15 + Math.random() * 20;
-    return Math.max(12, Math.min(88, height));
-  });
-
-  return (
-    <div className="flex items-center gap-[2px] h-10 w-full">
-      {bars.map((h, i) => (
-        <div
-          key={i}
-          className="flex-1 rounded-full"
-          style={{
-            height: active ? `${h}%` : "20%",
-            background: color,
-            opacity: active ? 0.7 + Math.sin((i + seed) * 0.5) * 0.3 : 0.3,
-            animation: active ? `waveformPulse 1.2s ease-in-out ${i * 0.04}s infinite alternate` : "none",
-            minWidth: 2,
-            maxWidth: 6,
-          }}
-        />
-      ))}
-    </div>
-  );
+interface VoiceSettings {
+  stability: number;
+  clarity: number;
+  speed: number;
+  pitch: number;
 }
 
 /* ------------------------------------------------------------------ */
-/*  Mini Waveform (compact)                                            */
+/*  Sub-components (memoized)                                          */
 /* ------------------------------------------------------------------ */
 
-function MiniWaveform({ seed = 1, active = false }: { seed?: number; active?: boolean }) {
-  const bars = Array.from({ length: 20 }, (_, i) => {
-    const h = 25 + Math.sin((i + seed) * 0.9) * 18 + Math.cos((i + seed) * 1.4) * 12;
-    return Math.max(15, Math.min(85, h));
-  });
-
-  return (
-    <div className="flex items-center gap-[1.5px] h-6 w-20">
-      {bars.map((h, i) => (
-        <div
-          key={i}
-          className="flex-1 rounded-sm"
-          style={{
-            height: `${h}%`,
-            background: "var(--accent-primary)",
-            opacity: 0.5 + (active ? 0.3 : 0),
-            animation: active ? `waveformPulse 0.8s ease-in-out ${i * 0.03}s infinite alternate` : "none",
-            minWidth: 1.5,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Clone Voice Modal                                                   */
-/* ------------------------------------------------------------------ */
-
-function CloneVoiceModal({
-  isOpen,
-  onClose,
-  onClone,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  onClone: (voice: Voice) => void;
-}) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [samples, setSamples] = useState<UploadedSample[]>([]);
-  const [isCloning, setIsCloning] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      if (samples.length >= 3) return;
-      const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("audio/"));
-      files.slice(0, 3 - samples.length).forEach((file) => {
-        const newSample: UploadedSample = {
-          id: `s_${Date.now()}_${Math.random()}`,
-          name: file.name,
-          size: `${(file.size / 1024 / 1024).toFixed(1)}MB`,
-          duration: `${Math.floor(Math.random() * 3 + 1)}:${String(Math.floor(Math.random() * 60)).padStart(2, "0")}`,
-        };
-        setSamples((prev) => [...prev, newSample]);
-      });
-    },
-    [samples.length]
-  );
-
-  const handleFileSelect = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!e.target.files || samples.length >= 3) return;
-      const files = Array.from(e.target.files).filter((f) => f.type.startsWith("audio/"));
-      files.slice(0, 3 - samples.length).forEach((file) => {
-        const newSample: UploadedSample = {
-          id: `s_${Date.now()}_${Math.random()}`,
-          name: file.name,
-          size: `${(file.size / 1024 / 1024).toFixed(1)}MB`,
-          duration: `${Math.floor(Math.random() * 3 + 1)}:${String(Math.floor(Math.random() * 60)).padStart(2, "0")}`,
-        };
-        setSamples((prev) => [...prev, newSample]);
-      });
-    },
-    [samples.length]
-  );
-
-  const removeSample = (id: string) => {
-    setSamples((prev) => prev.filter((s) => s.id !== id));
-  };
-
-  const handleClone = () => {
-    if (!name.trim()) return;
-    setIsCloning(true);
-    setProgress(0);
-  };
-
-  useEffect(() => {
-    if (!isCloning) return;
-    const interval = setInterval(() => {
-      setProgress((p) => {
-        if (p >= 100) {
-          clearInterval(interval);
-          setIsCloning(false);
-          const newVoice: Voice = {
-            id: `v_${Date.now()}`,
-            name: name.trim(),
-            quality: 95 + Math.floor(Math.random() * 5),
-            samples: samples.length || 1,
-            duration: "0:00",
-            createdAt: new Date().toISOString().split("T")[0],
-            isCloned: true,
-          };
-          onClone(newVoice);
-          setName("");
-          setDescription("");
-          setSamples([]);
-          onClose();
-          return 100;
-        }
-        return p + 2;
-      });
-    }, 60);
-    return () => clearInterval(interval);
-  }, [isCloning, name, samples, onClone, onClose]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Slide-in Panel */}
-      <div
-        className="relative flex h-full w-full max-w-md flex-col overflow-y-auto border-l shadow-2xl"
-        style={{
-          backgroundColor: "var(--bg-base)",
-          borderColor: "var(--border-subtle)",
-          animation: "slideInRight 0.35s ease-out forwards",
-        }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: "var(--border-subtle)" }}>
-          <div>
-            <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-              Clone New Voice
-            </h2>
-            <p className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
-              Upload audio samples to create a voice clone
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 transition-colors hover:bg-white/5"
-            style={{ color: "var(--text-muted)" }}
-          >
-            <X className="size-5" />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 space-y-6 px-6 py-6">
-          {/* Voice Name */}
-          <div>
-            <label className="mb-1.5 block text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-              Voice Name
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. My Voice Clone"
-              className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition-colors focus:border-amber-500"
-              style={{
-                backgroundColor: "var(--bg-input)",
-                borderColor: "var(--border-subtle)",
-                color: "var(--text-primary)",
-              }}
-            />
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="mb-1.5 block text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-              Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe this voice..."
-              rows={3}
-              className="w-full resize-none rounded-lg border px-3 py-2.5 text-sm outline-none transition-colors focus:border-amber-500"
-              style={{
-                backgroundColor: "var(--bg-input)",
-                borderColor: "var(--border-subtle)",
-                color: "var(--text-primary)",
-              }}
-            />
-          </div>
-
-          {/* Upload Area */}
-          <div>
-            <label className="mb-1.5 block text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-              Audio Samples{" "}
-              <span style={{ color: "var(--text-muted)" }}>({samples.length}/3)</span>
-            </label>
-
-            {/* Drag & Drop Zone */}
-            <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleFileDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={cn(
-                "cursor-pointer rounded-xl border-2 border-dashed p-6 text-center transition-all",
-                samples.length >= 3 && "pointer-events-none opacity-40"
-              )}
-              style={{
-                borderColor: samples.length > 0 ? "var(--accent-primary)" : "var(--border-subtle)",
-                background: samples.length > 0 ? "rgba(245,158,11,0.04)" : "transparent",
-              }}
-            >
-              <Upload className="mx-auto size-8" style={{ color: "var(--accent-primary)" }} />
-              <p className="mt-2 text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-                Drag & drop audio files
-              </p>
-              <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-                MP3 or WAV, 10s - 5min per sample
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="audio/*"
-                multiple
-                className="hidden"
-                onChange={handleFileSelect}
-              />
-            </div>
-
-            {/* Sample Slots */}
-            {samples.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {samples.map((sample) => (
-                  <div
-                    key={sample.id}
-                    className="flex items-center gap-3 rounded-lg border px-3 py-2.5"
-                    style={{
-                      backgroundColor: "var(--bg-card-solid)",
-                      borderColor: "var(--border-subtle)",
-                    }}
-                  >
-                    <Music className="size-4 shrink-0" style={{ color: "var(--accent-primary)" }} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-                        {sample.name}
-                      </p>
-                      <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                        {sample.size} &middot; {sample.duration}
-                      </p>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeSample(sample.id);
-                      }}
-                      className="rounded p-1 transition-colors hover:bg-white/5"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Progress */}
-          {isCloning && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium" style={{ color: "var(--accent-primary)" }}>
-                  Cloning voice...
-                </span>
-                <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  {progress}%
-                </span>
-              </div>
-              <div className="h-2 w-full overflow-hidden rounded-full" style={{ backgroundColor: "var(--bg-input)" }}>
-                <div
-                  className="h-full rounded-full transition-all duration-100"
-                  style={{
-                    width: `${progress}%`,
-                    background: "var(--gradient-gold)",
-                    animation: "shimmer 1.5s linear infinite",
-                    backgroundSize: "200% 100%",
-                  }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="border-t px-6 py-4" style={{ borderColor: "var(--border-subtle)" }}>
-          <button
-            onClick={handleClone}
-            disabled={!name.trim() || isCloning}
-            className={cn(
-              "w-full rounded-lg py-2.5 text-sm font-semibold transition-all duration-200",
-              name.trim() && !isCloning
-                ? "opacity-100 hover:brightness-110 hover:shadow-lg hover:shadow-amber-500/20"
-                : "cursor-not-allowed opacity-40"
-            )}
-            style={{
-              background: name.trim() && !isCloning ? "var(--gradient-gold)" : "var(--border-subtle)",
-              color: name.trim() && !isCloning ? "#0C0A09" : "var(--text-muted)",
-            }}
-          >
-            {isCloning ? "Cloning..." : "Clone Voice"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Voice Card Component                                                */
-/* ------------------------------------------------------------------ */
-
-function VoiceCard({
-  voice,
+const VoiceCard = memo(function VoiceCard({
+  sample,
+  isPlaying,
   onPlay,
   onDelete,
-  isPlaying,
+  onMove,
 }: {
-  voice: Voice;
+  sample: VoiceSample;
+  isPlaying: boolean;
   onPlay: () => void;
   onDelete: () => void;
-  isPlaying: boolean;
+  onMove: (direction: "up" | "down") => void;
 }) {
-  const [hovered, setHovered] = useState(false);
-  const seed = voice.id.charCodeAt(2) || 1;
-
   return (
     <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="group relative overflow-hidden rounded-xl border transition-all duration-300"
+      className="group relative rounded-xl p-4 transition-all"
       style={{
-        backgroundColor: "var(--bg-card)",
-        borderColor: hovered ? "var(--border-glow)" : "var(--border-subtle)",
-        boxShadow: hovered ? "0 8px 32px rgba(245,158,11,0.12), 0 0 0 1px rgba(245,158,11,0.15)" : "none",
-        transform: hovered ? "translateY(-2px)" : "translateY(0)",
+        background: "var(--bg-card)",
+        border: "1px solid var(--border-subtle)",
       }}
     >
-      {/* Waveform Area */}
-      <div className="relative px-4 pt-4">
-        <WaveformBars count={28} active={isPlaying} seed={seed} />
-        {/* Play Button Overlay */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+      <div className="flex items-center gap-3">
+        <div
+          className="flex size-8 items-center justify-center rounded-lg"
+          style={{ background: "var(--bg-elevated)" }}
+        >
+          {sample.status === "recording" ? (
+            <Mic className="size-4 animate-pulse" style={{ color: "#EF4444" }} />
+          ) : sample.status === "processing" ? (
+            <Loader2 className="size-4 animate-spin" style={{ color: "var(--accent-primary)" }} />
+          ) : (
+            <Headphones className="size-4" style={{ color: "var(--accent-primary)" }} />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
+            {sample.name}
+          </p>
+          <p className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
+            {sample.text.slice(0, 60)}...
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
           <button
             onClick={onPlay}
-            className="flex size-10 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110"
-            style={{ background: "var(--gradient-gold)", color: "#0C0A09" }}
+            disabled={sample.status !== "ready"}
+            className="flex size-8 items-center justify-center rounded-lg transition-colors"
+            style={{
+              background: isPlaying ? "var(--accent-primary)" : "var(--bg-elevated)",
+              color: isPlaying ? "#0C0A09" : "var(--text-muted)",
+              cursor: sample.status === "ready" ? "pointer" : "not-allowed",
+            }}
           >
-            {isPlaying ? <Pause className="size-4" /> : <Play className="size-4 ml-0.5" />}
+            {isPlaying ? <Pause className="size-4" /> : <Play className="size-4" />}
           </button>
-        </div>
-      </div>
-
-      {/* Info */}
-      <div className="px-4 pb-4 pt-2">
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-              {voice.name}
-            </h3>
-            <div className="mt-1 flex items-center gap-2">
-              <span
-                className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
-                style={{
-                  background: `rgba(132, 204, 22, ${voice.quality >= 95 ? 0.15 : 0.1})`,
-                  color: voice.quality >= 95 ? "#84CC16" : "var(--accent-primary)",
-                }}
-              >
-                {voice.quality}% match
-              </span>
-              <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                {voice.samples} sample{voice.samples !== 1 ? "s" : ""}
-              </span>
-            </div>
-          </div>
-          {/* Delete Button */}
           <button
             onClick={onDelete}
-            className="rounded-lg p-1.5 opacity-0 transition-all duration-200 hover:bg-red-500/10 group-hover:opacity-100"
-            style={{ color: "var(--text-muted)" }}
+            className="flex size-8 items-center justify-center rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+            style={{
+              background: "var(--bg-elevated)",
+              color: "#EF4444",
+            }}
           >
-            <Trash2 className="size-3.5 hover:text-red-400" />
+            <Trash2 className="size-4" />
           </button>
         </div>
-
-        {/* Duration & Date */}
-        <div className="mt-2 flex items-center gap-3">
-          <span className="flex items-center gap-1 text-[10px]" style={{ color: "var(--text-muted)" }}>
-            <Clock className="size-3" />
-            {voice.duration}
-          </span>
-          <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-            {voice.createdAt}
-          </span>
-        </div>
       </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Add Voice Card                                                      */
-/* ------------------------------------------------------------------ */
-
-function AddVoiceCard({ onClick }: { onClick: () => void }) {
-  const [hovered, setHovered] = useState(false);
-
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-6 transition-all duration-300"
-      style={{
-        borderColor: hovered ? "var(--accent-primary)" : "var(--border-subtle)",
-        background: hovered ? "rgba(245,158,11,0.04)" : "transparent",
-        minHeight: 180,
-        transform: hovered ? "translateY(-2px)" : "translateY(0)",
-      }}
-    >
-      <div
-        className="flex size-12 items-center justify-center rounded-full transition-all duration-300"
-        style={{
-          background: hovered ? "rgba(245,158,11,0.15)" : "rgba(245,158,11,0.08)",
-        }}
-      >
-        <Mic className="size-6" style={{ color: "var(--accent-primary)" }} />
-      </div>
-      <div className="text-center">
-        <p className="text-sm font-medium" style={{ color: hovered ? "var(--accent-primary)" : "var(--text-secondary)" }}>
-          Add New Voice
-        </p>
-        <p className="mt-0.5 text-[10px]" style={{ color: "var(--text-muted)" }}>
-          Upload audio samples to clone
-        </p>
-      </div>
-    </button>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Voice Selector Dropdown                                             */
-/* ------------------------------------------------------------------ */
-
-function VoiceSelector({
-  voices,
-  selected,
-  onSelect,
-}: {
-  voices: Voice[];
-  selected: string;
-  onSelect: (id: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const selectedVoice = voices.find((v) => v.id === selected);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors"
-        style={{
-          backgroundColor: "var(--bg-input)",
-          borderColor: "var(--border-subtle)",
-          color: "var(--text-primary)",
-        }}
-      >
-        {selectedVoice ? (
-          <>
-            <MiniWaveform seed={selectedVoice.id.charCodeAt(2)} />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{selectedVoice.name}</p>
-              <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                {selectedVoice.quality}% match &middot; {selectedVoice.samples} samples
-              </p>
-            </div>
-          </>
-        ) : (
-          <span className="text-sm" style={{ color: "var(--text-muted)" }}>
-            Select a voice...
-          </span>
-        )}
-        <ChevronDown
-          className="size-4 shrink-0 transition-transform"
-          style={{ color: "var(--text-muted)", transform: open ? "rotate(180deg)" : "rotate(0)" }}
-        />
-      </button>
-
-      {open && (
-        <div
-          className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border shadow-xl"
-          style={{
-            backgroundColor: "var(--bg-card-solid)",
-            borderColor: "var(--border-subtle)",
-          }}
-        >
-          {voices.map((voice) => (
-            <button
-              key={voice.id}
-              onClick={() => {
-                onSelect(voice.id);
-                setOpen(false);
+      {sample.duration && (
+        <div className="mt-2 flex items-center gap-2">
+          <Volume2 className="size-3" style={{ color: "var(--text-muted)" }} />
+          <div className="flex-1 h-1 rounded-full" style={{ background: "var(--bg-elevated)" }}>
+            <div
+              className="h-full rounded-full transition-all"
+              style={{
+                width: isPlaying ? "100%" : "0%",
+                background: "var(--accent-primary)",
+                transitionDuration: isPlaying ? `${sample.duration}s` : "0.3s",
               }}
-              className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-white/5"
-            >
-              <MiniWaveform seed={voice.id.charCodeAt(2)} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm" style={{ color: "var(--text-primary)" }}>
-                  {voice.name}
-                </p>
-                <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                  {voice.quality}% match &middot; {voice.samples} samples
-                </p>
-              </div>
-              {selected === voice.id && <Check className="size-4 shrink-0" style={{ color: "var(--accent-primary)" }} />}
-            </button>
-          ))}
+            />
+          </div>
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+            {Math.floor(sample.duration / 60)}:{(sample.duration % 60).toString().padStart(2, "0")}
+          </span>
         </div>
       )}
     </div>
   );
-}
+});
 
 /* ------------------------------------------------------------------ */
-/*  Generate Tab                                                        */
+/*  Main Component                                                     */
 /* ------------------------------------------------------------------ */
 
-function GenerateTab({
-  voices,
-  generations,
-  onAddGeneration,
-}: {
-  voices: Voice[];
-  generations: Generation[];
-  onAddGeneration: (gen: Generation) => void;
-}) {
-  const [script, setScript] = useState("");
-  const [selectedVoice, setSelectedVoice] = useState(voices[0]?.id || "");
-  const [stability, setStability] = useState(50);
-  const [clarity, setClarity] = useState(70);
-  const [style, setStyle] = useState(30);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generated, setGenerated] = useState<Generation | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+export default function VoiceStudio() {
+  const [projects, setProjects] = useState<VoiceProject[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectDescription, setNewProjectDescription] = useState("");
+  const [showRecordModal, setShowRecordModal] = useState(false);
+  const [recordingText, setRecordingText] = useState("");
+  const [recordingName, setRecordingName] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [playingSampleId, setPlayingSampleId] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>({
+    stability: 0.5,
+    clarity: 0.7,
+    speed: 1.0,
+    pitch: 0.0,
+  });
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
-  const handleGenerate = () => {
-    if (!script.trim() || !selectedVoice) return;
-    setIsGenerating(true);
+  const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const playbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deleteHandlerRef = useRef<((e: KeyboardEvent) => void) | null>(null);
+  const escHandlerRef = useRef<((e: KeyboardEvent) => void) | null>(null);
+
+  const { data: voiceProjects, isLoading } = trpc.voice.listProjects.useQuery();
+  const createProject = trpc.voice.createProject.useMutation({
+    onSuccess: () => {
+      toast.success("Voice project created successfully");
+      setShowNewProject(false);
+      setNewProjectName("");
+      setNewProjectDescription("");
+    },
+  });
+  const deleteProject = trpc.voice.deleteProject.useMutation({
+    onSuccess: () => {
+      toast.success("Voice project deleted");
+      setShowConfirm(false);
+      setItemToDelete(null);
+    },
+  });
+
+  /* ---- Memoized selected project ---- */
+  const selectedProject = useMemo(() => {
+    if (!selectedProjectId) return null;
+    return projects.find((p) => p.id === selectedProjectId) ?? null;
+  }, [projects, selectedProjectId]);
+
+  /* ---- Memoized sorted projects ---- */
+  const sortedProjects = useMemo(() => {
+    return [...projects].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }, [projects]);
+
+  /* ---- CRITICAL FIX: Stable keyboard handlers with refs ---- */
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Delete" && selectedProjectId) {
+        setItemToDelete(selectedProjectId);
+        setShowConfirm(true);
+      }
+    };
+    deleteHandlerRef.current = handler;
+    window.addEventListener("keydown", handler);
+    return () => {
+      window.removeEventListener("keydown", handler);
+    };
+  }, [selectedProjectId]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowNewProject(false);
+        setShowRecordModal(false);
+        setShowSettings(false);
+        setShowConfirm(false);
+      }
+    };
+    escHandlerRef.current = handler;
+    window.addEventListener("keydown", handler);
+    return () => {
+      window.removeEventListener("keydown", handler);
+    };
+  }, []);
+
+  /* ---- Cleanup timeouts on unmount ---- */
+  useEffect(() => {
+    return () => {
+      if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+      if (playbackTimeoutRef.current) clearTimeout(playbackTimeoutRef.current);
+    };
+  }, []);
+
+  const handleCreateProject = useCallback(() => {
+    if (!newProjectName.trim()) return;
+    createProject.mutate({
+      name: newProjectName.trim(),
+      description: newProjectDescription.trim(),
+    });
+  }, [newProjectName, newProjectDescription, createProject]);
+
+  const handleDeleteProject = useCallback(() => {
+    if (!itemToDelete) return;
+    deleteProject.mutate({ id: itemToDelete });
+  }, [itemToDelete, deleteProject]);
+
+  const handleStartRecording = useCallback(() => {
+    setIsRecording(true);
+    setRecordingTime(0);
+    recordingIntervalRef.current = setInterval(() => {
+      setRecordingTime((t) => t + 1);
+    }, 1000);
+  }, []);
+
+  const handleStopRecording = useCallback(() => {
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+      recordingIntervalRef.current = null;
+    }
+    setIsRecording(false);
+
+    if (!selectedProjectId || !recordingText.trim() || !recordingName.trim()) return;
+
+    const newSample: VoiceSample = {
+      id: Date.now().toString(),
+      name: recordingName.trim(),
+      text: recordingText.trim(),
+      duration: recordingTime,
+      status: "processing",
+      createdAt: new Date().toISOString(),
+    };
+
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === selectedProjectId
+          ? { ...p, samples: [...p.samples, newSample], updatedAt: new Date().toISOString() }
+          : p
+      )
+    );
+
     setTimeout(() => {
-      const voice = voices.find((v) => v.id === selectedVoice);
-      const newGen: Generation = {
-        id: `g_${Date.now()}`,
-        name: script.slice(0, 40) + (script.length > 40 ? "..." : ""),
-        voice: voice?.name || "Unknown",
-        duration: `${Math.floor(Math.random() * 2)}:${String(Math.floor(Math.random() * 60)).padStart(2, "0")}`,
-        date: new Date().toISOString().split("T")[0],
-      };
-      setGenerated(newGen);
-      onAddGeneration(newGen);
-      setIsGenerating(false);
-    }, 2000);
-  };
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === selectedProjectId
+            ? {
+                ...p,
+                samples: p.samples.map((s) =>
+                  s.id === newSample.id ? { ...s, status: "ready" as const } : s
+                ),
+              }
+            : p
+        )
+      );
+      toast.success("Voice sample processed successfully");
+    }, 3000);
 
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Left: Input */}
-        <div className="space-y-4">
-          {/* Script Textarea */}
-          <div>
-            <label className="mb-1.5 block text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-              Script
-            </label>
-            <textarea
-              value={script}
-              onChange={(e) => setScript(e.target.value)}
-              placeholder="Enter your script here..."
-              rows={6}
-              className="w-full resize-none rounded-lg border px-4 py-3 text-sm outline-none transition-colors focus:border-amber-500"
-              style={{
-                backgroundColor: "var(--bg-input)",
-                borderColor: "var(--border-subtle)",
-                color: "var(--text-primary)",
-              }}
-            />
-          </div>
+    setShowRecordModal(false);
+    setRecordingText("");
+    setRecordingName("");
+    setRecordingTime(0);
+  }, [selectedProjectId, recordingText, recordingName, recordingTime]);
 
-          {/* Voice Selector */}
-          <div>
-            <label className="mb-1.5 block text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-              Voice
-            </label>
-            <VoiceSelector voices={voices} selected={selectedVoice} onSelect={setSelectedVoice} />
-          </div>
+  const handlePlaySample = useCallback((sampleId: string, duration?: number) => {
+    if (playingSampleId === sampleId) {
+      setPlayingSampleId(null);
+      if (playbackTimeoutRef.current) {
+        clearTimeout(playbackTimeoutRef.current);
+        playbackTimeoutRef.current = null;
+      }
+    } else {
+      setPlayingSampleId(sampleId);
+      if (duration) {
+        playbackTimeoutRef.current = setTimeout(() => {
+          setPlayingSampleId(null);
+        }, duration * 1000);
+      }
+    }
+  }, [playingSampleId]);
 
-          {/* Settings Sliders */}
-          <div className="space-y-4 rounded-lg border p-4" style={{ borderColor: "var(--border-subtle)", backgroundColor: "var(--bg-card)" }}>
-            <h4 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-              Voice Settings
-            </h4>
+  const handleDeleteSample = useCallback((sampleId: string) => {
+    if (!selectedProjectId) return;
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === selectedProjectId
+          ? { ...p, samples: p.samples.filter((s) => s.id !== sampleId), updatedAt: new Date().toISOString() }
+          : p
+      )
+    );
+    toast.success("Voice sample deleted");
+  }, [selectedProjectId]);
 
-            {/* Stability */}
-            <div>
-              <div className="mb-1.5 flex items-center justify-between">
-                <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                  Stability
-                </span>
-                <span className="text-xs font-mono" style={{ color: "var(--accent-primary)" }}>
-                  {stability}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={stability}
-                onChange={(e) => setStability(Number(e.target.value))}
-                className="w-full accent-amber-500"
-                style={{ accentColor: "var(--accent-primary)" }}
-              />
-            </div>
+  const handleMoveSample = useCallback((sampleId: string, direction: "up" | "down") => {
+    if (!selectedProjectId) return;
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== selectedProjectId) return p;
+        const idx = p.samples.findIndex((s) => s.id === sampleId);
+        if (idx === -1) return p;
+        const newIdx = direction === "up" ? idx - 1 : idx + 1;
+        if (newIdx < 0 || newIdx >= p.samples.length) return p;
+        const newSamples = [...p.samples];
+        [newSamples[idx], newSamples[newIdx]] = [newSamples[newIdx], newSamples[idx]];
+        return { ...p, samples: newSamples, updatedAt: new Date().toISOString() };
+      })
+    );
+  }, [selectedProjectId]);
 
-            {/* Clarity + Similarity */}
-            <div>
-              <div className="mb-1.5 flex items-center justify-between">
-                <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                  Clarity + Similarity
-                </span>
-                <span className="text-xs font-mono" style={{ color: "var(--accent-primary)" }}>
-                  {clarity}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={clarity}
-                onChange={(e) => setClarity(Number(e.target.value))}
-                className="w-full"
-                style={{ accentColor: "var(--accent-primary)" }}
-              />
-            </div>
-
-            {/* Style */}
-            <div>
-              <div className="mb-1.5 flex items-center justify-between">
-                <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                  Style
-                </span>
-                <span className="text-xs font-mono" style={{ color: "var(--accent-primary)" }}>
-                  {style}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={style}
-                onChange={(e) => setStyle(Number(e.target.value))}
-                className="w-full"
-                style={{ accentColor: "var(--accent-primary)" }}
-              />
-            </div>
-          </div>
-
-          {/* Generate Button */}
-          <button
-            onClick={handleGenerate}
-            disabled={!script.trim() || isGenerating}
-            className={cn(
-              "flex w-full items-center justify-center gap-2 rounded-lg py-3 text-sm font-semibold transition-all duration-200",
-              script.trim() && !isGenerating
-                ? "opacity-100 hover:brightness-110 hover:shadow-lg hover:shadow-amber-500/20"
-                : "cursor-not-allowed opacity-40"
-            )}
-            style={{
-              background: script.trim() && !isGenerating ? "var(--gradient-gold)" : "var(--border-subtle)",
-              color: script.trim() && !isGenerating ? "#0C0A09" : "var(--text-muted)",
-            }}
-          >
-            <Wand2 className="size-4" />
-            {isGenerating ? "Generating..." : "Generate Audio"}
-          </button>
-        </div>
-
-        {/* Right: Output */}
-        <div className="space-y-4">
-          {/* Generated Audio Player */}
-          {generated ? (
-            <div
-              className="rounded-xl border p-5"
-              style={{
-                borderColor: "var(--border-subtle)",
-                backgroundColor: "var(--bg-card)",
-              }}
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <h4 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                  Generated Audio
-                </h4>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setIsPlaying(!isPlaying)}
-                    className="flex size-8 items-center justify-center rounded-full transition-transform hover:scale-110"
-                    style={{ background: "var(--gradient-gold)", color: "#0C0A09" }}
-                  >
-                    {isPlaying ? <Pause className="size-3.5" /> : <Play className="size-3.5 ml-0.5" />}
-                  </button>
-                  <button
-                    className="rounded-lg p-2 transition-colors hover:bg-white/5"
-                    style={{ color: "var(--text-muted)" }}
-                    title="Download MP3"
-                  >
-                    <Download className="size-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Waveform */}
-              <WaveformBars count={30} active={isPlaying} seed={generated.id.charCodeAt(2)} />
-
-              {/* Info */}
-              <div className="mt-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{generated.name}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center gap-1 text-[10px]" style={{ color: "var(--text-muted)" }}>
-                    <Volume2 className="size-3" />
-                    {generated.voice}
-                  </span>
-                  <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                    {generated.duration}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div
-              className="flex flex-col items-center justify-center rounded-xl border p-8"
-              style={{
-                borderColor: "var(--border-subtle)",
-                backgroundColor: "var(--bg-card)",
-                minHeight: 240,
-              }}
-            >
-              <div
-                className="flex size-14 items-center justify-center rounded-full"
-                style={{ background: "rgba(245,158,11,0.08)" }}
-              >
-                <FileAudio className="size-7" style={{ color: "var(--accent-primary)", opacity: 0.5 }} />
-              </div>
-              <p className="mt-3 text-sm" style={{ color: "var(--text-muted)" }}>
-                No generations yet
-              </p>
-            </div>
-          )}
-
-          {/* Recent Generations */}
-          {generations.length > 0 ? (
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-                Recent Generations
-              </h4>
-              {generations.slice(0, 5).map((gen) => (
-                <div
-                  key={gen.id}
-                  className="flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors hover:bg-white/[0.02]"
-                  style={{
-                    borderColor: "var(--border-subtle)",
-                    backgroundColor: "var(--bg-card)",
-                  }}
-                >
-                  <MiniWaveform seed={gen.id.charCodeAt(2)} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-                      {gen.name}
-                    </p>
-                    <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                      {gen.voice} &middot; {gen.duration}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      className="rounded p-1.5 transition-colors hover:bg-white/5"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      <Play className="size-3" />
-                    </button>
-                    <button
-                      className="rounded p-1.5 transition-colors hover:bg-white/5"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      <Download className="size-3" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div
-              className="flex flex-col items-center justify-center rounded-xl border py-8"
-              style={{
-                borderColor: "var(--border-subtle)",
-                backgroundColor: "var(--bg-card)",
-              }}
-            >
-              <Music className="size-8" style={{ color: "var(--text-muted)", opacity: 0.3 }} />
-              <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
-                No generations yet
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Library Tab                                                         */
-/* ------------------------------------------------------------------ */
-
-function LibraryTab({ generations }: { generations: Generation[] }) {
-  const [playingId, setPlayingId] = useState<string | null>(null);
-
-  const togglePlay = (id: string) => {
-    setPlayingId((prev) => (prev === id ? null : id));
-  };
-
-  const handleDelete = (id: string) => {
-    // Deletion is handled by parent component
-  };
-
-  if (generations.length === 0) {
+  if (isLoading) {
     return (
-      <div
-        className="flex flex-col items-center justify-center rounded-xl border py-16"
-        style={{
-          borderColor: "var(--border-subtle)",
-          backgroundColor: "var(--bg-card)",
-        }}
-      >
-        <Music className="size-10" style={{ color: "var(--text-muted)", opacity: 0.3 }} />
-        <p className="mt-3 text-sm" style={{ color: "var(--text-muted)" }}>
-          No generations yet
-        </p>
-        <p className="mt-1 text-xs" style={{ color: "var(--text-muted)", opacity: 0.6 }}>
-          Generate your first audio to see it here
-        </p>
+      <div className="min-h-screen p-4 md:p-8">
+        <div className="max-w-7xl mx-auto space-y-6 animate-pulse">
+          <div className="h-8 w-48 rounded-lg" style={{ background: "var(--bg-elevated)" }} />
+          <div className="h-64 rounded-2xl" style={{ background: "var(--bg-elevated)" }} />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
-      {generations.map((gen) => (
-        <div
-          key={gen.id}
-          className="group flex items-center gap-4 rounded-xl border px-4 py-3 transition-all duration-200 hover:bg-white/[0.02]"
-          style={{
-            borderColor: "var(--border-subtle)",
-            backgroundColor: "var(--bg-card)",
-          }}
-        >
-          {/* Waveform */}
-          <MiniWaveform seed={gen.id.charCodeAt(2)} active={playingId === gen.id} />
-
-          {/* Info */}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-              {gen.name}
+    <div className="min-h-screen p-4 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between animate-fade-up">
+          <div>
+            <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
+              Voice Studio
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+              Record, train, and manage AI voice models
             </p>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                {gen.voice}
-              </span>
-              <span style={{ color: "var(--border-subtle)" }}>&middot;</span>
-              <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                {gen.duration}
-              </span>
-              <span style={{ color: "var(--border-subtle)" }}>&middot;</span>
-              <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                {gen.date}
-              </span>
-            </div>
           </div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => togglePlay(gen.id)}
-              className="flex size-8 items-center justify-center rounded-lg transition-colors hover:bg-white/5"
-              style={{ color: "var(--text-muted)" }}
+              onClick={() => setShowSettings(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+              style={{
+                background: "var(--bg-card)",
+                color: "var(--text-primary)",
+                border: "1px solid var(--border-subtle)",
+              }}
             >
-              {playingId === gen.id ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
+              <Settings className="size-4" />
+              Settings
             </button>
             <button
-              className="flex size-8 items-center justify-center rounded-lg transition-colors hover:bg-white/5"
-              style={{ color: "var(--text-muted)" }}
-              title="Download MP3"
+              onClick={() => setShowNewProject(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:brightness-110"
+              style={{
+                background: "var(--gradient-gold)",
+                color: "#0C0A09",
+              }}
             >
-              <Download className="size-3.5" />
-            </button>
-            <button
-              onClick={() => handleDelete(gen.id)}
-              className="flex size-8 items-center justify-center rounded-lg transition-colors hover:bg-red-500/10"
-              style={{ color: "var(--text-muted)" }}
-            >
-              <Trash2 className="size-3.5 hover:text-red-400" />
+              <Plus className="size-4" />
+              New Project
             </button>
           </div>
         </div>
-      ))}
-    </div>
-  );
-}
 
-/* ------------------------------------------------------------------ */
-/*  Main VoiceStudio Page                                               */
-/* ------------------------------------------------------------------ */
-
-export default function VoiceStudio() {
-  const [activeTab, setActiveTab] = useState<"voices" | "generate" | "library">("voices");
-  const [voices, setVoices] = useState<Voice[]>([]);
-  const [generations, setGenerations] = useState<Generation[]>([]);
-  const [showCloneModal, setShowCloneModal] = useState(false);
-  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
-
-  const handlePlayVoice = (id: string) => {
-    setPlayingVoiceId((prev) => (prev === id ? null : id));
-  };
-
-  const handleDeleteVoice = (id: string) => {
-    setVoices((prev) => prev.filter((v) => v.id !== id));
-  };
-
-  const handleCloneVoice = (newVoice: Voice) => {
-    setVoices((prev) => [...prev, newVoice]);
-  };
-
-  const handleAddGeneration = (gen: Generation) => {
-    setGenerations((prev) => [gen, ...prev]);
-  };
-
-  const tabs = [
-    { key: "voices" as const, label: "My Voices" },
-    { key: "generate" as const, label: "Generate" },
-    { key: "library" as const, label: "Library" },
-  ];
-
-  // Compute total generated duration (simplified)
-  const totalDurationHours = generations.length > 0
-    ? (generations.reduce((acc, g) => {
-        const [m, s] = g.duration.split(":").map(Number);
-        return acc + (m || 0) + (s || 0) / 60;
-      }, 0) / 60).toFixed(1)
-    : "0";
-
-  return (
-    <div className="min-h-screen p-6 lg:p-8">
-      {/* ── CSS Keyframes ── */}
-      <style>{`
-        @keyframes waveformPulse {
-          0% { transform: scaleY(0.4); opacity: 0.4; }
-          100% { transform: scaleY(1); opacity: 0.9; }
-        }
-        @keyframes slideInRight {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
-        }
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-      `}</style>
-
-      {/* ── Header ── */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
-            Voice Studio
-          </h1>
-          <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
-            Clone voices and generate AI-powered speech
-          </p>
-        </div>
-        <button
-          onClick={() => setShowCloneModal(true)}
-          className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-200 hover:brightness-110 hover:shadow-lg hover:shadow-amber-500/20"
-          style={{
-            background: "var(--gradient-gold)",
-            color: "#0C0A09",
-          }}
-        >
-          <Plus className="size-4" />
-          Clone Voice
-        </button>
-      </div>
-
-      {/* ── Stats Row ── */}
-      <div className="mb-8 grid grid-cols-3 gap-4">
-        {[
-          { label: "Voices Cloned", value: voices.length.toString(), icon: Volume2 },
-          { label: "Audio Files", value: generations.length.toString(), icon: FileAudio },
-          { label: "Generated", value: `${totalDurationHours}hrs`, icon: Clock },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-xl border p-4"
-            style={{
-              borderColor: "var(--border-subtle)",
-              backgroundColor: "var(--bg-card)",
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <stat.icon className="size-4" style={{ color: "var(--accent-primary)" }} />
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                {stat.label}
-              </span>
-            </div>
-            <p className="mt-1.5 text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-              {stat.value}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Tab Navigation ── */}
-      <div className="mb-6 flex items-center gap-1 rounded-xl border p-1" style={{ borderColor: "var(--border-subtle)", backgroundColor: "var(--bg-card)" }}>
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={cn(
-              "flex-1 rounded-lg py-2.5 text-sm font-medium transition-all duration-200",
-              activeTab === tab.key ? "shadow-sm" : ""
-            )}
-            style={{
-              background: activeTab === tab.key ? "rgba(245,158,11,0.12)" : "transparent",
-              color: activeTab === tab.key ? "var(--accent-primary)" : "var(--text-muted)",
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Tab Content ── */}
-      <div className="pb-12">
-        {activeTab === "voices" && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {voices.length === 0 ? (
-              <div
-                className="col-span-full flex flex-col items-center justify-center rounded-xl border py-16"
-                style={{
-                  borderColor: "var(--border-subtle)",
-                  backgroundColor: "var(--bg-card)",
-                }}
-              >
-                <Mic className="size-10" style={{ color: "var(--text-muted)", opacity: 0.3 }} />
-                <p className="mt-3 text-sm font-medium" style={{ color: "var(--text-muted)" }}>
-                  No voices saved yet
-                </p>
-                <p className="mt-1 text-xs" style={{ color: "var(--text-muted)", opacity: 0.6 }}>
-                  Clone a voice to get started
-                </p>
+        {/* Projects Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-up stagger-1">
+          {sortedProjects.map((project) => (
+            <button
+              key={project.id}
+              onClick={() => setSelectedProjectId(project.id)}
+              className="text-left rounded-xl p-5 transition-all"
+              style={{
+                background: selectedProjectId === project.id ? "var(--accent-primary)15" : "var(--bg-card)",
+                border: `1px solid ${selectedProjectId === project.id ? "var(--accent-primary)40" : "var(--border-subtle)"}`,
+              }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="flex size-10 items-center justify-center rounded-lg"
+                    style={{ background: "var(--accent-primary)20" }}
+                  >
+                    <Mic className="size-5" style={{ color: "var(--accent-primary)" }} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                      {project.name}
+                    </p>
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                      {project.samples.length} samples
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className="rounded-full px-2 py-0.5 text-[10px] font-medium uppercase"
+                  style={{
+                    background:
+                      project.status === "ready"
+                        ? "#22C55E22"
+                        : project.status === "training"
+                        ? "#F59E0B22"
+                        : "var(--bg-elevated)",
+                    color:
+                      project.status === "ready"
+                        ? "#22C55E"
+                        : project.status === "training"
+                        ? "#F59E0B"
+                        : "var(--text-muted)",
+                  }}
+                >
+                  {project.status}
+                </span>
               </div>
-            ) : (
-              <>
-                {voices.map((voice) => (
+              <p className="text-xs line-clamp-2" style={{ color: "var(--text-secondary)" }}>
+                {project.description}
+              </p>
+            </button>
+          ))}
+          {sortedProjects.length === 0 && (
+            <div
+              className="col-span-full rounded-2xl p-12 text-center"
+              style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+            >
+              <Mic className="size-12 mx-auto mb-4" style={{ color: "var(--text-muted)" }} />
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                No voice projects yet
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Selected Project */}
+        {selectedProject && (
+          <div className="space-y-4 animate-fade-up stagger-2">
+            <div
+              className="rounded-2xl p-5 md:p-6"
+              style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+                    {selectedProject.name}
+                  </h2>
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                    {selectedProject.description}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowRecordModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:brightness-110"
+                    style={{
+                      background: "var(--gradient-gold)",
+                      color: "#0C0A09",
+                    }}
+                  >
+                    <Mic className="size-4" />
+                    Record
+                  </button>
+                  <button
+                    onClick={() => {
+                      setItemToDelete(selectedProject.id);
+                      setShowConfirm(true);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                    style={{
+                      background: "#EF444420",
+                      color: "#EF4444",
+                      border: "1px solid #EF444440",
+                    }}
+                  >
+                    <Trash2 className="size-4" />
+                    Delete
+                  </button>
+                </div>
+              </div>
+
+              {/* Samples */}
+              <div className="space-y-3">
+                {selectedProject.samples.map((sample) => (
                   <VoiceCard
-                    key={voice.id}
-                    voice={voice}
-                    onPlay={() => handlePlayVoice(voice.id)}
-                    onDelete={() => handleDeleteVoice(voice.id)}
-                    isPlaying={playingVoiceId === voice.id}
+                    key={sample.id}
+                    sample={sample}
+                    isPlaying={playingSampleId === sample.id}
+                    onPlay={() => handlePlaySample(sample.id, sample.duration)}
+                    onDelete={() => handleDeleteSample(sample.id)}
+                    onMove={(direction) => handleMoveSample(sample.id, direction)}
                   />
                 ))}
-                <AddVoiceCard onClick={() => setShowCloneModal(true)} />
-              </>
-            )}
+                {selectedProject.samples.length === 0 && (
+                  <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>
+                    No voice samples yet. Click Record to add your first sample.
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
-        {activeTab === "generate" && (
-          <GenerateTab
-            voices={voices}
-            generations={generations}
-            onAddGeneration={handleAddGeneration}
-          />
+        {/* New Project Modal */}
+        {showNewProject && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-up"
+            style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+          >
+            <div
+              className="w-full max-w-md rounded-2xl p-6"
+              style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+            >
+              <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
+                New Voice Project
+              </h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-medium uppercase" style={{ color: "var(--text-muted)" }}>
+                    Project Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    placeholder="My Voice Clone"
+                    className="w-full mt-1 rounded-xl px-4 py-3 text-sm"
+                    style={{
+                      background: "var(--bg-elevated)",
+                      border: "1px solid var(--border-subtle)",
+                      color: "var(--text-primary)",
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium uppercase" style={{ color: "var(--text-muted)" }}>
+                    Description
+                  </label>
+                  <textarea
+                    value={newProjectDescription}
+                    onChange={(e) => setNewProjectDescription(e.target.value)}
+                    placeholder="Describe your voice project..."
+                    rows={3}
+                    className="w-full mt-1 rounded-xl px-4 py-3 text-sm resize-none"
+                    style={{
+                      background: "var(--bg-elevated)",
+                      border: "1px solid var(--border-subtle)",
+                      color: "var(--text-primary)",
+                    }}
+                  />
+                </div>
+                <div className="flex items-center gap-2 justify-end">
+                  <button
+                    onClick={() => setShowNewProject(false)}
+                    className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                    style={{
+                      background: "var(--bg-elevated)",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleCreateProject}
+                    disabled={!newProjectName.trim() || createProject.isPending}
+                    className="px-4 py-2 rounded-xl text-sm font-medium transition-all hover:brightness-110"
+                    style={{
+                      background: "var(--gradient-gold)",
+                      color: "#0C0A09",
+                      cursor: newProjectName.trim() && !createProject.isPending ? "pointer" : "not-allowed",
+                      opacity: newProjectName.trim() && !createProject.isPending ? 1 : 0.5,
+                    }}
+                  >
+                    {createProject.isPending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      "Create Project"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
-        {activeTab === "library" && <LibraryTab generations={generations} />}
-      </div>
+        {/* Record Modal */}
+        {showRecordModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-up"
+            style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+          >
+            <div
+              className="w-full max-w-lg rounded-2xl p-6"
+              style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+            >
+              <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
+                Record Voice Sample
+              </h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-medium uppercase" style={{ color: "var(--text-muted)" }}>
+                    Sample Name
+                  </label>
+                  <input
+                    type="text"
+                    value={recordingName}
+                    onChange={(e) => setRecordingName(e.target.value)}
+                    placeholder="Introduction"
+                    className="w-full mt-1 rounded-xl px-4 py-3 text-sm"
+                    style={{
+                      background: "var(--bg-elevated)",
+                      border: "1px solid var(--border-subtle)",
+                      color: "var(--text-primary)",
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium uppercase" style={{ color: "var(--text-muted)" }}>
+                    Text to Record
+                  </label>
+                  <textarea
+                    value={recordingText}
+                    onChange={(e) => setRecordingText(e.target.value)}
+                    placeholder="Enter the text you want to record..."
+                    rows={4}
+                    className="w-full mt-1 rounded-xl px-4 py-3 text-sm resize-none"
+                    style={{
+                      background: "var(--bg-elevated)",
+                      border: "1px solid var(--border-subtle)",
+                      color: "var(--text-primary)",
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-center gap-4 py-4">
+                  <button
+                    onClick={isRecording ? handleStopRecording : handleStartRecording}
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium transition-all"
+                    style={{
+                      background: isRecording ? "#EF4444" : "var(--gradient-gold)",
+                      color: "#0C0A09",
+                    }}
+                  >
+                    {isRecording ? (
+                      <>
+                        <Pause className="size-4" />
+                        Stop Recording ({Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, "0")})
+                      </>
+                    ) : (
+                      <>
+                        <Mic className="size-4" />
+                        Start Recording
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 justify-end">
+                  <button
+                    onClick={() => setShowRecordModal(false)}
+                    className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                    style={{
+                      background: "var(--bg-elevated)",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
-      {/* ── Clone Voice Modal ── */}
-      <CloneVoiceModal isOpen={showCloneModal} onClose={() => setShowCloneModal(false)} onClone={handleCloneVoice} />
+        {/* Settings Modal */}
+        {showSettings && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-up"
+            style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+          >
+            <div
+              className="w-full max-w-md rounded-2xl p-6"
+              style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+            >
+              <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
+                Voice Settings
+              </h2>
+              <div className="space-y-6">
+                {[
+                  { key: "stability" as const, label: "Stability", min: 0, max: 1, step: 0.01 },
+                  { key: "clarity" as const, label: "Clarity", min: 0, max: 1, step: 0.01 },
+                  { key: "speed" as const, label: "Speed", min: 0.5, max: 2, step: 0.1 },
+                  { key: "pitch" as const, label: "Pitch", min: -1, max: 1, step: 0.1 },
+                ].map((setting) => (
+                  <div key={setting.key}>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                        {setting.label}
+                      </label>
+                      <span className="text-sm font-mono" style={{ color: "var(--accent-primary)" }}>
+                        {voiceSettings[setting.key].toFixed(2)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={setting.min}
+                      max={setting.max}
+                      step={setting.step}
+                      value={voiceSettings[setting.key]}
+                      onChange={(e) =>
+                        setVoiceSettings((prev) => ({
+                          ...prev,
+                          [setting.key]: parseFloat(e.target.value),
+                        }))
+                      }
+                      className="w-full"
+                    />
+                  </div>
+                ))}
+                <div className="flex items-center gap-2 justify-end">
+                  <button
+                    onClick={() => setShowSettings(false)}
+                    className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                    style={{
+                      background: "var(--bg-elevated)",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowSettings(false);
+                      toast.success("Voice settings saved");
+                    }}
+                    className="px-4 py-2 rounded-xl text-sm font-medium transition-all hover:brightness-110"
+                    style={{
+                      background: "var(--gradient-gold)",
+                      color: "#0C0A09",
+                    }}
+                  >
+                    Save Settings
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Confirm Delete Modal */}
+        {showConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-up"
+            style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+          >
+            <div
+              className="w-full max-w-sm rounded-2xl p-6"
+              style={{ background: "var(--bg-card)", border: "1px solid var(--border-subtle)" }}
+            >
+              <h2 className="text-lg font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
+                Delete Project?
+              </h2>
+              <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
+                This will permanently delete the voice project and all its samples. This action cannot be undone.
+              </p>
+              <div className="flex items-center gap-2 justify-end">
+                <button
+                  onClick={() => setShowConfirm(false)}
+                  className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                  style={{
+                    background: "var(--bg-elevated)",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteProject}
+                  disabled={deleteProject.isPending}
+                  className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                  style={{
+                    background: "#EF4444",
+                    color: "#fff",
+                    cursor: deleteProject.isPending ? "not-allowed" : "pointer",
+                    opacity: deleteProject.isPending ? 0.5 : 1,
+                  }}
+                >
+                  {deleteProject.isPending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    "Delete"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

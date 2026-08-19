@@ -1,260 +1,283 @@
-import { useState } from "react";
-import { useLocation, Link } from "react-router";
+import { useState, useEffect, useCallback } from "react";
+import { useLocation, useNavigate } from "react-router";
 import {
   LayoutDashboard,
-  Bot,
-  Rocket,
+  BookOpen,
   Brain,
-  Library,
-  Mic,
-  BarChart3,
-  Sparkles,
+  Database,
+  Briefcase,
   Settings,
+  Terminal,
+  Palette,
+  BarChart3,
+  FileText,
+  Mic2,
+  HelpCircle,
+  Eye,
+  Play,
   ChevronLeft,
   ChevronRight,
-  Hexagon,
-  Briefcase,
+  Zap,
+  LogOut,
 } from "lucide-react";
-import { useTheme } from "@/context/ThemeContext";
 
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
+/* ─────────────────────────── Types ─────────────────────────── */
 
 interface NavItem {
+  icon: React.ElementType;
   label: string;
   path: string;
-  icon: React.ReactNode;
+  badge?: number;
 }
 
-interface NavSection {
-  title: string;
-  items: NavItem[];
-}
-
-/* ------------------------------------------------------------------ */
-/*  Data                                                               */
-/* ------------------------------------------------------------------ */
-
-const NAV_SECTIONS: NavSection[] = [
-  {
-    title: "Platform",
-    items: [
-      { label: "Dashboard", path: "/", icon: <LayoutDashboard className="size-[18px]" /> },
-      { label: "Agents", path: "/agents", icon: <Bot className="size-[18px]" /> },
-      { label: "Mission Control", path: "/mission-control", icon: <Rocket className="size-[18px]" /> },
-      { label: "Memory Bank", path: "/memory-bank", icon: <Brain className="size-[18px]" /> },
-    ],
-  },
-  {
-    title: "Studio",
-    items: [
-      { label: "Content Studio", path: "/content-library", icon: <Library className="size-[18px]" /> },
-      { label: "Brand Voice", path: "/brand-voice", icon: <Mic className="size-[18px]" /> },
-      { label: "Analytics", path: "/pipeline", icon: <BarChart3 className="size-[18px]" /> },
-      { label: "Originals", path: "/originals", icon: <Sparkles className="size-[18px]" /> },
-    ],
-  },
-  {
-    title: "Clients",
-    items: [
-      { label: "Projects", path: "/projects", icon: <Briefcase className="size-[18px]" /> },
-    ],
-  },
-  {
-    title: "System",
-    items: [
-      { label: "Settings", path: "/settings", icon: <Settings className="size-[18px]" /> },
-    ],
-  },
+const NAV_ITEMS: NavItem[] = [
+  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+  { icon: BookOpen, label: "Content Library", path: "/content-library" },
+  { icon: Brain, label: "AI Agents", path: "/agents" },
+  { icon: Database, label: "Memory Bank", path: "/memory-bank" },
+  { icon: Briefcase, label: "Projects", path: "/projects" },
+  { icon: Terminal, label: "Mission Control", path: "/mission-control" },
+  { icon: Palette, label: "Brand Voice", path: "/brand-voice" },
+  { icon: BarChart3, label: "Pipeline", path: "/pipeline" },
+  { icon: FileText, label: "Originals", path: "/originals" },
+  { icon: Mic2, label: "Voice Studio", path: "/voice-studio" },
 ];
 
-/* ------------------------------------------------------------------ */
-/*  Component                                                          */
-/* ------------------------------------------------------------------ */
+const BOTTOM_ITEMS: NavItem[] = [
+  { icon: HelpCircle, label: "Documentation", path: "/documentation" },
+  { icon: Eye, label: "Vision Statement", path: "/vision-statement" },
+  { icon: Play, label: "Replays", path: "/replays" },
+  { icon: Settings, label: "Settings", path: "/settings" },
+];
 
-interface SidebarProps {
-  onNavigate?: () => void;
-}
+/* ─────────────────────────── Main Component ─────────────────────────── */
 
-export default function Sidebar({ onNavigate }: SidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
+export default function Sidebar() {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
-  const { brandName, logo, primaryColor } = useTheme();
+  const navigate = useNavigate();
 
-  const isActive = (path: string) => {
-    if (path === "/") return location.pathname === "/";
-    return location.pathname.startsWith(path);
-  };
+  const activePath = location.pathname;
+
+  /* ── Keyboard shortcut: toggle collapse with '[' key ── */
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "[" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setIsCollapsed((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  /* ── Close mobile drawer on route change ── */
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [location.pathname]);
+
+  const handleNavClick = useCallback(
+    (path: string) => {
+      navigate(path);
+      setIsMobileOpen(false);
+    },
+    [navigate]
+  );
+
+  const handleKeyNav = useCallback(
+    (e: React.KeyboardEvent, path: string) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handleNavClick(path);
+      }
+    },
+    [handleNavClick]
+  );
+
+  const isItemActive = (path: string) =>
+    path === "/" ? activePath === "/" : activePath.startsWith(path);
 
   return (
-    <aside
-      className="fixed left-0 top-0 z-10 flex h-screen flex-col border-r transition-all duration-300 ease-in-out"
-      style={{
-        width: collapsed ? 64 : 240,
-        backgroundColor: "var(--bg-elevated)",
-        borderColor: "var(--border-subtle)",
-      }}
-    >
-      {/* ── Logo ── */}
-      <div
-        className="flex h-14 items-center gap-3 border-b px-4"
-        style={{ borderColor: "var(--border-subtle)" }}
-      >
-        <div
-          className="flex size-8 shrink-0 items-center justify-center rounded-lg overflow-hidden"
-          style={{ background: logo ? "transparent" : "var(--gradient-gold)" }}
-        >
-          {logo ? (
-            <img
-              src={logo}
-              alt={brandName}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <Hexagon className="size-5" style={{ color: "var(--bg-base)" }} />
-          )}
-        </div>
-        {!collapsed && (
-          <span
-            className="text-lg font-bold tracking-tight whitespace-nowrap"
-            style={{ color: "var(--text-primary)" }}
-          >
-            {brandName}
-          </span>
-        )}
-      </div>
-
-      {/* ── Navigation ── */}
-      <nav className="flex-1 overflow-y-auto py-4">
-        {NAV_SECTIONS.map((section) => (
-          <div key={section.title} className="mb-4">
-            {!collapsed && (
-              <p
-                className="mb-2 px-4 text-[11px] font-medium uppercase tracking-wider"
-                style={{ color: "var(--text-muted)" }}
-              >
-                {section.title}
-              </p>
-            )}
-            {collapsed && (
-              <div
-                className="mx-auto mb-2 h-px w-8"
-                style={{ background: "var(--border-subtle)" }}
-              />
-            )}
-            <ul className="space-y-0.5 px-2">
-              {section.items.map((item) => {
-                const active = isActive(item.path);
-                return (
-                  <li key={item.path}>
-                    <Link
-                      to={item.path}
-                      onClick={onNavigate}
-                      className="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200"
-                      style={{
-                        color: active
-                          ? "var(--text-primary)"
-                          : "var(--text-muted)",
-                        background: active
-                          ? `${primaryColor}14`
-                          : "transparent",
-                        borderLeft: active
-                          ? "3px solid var(--accent-primary)"
-                          : "3px solid transparent",
-                      }}
-                      title={collapsed ? item.label : undefined}
-                    >
-                      <span
-                        className="shrink-0 transition-colors duration-200"
-                        style={{
-                          color: active
-                            ? "var(--accent-primary)"
-                            : "var(--text-muted)",
-                        }}
-                      >
-                        {item.icon}
-                      </span>
-                      {!collapsed && (
-                        <span className="truncate whitespace-nowrap">
-                          {item.label}
-                        </span>
-                      )}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
-      </nav>
-
-      {/* ── Agent Status ── */}
-      <div
-        className="border-t px-3 py-3"
-        style={{ borderColor: "var(--border-subtle)" }}
-      >
-        <div
-          className="flex items-center gap-2.5 rounded-lg px-2 py-2"
-          style={{ background: `${primaryColor}0A` }}
-        >
-          <div className="relative shrink-0">
-            <div
-              className="size-8 rounded-full border-2 flex items-center justify-center text-xs"
-              style={{
-                borderColor: "var(--accent-primary)",
-                background: `${primaryColor}1A`,
-                color: "var(--accent-primary)",
-              }}
-            >
-              <Bot className="size-4" />
-            </div>
-            <span
-              className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border-2"
-              style={{
-                background: "#22C55E",
-                borderColor: "var(--bg-elevated)",
-              }}
-            />
-          </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <p
-                className="truncate text-xs font-medium"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                Swarm Active
-              </p>
-              <p
-                className="text-[10px]"
-                style={{ color: "var(--text-muted)" }}
-              >
-                0/14 agents idle
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Collapse Toggle ── */}
+    <>
+      {/* ═══ Mobile hamburger trigger ═══ */}
       <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="flex h-10 w-full items-center justify-center border-t transition-colors duration-200 hover:bg-white/5"
-        style={{ borderColor: "var(--border-subtle)" }}
-        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        onClick={() => setIsMobileOpen(true)}
+        className="fixed top-4 left-4 z-50 lg:hidden p-2 rounded-lg backdrop-blur-md"
+        style={{
+          background: "var(--bg-card-solid)",
+          border: "1px solid var(--border-subtle)",
+          color: "var(--text-primary)",
+        }}
+        aria-label="Open navigation menu"
+        aria-controls="sidebar-nav"
+        aria-expanded={isMobileOpen}
       >
-        {collapsed ? (
-          <ChevronRight
-            className="size-4"
-            style={{ color: "var(--text-muted)" }}
-          />
-        ) : (
-          <ChevronLeft
-            className="size-4"
-            style={{ color: "var(--text-muted)" }}
-          />
-        )}
+        <Zap className="size-5" />
       </button>
-    </aside>
+
+      {/* ═══ Mobile overlay ═══ */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 z-40 lg:hidden bg-black/50 backdrop-blur-sm transition-opacity"
+          onClick={() => setIsMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* ═══ Sidebar ─── desktop & mobile ═══ */}
+      <aside
+        id="sidebar-nav"
+        className={`
+          fixed top-0 left-0 z-50 h-full lg:h-[100dvh] flex flex-col border-r
+          transition-all duration-300 ease-out
+          ${isCollapsed ? "w-[72px]" : "w-[260px]"}
+          ${isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+        `}
+        style={{
+          background: "var(--bg-card-solid)",
+          borderColor: "var(--border-subtle)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between p-4 border-b"
+          style={{ borderColor: "var(--border-subtle)" }}
+        >
+          {!isCollapsed && (
+            <div className="flex items-center gap-2 overflow-hidden">
+              <div
+                className="size-8 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: "var(--accent-primary)" }}
+              >
+                <Zap className="size-4 text-white" />
+              </div>
+              <span
+                className="text-sm font-semibold whitespace-nowrap transition-opacity duration-300"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Omega Swarm
+              </span>
+            </div>
+          )}
+          <button
+            onClick={() => setIsMobileOpen(false)}
+            className="lg:hidden p-2 rounded-lg"
+            style={{ color: "var(--text-muted)" }}
+            aria-label="Close navigation menu"
+          >
+            <ChevronLeft className="size-5" />
+          </button>
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="hidden lg:flex p-2 rounded-lg hover:opacity-80 transition-opacity"
+            style={{ color: "var(--text-muted)" }}
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={isCollapsed ? "Expand ( [ )" : "Collapse ( [ )"}
+          >
+            {isCollapsed ? (
+              <ChevronRight className="size-5" />
+            ) : (
+              <ChevronLeft className="size-5" />
+            )}
+          </button>
+        </div>
+
+        {/* Scrollable nav area */}
+        <nav
+          className="flex-1 overflow-y-auto py-4 px-3 space-y-1"
+          aria-label="Main navigation"
+        >
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const active = isItemActive(item.path);
+            return (
+              <button
+                key={item.path}
+                onClick={() => handleNavClick(item.path)}
+                onKeyDown={(e) => handleKeyNav(e, item.path)}
+                className={`
+                  w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+                  transition-all duration-200
+                  ${active ? "opacity-100" : "opacity-70 hover:opacity-100 hover:bg-white/5"}
+                  ${isCollapsed ? "justify-center" : ""}
+                `}
+                style={{
+                  background: active ? "var(--bg-elevated)" : "transparent",
+                  color: active ? "var(--accent-primary)" : "var(--text-primary)",
+                  borderLeft: active ? "3px solid var(--accent-primary)" : "3px solid transparent",
+                  outline: "none",
+                }}
+                role="tab"
+                aria-selected={active}
+                tabIndex={0}
+              >
+                <Icon className="size-4 shrink-0" />
+                {!isCollapsed && (
+                  <span className="whitespace-nowrap truncate">{item.label}</span>
+                )}
+                {active && !isCollapsed && (
+                  <div
+                    className="ml-auto w-1.5 h-1.5 rounded-full shrink-0"
+                    style={{ background: "var(--accent-primary)" }}
+                    aria-hidden="true"
+                  />
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Bottom section */}
+        <div className="border-t py-3 px-3 space-y-1" style={{ borderColor: "var(--border-subtle)" }}>
+          {BOTTOM_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const active = isItemActive(item.path);
+            return (
+              <button
+                key={item.path}
+                onClick={() => handleNavClick(item.path)}
+                onKeyDown={(e) => handleKeyNav(e, item.path)}
+                className={`
+                  w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+                  transition-all duration-200
+                  ${active ? "opacity-100" : "opacity-70 hover:opacity-100 hover:bg-white/5"}
+                  ${isCollapsed ? "justify-center" : ""}
+                `}
+                style={{
+                  background: active ? "var(--bg-elevated)" : "transparent",
+                  color: active ? "var(--accent-primary)" : "var(--text-primary)",
+                  outline: "none",
+                }}
+                role="tab"
+                aria-selected={active}
+                tabIndex={0}
+              >
+                <Icon className="size-4 shrink-0" />
+                {!isCollapsed && (
+                  <span className="whitespace-nowrap truncate">{item.label}</span>
+                )}
+              </button>
+            );
+          })}
+          <button
+            className={`
+              w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+              transition-all duration-200 opacity-70 hover:opacity-100 hover:bg-white/5
+              ${isCollapsed ? "justify-center" : ""}
+            `}
+            style={{ color: "#EF4444", outline: "none" }}
+            tabIndex={0}
+          >
+            <LogOut className="size-4 shrink-0" />
+            {!isCollapsed && (
+              <span className="whitespace-nowrap">Sign Out</span>
+            )}
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }

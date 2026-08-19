@@ -1,145 +1,104 @@
-import { lazy, Suspense, useEffect } from "react";
-import { Routes, Route, useLocation } from "react-router";
-import { toast } from "sonner";
+import { lazy, Suspense } from "react";
+import { Routes, Route } from "react-router";
+import { Toaster } from "sonner";
 import Layout from "@/components/Layout";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
-/* ── Lazy load all pages for code splitting ── */
-const Login = lazy(() => import("@/pages/Login"));
+/* ── Eager imports (small / always-needed) ── */
+import Login from "@/pages/Login";
+
+/* ── Lazy imports (large pages ── code-split) ── */
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
-const Agents = lazy(() => import("@/pages/Agents"));
+const ContentLibrary = lazy(() => import("@/pages/ContentLibrary"));
 const MissionControl = lazy(() => import("@/pages/MissionControl"));
 const MemoryBank = lazy(() => import("@/pages/MemoryBank"));
-const ContentLibrary = lazy(() => import("@/pages/ContentLibrary"));
+const Projects = lazy(() => import("@/pages/Projects"));
+const Settings = lazy(() => import("@/pages/Settings"));
+const Agents = lazy(() => import("@/pages/Agents"));
 const BrandVoice = lazy(() => import("@/pages/BrandVoice"));
 const Pipeline = lazy(() => import("@/pages/Pipeline"));
 const Originals = lazy(() => import("@/pages/Originals"));
 const VoiceStudio = lazy(() => import("@/pages/VoiceStudio"));
-const Settings = lazy(() => import("@/pages/Settings"));
-const Projects = lazy(() => import("@/pages/Projects"));
+const Documentation = lazy(() => import("@/pages/Documentation"));
+const VisionStatement = lazy(() => import("@/pages/VisionStatement"));
+const Replays = lazy(() => import("@/pages/Replays"));
 
-/**
- * ToastRouteHandler — Shows toast notifications for route-level events
- * and provides a global error toast handler.
- */
-function ToastRouteHandler() {
-  const location = useLocation();
-
-  useEffect(() => {
-    // Show a contextual toast when navigating to key sections
-    const path = location.pathname;
-    if (path === "/content-library") {
-      toast.info("Content Library — Create posts and AI reels", {
-        id: "route-toast",
-        duration: 2500,
-      });
-    }
-  }, [location]);
-
-  return null;
-}
-
-/** Skeleton loader shown while page chunks download */
+/* ── Shared fallback for lazy pages ── */
 function PageSkeleton() {
   return (
     <div className="min-h-screen p-4 md:p-8 animate-pulse">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header skeleton */}
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <div className="h-8 w-48 rounded-lg" style={{ background: "var(--bg-elevated)" }} />
-            <div className="h-4 w-32 rounded-lg" style={{ background: "var(--bg-elevated)" }} />
-          </div>
-          <div className="h-10 w-32 rounded-xl" style={{ background: "var(--bg-elevated)" }} />
-        </div>
-        {/* Stats skeleton */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[1,2,3,4].map(i => (
-            <div key={i} className="h-24 rounded-2xl" style={{ background: "var(--bg-elevated)" }} />
-          ))}
-        </div>
-        {/* Content skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1,2,3,4,5,6].map(i => (
-            <div key={i} className="h-64 rounded-2xl" style={{ background: "var(--bg-elevated)" }} />
-          ))}
-        </div>
+        <div className="h-8 w-48 rounded-lg" style={{ background: "var(--bg-elevated)" }} />
+        <div className="h-64 rounded-2xl" style={{ background: "var(--bg-elevated)" }} />
       </div>
     </div>
   );
 }
 
 /**
- * Omega Swarm v4.2 — Code-split, lazy-loaded routes
+ * Page wrapper with per-route error boundary.
+ *
+ * Isolates crashes so a single broken page doesn't bring down the entire app.
  */
+function PageWithBoundary({ children }: { children: React.ReactNode }) {
+  return <ErrorBoundary>{children}</ErrorBoundary>;
+}
+
+/* ── Route config (single source of truth) ── */
+const ROUTES = [
+  { path: "/", element: <Dashboard />, withBoundary: true },
+  { path: "/content-library", element: <ContentLibrary />, withBoundary: true },
+  { path: "/mission-control", element: <MissionControl />, withBoundary: true },
+  { path: "/memory-bank", element: <MemoryBank />, withBoundary: true },
+  { path: "/projects", element: <Projects />, withBoundary: true },
+  { path: "/settings", element: <Settings />, withBoundary: true },
+  { path: "/agents", element: <Agents />, withBoundary: true },
+  { path: "/brand-voice", element: <BrandVoice />, withBoundary: true },
+  { path: "/pipeline", element: <Pipeline />, withBoundary: true },
+  { path: "/originals", element: <Originals />, withBoundary: true },
+  { path: "/voice-studio", element: <VoiceStudio />, withBoundary: true },
+  { path: "/documentation", element: <Documentation />, withBoundary: true },
+  { path: "/vision", element: <VisionStatement />, withBoundary: true },
+  { path: "/replays", element: <Replays />, withBoundary: true },
+] as const;
+
 export default function App() {
   return (
     <>
-      <ToastRouteHandler />
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: "var(--bg-elevated)",
+            color: "var(--text-primary)",
+            border: "1px solid var(--border-subtle)",
+          },
+        }}
+      />
       <Routes>
-      <Route path="/login" element={
-        <Suspense fallback={<PageSkeleton />}>
-          <Login />
-        </Suspense>
-      } />
-
-      <Route element={<Layout />}>
-        <Route path="/" element={
-          <Suspense fallback={<PageSkeleton />}>
-            <Dashboard />
-          </Suspense>
-        } />
-        <Route path="/agents" element={
-          <Suspense fallback={<PageSkeleton />}>
-            <Agents />
-          </Suspense>
-        } />
-        <Route path="/mission-control" element={
-          <Suspense fallback={<PageSkeleton />}>
-            <MissionControl />
-          </Suspense>
-        } />
-        <Route path="/memory-bank" element={
-          <Suspense fallback={<PageSkeleton />}>
-            <MemoryBank />
-          </Suspense>
-        } />
-        <Route path="/content-library" element={
-          <Suspense fallback={<PageSkeleton />}>
-            <ContentLibrary />
-          </Suspense>
-        } />
-        <Route path="/brand-voice" element={
-          <Suspense fallback={<PageSkeleton />}>
-            <BrandVoice />
-          </Suspense>
-        } />
-        <Route path="/pipeline" element={
-          <Suspense fallback={<PageSkeleton />}>
-            <Pipeline />
-          </Suspense>
-        } />
-        <Route path="/originals" element={
-          <Suspense fallback={<PageSkeleton />}>
-            <Originals />
-          </Suspense>
-        } />
-        <Route path="/voice-studio" element={
-          <Suspense fallback={<PageSkeleton />}>
-            <VoiceStudio />
-          </Suspense>
-        } />
-        <Route path="/settings" element={
-          <Suspense fallback={<PageSkeleton />}>
-            <Settings />
-          </Suspense>
-        } />
-        <Route path="/projects" element={
-          <Suspense fallback={<PageSkeleton />}>
-            <Projects />
-          </Suspense>
-        } />
-      </Route>
-    </Routes>
+        <Route path="/login" element={<Login />} />
+        <Route element={<Layout />}>
+          {ROUTES.map(({ path, element, withBoundary }) => (
+            <Route
+              key={path}
+              path={path}
+              element={
+                withBoundary ? (
+                  <PageWithBoundary>
+                    <Suspense fallback={<PageSkeleton />}>
+                      {element}
+                    </Suspense>
+                  </PageWithBoundary>
+                ) : (
+                  <Suspense fallback={<PageSkeleton />}>
+                    {element}
+                  </Suspense>
+                )
+              }
+            />
+          ))}
+        </Route>
+      </Routes>
     </>
   );
 }
