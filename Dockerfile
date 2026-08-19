@@ -5,15 +5,14 @@ WORKDIR /app
 # Install build dependencies
 RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
-# Copy package files and install ALL deps (including devDeps for build)
+# Copy package files and install ALL deps (devDeps included for build)
 COPY package.json package-lock.json* ./
-ENV NODE_ENV=development
-RUN npm install --legacy-peer-deps
+RUN npm install --legacy-peer-deps --include=dev
 
 # Copy ALL source files
 COPY . .
 
-# Build frontend fresh — this creates dist/ in the container
+# Build frontend fresh — creates dist/ inside the container
 RUN npm run build
 
 # Expose port
