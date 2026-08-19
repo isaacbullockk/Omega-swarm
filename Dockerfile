@@ -5,9 +5,9 @@ WORKDIR /app
 # Install build dependencies
 RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
-# Copy package files and install ALL deps (devDeps included for build)
-COPY package.json package-lock.json* ./
-RUN npm install --legacy-peer-deps --include=dev
+# Copy package files and install ALL deps
+COPY package.json package-lock.json ./
+RUN npm ci --legacy-peer-deps
 
 # Copy ALL source files
 COPY . .
