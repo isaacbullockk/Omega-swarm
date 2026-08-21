@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt
 
 # Copy dependency manifests and install deps
 COPY package.json package-lock.json ./
-RUN npm ci --legacy-peer-deps
+RUN npm install --legacy-peer-deps
 
 # Copy source and build
 COPY . .
