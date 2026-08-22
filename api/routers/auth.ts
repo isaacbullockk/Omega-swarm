@@ -15,7 +15,7 @@ import { router, publicProcedure, authedProcedure } from "../trpc";
 import { db, isPostgresAvailable } from "../../db/connection";
 import { users, sessions, credits } from "../../db/schema";
 import { eq } from "drizzle-orm";
-import { hashPassword, verifyPassword, generateSessionToken } from "./utils";
+import { hashPassword, verifyPassword, generateSessionToken } from "../auth/utils";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email"),
