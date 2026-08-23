@@ -7,6 +7,7 @@ import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 
 const app = new Hono();
+
 // Security Headers
 app.use("*", async (c, next) => {
   await next();
@@ -14,6 +15,7 @@ app.use("*", async (c, next) => {
   c.header("X-Frame-Options", "DENY");
   c.header("Referrer-Policy", "strict-origin-when-cross-origin");
 });
+
 // CORS
 app.use(
   "*",
@@ -30,19 +32,22 @@ app.use(
     maxAge: 86400,
   })
 );
+
 // Health check
 app.get("/api/health", (c) => c.json({ status: "ok", version: "5.0.0" }));
+
 // tRPC API with REAL auth context
 app.all("/api/trpc/*", async (c) => {
   return fetchRequestHandler({
     endpoint: "/api/trpc",
     req: c.req.raw,
     router: appRouter,
-    createContext,
+    createContext, // ← REAL auth context (was: () => ({}))
   });
 });
+
 // Explicit static file serving
-const mimeTypes = {
+const mimeTypes: Record<string, string> = {
   js: "application/javascript",
   css: "text/css",
   html: "text/html",
@@ -56,6 +61,7 @@ const mimeTypes = {
   woff: "font/woff",
   ttf: "font/ttf",
 };
+
 app.get("/assets/*", (c) => {
   const filePath = join(process.cwd(), "dist", c.req.path);
   if (existsSync(filePath)) {
@@ -65,6 +71,7 @@ app.get("/assets/*", (c) => {
   }
   return c.notFound();
 });
+
 // SPA fallback
 app.get("*", (c) => {
   const path = c.req.path;
