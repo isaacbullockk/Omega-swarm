@@ -15,6 +15,8 @@ import { clientRouter } from "./routers/client";
 import { assetRouter } from "./routers/asset";
 import { authRouter } from "./routers/auth";
 
+import { metricsRouter } from "./routers/metrics";
+
 export const appRouter = router({
   agent: agentRouter,
   post: postRouter,
@@ -31,6 +33,7 @@ export const appRouter = router({
   client: clientRouter,
   asset: assetRouter,
   auth: authRouter,
+  metrics: metricsRouter,
 });
 
 export type AppRouter = typeof appRouter;
