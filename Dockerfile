@@ -19,7 +19,7 @@ COPY package.json ./
 COPY package-lock.json ./
 
 # Install ONLY production dependencies
-RUN npm ci --legacy-peer-deps --omit=dev
+RUN rm -f package-lock.json && npm install --legacy-peer-deps --omit=dev
 
 # Fix ownership
 RUN chown -R omegaswarm:omegaswarm /app
