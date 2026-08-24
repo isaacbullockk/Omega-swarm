@@ -9,6 +9,7 @@ import AuthGuard from "@/components/AuthGuard";
 import Login from "@/pages/Login";
 
 /* ── Lazy imports (large pages ── code-split) ── */
+const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const ContentLibrary = lazy(() => import("@/pages/ContentLibrary"));
 const MissionControl = lazy(() => import("@/pages/MissionControl"));
@@ -78,6 +79,7 @@ export default function App() {
       />
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route
           element={
             <AuthGuard>
