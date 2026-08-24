@@ -67,18 +67,17 @@ export const videoRouter = router({
         let status: "ready" | "generating" | "failed" = "ready";
 
         const encoded = encodeURIComponent(enrichedPrompt);
-        const key = input.provider === "kling" ? KLING_API_KEY : POLLINATIONS_API_KEY;
 
-        if (!key) {
-          throw new TRPCError({
-            code: "SERVICE_UNAVAILABLE",
-            message: `${input.provider.toUpperCase()}_API_KEY not configured. Add it to Railway environment variables.`,
-          });
+        // Pollinations video generation works without an API key (URL-based)
+        // Kling requires a key — fall back to Pollinations if Kling key is missing
+        if (input.provider === "kling" && !KLING_API_KEY) {
+          console.warn("[Video] Kling API key not set, falling back to Pollinations");
         }
 
-        // Build video URL without API key (key is used only at generation time)
-        // SECURITY: Never store API keys in database URLs — this is a critical security leak
-        videoUrl = `https://gen.pollinations.ai/video/${encoded}?duration=${input.duration}&aspectRatio=${input.aspectRatio}`;
+        const useKling = input.provider === "kling" && KLING_API_KEY;
+        videoUrl = useKling
+          ? `https://api.klingai.com/v1/videos?prompt=${encoded}&duration=${input.duration}&aspect_ratio=${input.aspectRatio}`
+          : `https://gen.pollinations.ai/video/${encoded}?duration=${input.duration}&aspectRatio=${input.aspectRatio}`;
 
         const title =
           input.prompt.slice(0, 60) + (input.prompt.length > 60 ? "..." : "");
