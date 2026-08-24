@@ -689,6 +689,8 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           });
         }
       }
+    } catch (err: any) {
+      sonnerToast.error(err?.message || "Failed to create content");
     } finally {
       setIsSubmitting(false);
     }
