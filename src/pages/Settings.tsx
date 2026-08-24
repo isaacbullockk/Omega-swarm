@@ -23,6 +23,8 @@ import {
   Webhook,
 } from "lucide-react";
 
+import { DataPrivacyTab } from "@/components/settings/DataPrivacyTab";
+
 /* ─────────────────────────── Sub-components ─────────────────────────── */
 
 function ToggleSwitch({
@@ -590,97 +592,7 @@ export default function Settings() {
         {/* ═════════════════════ DATA ═════════════════════ */}
         {activeSection === "data" && (
           <div id="settings-panel-data" className="space-y-6">
-            <div
-              className="rounded-2xl p-6 space-y-6"
-              style={{ background: "var(--bg-card-solid)", border: "1px solid var(--border-subtle)" }}
-            >
-              <SectionHeader icon={Shield} title="Data & Privacy" description="Manage your data and privacy settings" />
-
-              <div className="space-y-3">
-                <div
-                  className="flex items-center gap-4 p-4 rounded-xl"
-                  style={{ background: "var(--bg-elevated)" }}
-                >
-                  <div className="size-10 flex items-center justify-center rounded-lg" style={{ background: "var(--bg-card-solid)" }}>
-                    <Download className="size-5" style={{ color: "var(--accent-primary)" }} />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                      Export Data
-                    </h3>
-                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      Download all your campaigns, content, and settings as JSON
-                    </p>
-                  </div>
-                  <button
-                    className="px-4 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-white/5"
-                    style={{ background: "var(--bg-card-solid)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)" }}
-                  >
-                    Export
-                  </button>
-                </div>
-
-                <div
-                  className="flex items-center gap-4 p-4 rounded-xl"
-                  style={{ background: "var(--bg-elevated)" }}
-                >
-                  <div className="size-10 flex items-center justify-center rounded-lg" style={{ background: "var(--bg-card-solid)" }}>
-                    <Upload className="size-5" style={{ color: "var(--accent-primary)" }} />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                      Import Data
-                    </h3>
-                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      Import campaigns, content, and settings from a JSON file
-                    </p>
-                  </div>
-                  <button
-                    className="px-4 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-white/5"
-                    style={{ background: "var(--bg-card-solid)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)" }}
-                  >
-                    Import
-                  </button>
-                </div>
-
-                <div
-                  className="flex items-center gap-4 p-4 rounded-xl"
-                  style={{ background: "var(--bg-elevated)" }}
-                >
-                  <div className="size-10 flex items-center justify-center rounded-lg" style={{ background: "#EF444411" }}>
-                    <Trash2 className="size-5" style={{ color: "#EF4444" }} />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                      Clear All Data
-                    </h3>
-                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      Permanently delete all campaigns, content, and settings. This cannot be undone.
-                    </p>
-                  </div>
-                  <button
-                    className="px-4 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-red-500/10"
-                    style={{ background: "#EF444411", color: "#EF4444", border: "1px solid #EF444422" }}
-                  >
-                    Clear
-                  </button>
-                </div>
-              </div>
-
-              <div className="h-px" style={{ background: "var(--border-subtle)" }} />
-
-              <div className="rounded-xl p-4 flex items-start gap-3" style={{ background: "rgba(245,158,11,0.08)" }}>
-                <Info className="size-5 shrink-0 mt-0.5" style={{ color: "var(--accent-primary)" }} />
-                <div>
-                  <h3 className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                    Data Privacy
-                  </h3>
-                  <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                    Your data is stored locally in your browser and on your server. We do not send your content to third-party services except for AI generation, which uses your configured API keys. All API calls are made directly from your server.
-                  </p>
-                </div>
-              </div>
-            </div>
+            <DataPrivacyTab />
           </div>
         )}
       </div>
