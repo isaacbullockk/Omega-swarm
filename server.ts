@@ -86,3 +86,96 @@ process.on("unhandledRejection", (reason) => {
   console.error("[FATAL] Unhandled rejection:", reason);
   process.exit(1);
 });
+
+// ─── GDPR: Auto-purge expired guest accounts ───
+// Runs every hour to delete guest accounts where guest_expires_at < NOW()
+import { pool } from "./db/connection";
+
+async function purgeExpiredGuests() {
+  if (!pool) return;
+  try {
+    const client = await pool.connect();
+    try {
+      // Delete in correct order to respect FK constraints
+      await client.query(`
+        DELETE FROM credit_transactions WHERE user_id IN (
+          SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW()
+        )
+      `);
+      await client.query(`
+        DELETE FROM credits WHERE user_id IN (
+          SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW()
+        )
+      `);
+      await client.query(`
+        DELETE FROM sessions WHERE user_id IN (
+          SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW()
+        )
+      `);
+      await client.query(`
+        DELETE FROM analytics_events WHERE user_id IN (
+          SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW()
+        )
+      `);
+      await client.query(`
+        DELETE FROM memories WHERE user_id IN (
+          SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW()
+        )
+      `);
+      await client.query(`
+        DELETE FROM bookings WHERE user_id IN (
+          SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW()
+        )
+      `);
+      await client.query(`
+        DELETE FROM social_accounts WHERE user_id IN (
+          SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW()
+        )
+      `);
+      await client.query(`
+        DELETE FROM brand_voices WHERE user_id IN (
+          SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW()
+        )
+      `);
+      await client.query(`
+        DELETE FROM generated_videos WHERE user_id IN (
+          SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW()
+        )
+      `);
+      await client.query(`
+        DELETE FROM content_posts WHERE user_id IN (
+          SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW()
+        )
+      `);
+      await client.query(`
+        DELETE FROM campaigns WHERE user_id IN (
+          SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW()
+        )
+      `);
+      await client.query(`
+        DELETE FROM assets WHERE user_id IN (
+          SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW()
+        )
+      `);
+      await client.query(`
+        DELETE FROM clients WHERE user_id IN (
+          SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW()
+        )
+      `);
+      const result = await client.query(`
+        DELETE FROM users WHERE is_guest = true AND guest_expires_at < NOW()
+      `);
+      if (result.rowCount && result.rowCount > 0) {
+        console.log(`[GDPR] Purged ${result.rowCount} expired guest account(s)`);
+      }
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error("[GDPR] Guest purge error:", (err as Error).message);
+  }
+}
+
+// Run immediately on startup, then every hour
+setTimeout(() => purgeExpiredGuests(), 5000);
+setInterval(() => purgeExpiredGuests(), 60 * 60 * 1000);
