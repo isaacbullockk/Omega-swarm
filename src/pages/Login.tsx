@@ -39,6 +39,7 @@ export default function Login() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [consent, setConsent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -53,8 +54,8 @@ export default function Login() {
   const validate = useCallback((): boolean => {
     const nextErrors: Record<string, string> = {};
 
-    if (mode === "register" && name.trim().length < 2) {
-      nextErrors.name = "Name must be at least 2 characters";
+    if (mode === "register" && !consent) {
+      nextErrors.consent = "You must agree to the Privacy Policy to create an account";
     }
 
     if (!email.trim()) {
@@ -71,7 +72,7 @@ export default function Login() {
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
-  }, [email, password, name, mode]);
+  }, [email, password, name, mode, consent]);
 
   /* ─── Submit ─── */
   const handleSubmit = async (e: React.FormEvent) => {
@@ -335,6 +336,35 @@ export default function Login() {
                 </p>
               )}
             </div>
+
+            {/* GDPR Consent (register only) */}
+            {mode === "register" && (
+              <div>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={consent}
+                    onChange={(e) => {
+                      setConsent(e.target.checked);
+                      if (errors.consent) setErrors((p) => ({ ...p, consent: "" }));
+                    }}
+                    className="mt-0.5 w-4 h-4 rounded border-white/20 bg-[#29221D] text-orange-500 focus:ring-orange-500"
+                  />
+                  <span className="text-xs text-gray-400 leading-relaxed">
+                    I agree to the{" "}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:underline">
+                      Privacy Policy
+                    </a>
+                    . I consent to data processing for account management, AI content generation, and platform analytics.
+                  </span>
+                </label>
+                {errors.consent && (
+                  <p className="mt-1.5 text-xs" style={{ color: "#EF4444" }}>
+                    {errors.consent}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Submit */}
             <button
