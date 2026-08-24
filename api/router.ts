@@ -17,6 +17,8 @@ import { authRouter } from "./routers/auth";
 
 import { metricsRouter } from "./routers/metrics";
 
+import { gdprRouter } from "./routers/gdpr";
+
 export const appRouter = router({
   agent: agentRouter,
   post: postRouter,
@@ -34,6 +36,7 @@ export const appRouter = router({
   asset: assetRouter,
   auth: authRouter,
   metrics: metricsRouter,
+  gdpr: gdprRouter,
 });
 
 export type AppRouter = typeof appRouter;
