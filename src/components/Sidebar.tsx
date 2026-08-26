@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Zap,
   LogOut,
+  Users,
 } from "lucide-react";
 
 /* ─────────────────────────── Types ─────────────────────────── */
@@ -37,6 +38,7 @@ const NAV_ITEMS: NavItem[] = [
   { icon: Database, label: "Memory Bank", path: "/memory-bank" },
   { icon: Briefcase, label: "Projects", path: "/projects" },
   { icon: Terminal, label: "Mission Control", path: "/mission-control" },
+  { icon: Users, label: "Lead Nurturing", path: "/lead-nurturing" },
   { icon: Palette, label: "Brand Voice", path: "/brand-voice" },
   { icon: BarChart3, label: "Pipeline", path: "/pipeline" },
   { icon: FileText, label: "Originals", path: "/originals" },
