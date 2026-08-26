@@ -2,11 +2,13 @@
 # No build step needed in Railway
 
 FROM node:20-slim
-ARG CACHE_BUST=2026-08-26-006
 WORKDIR /app
 
+# Force cache invalidation — always change
+RUN echo "BUILD_ID=v5.1.0-$(date +%s)" > /tmp/build_id && cat /tmp/build_id
+
 # Install runtime utilities
-RUN apt-get update && apt-get install -y dumb-init curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y dumb-init curl netcat-openbsd && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
 RUN groupadd -r omegaswarm && useradd -r -g omegaswarm omegaswarm
