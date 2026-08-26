@@ -1,8 +1,8 @@
 # Production Dockerfile — dist/ is pre-built and committed
 # No build step needed in Railway
 
-ARG CACHE_BUST=2026-08-26-004
 FROM node:20-slim
+ARG CACHE_BUST=2026-08-26-006
 WORKDIR /app
 
 # Install runtime utilities
@@ -10,6 +10,9 @@ RUN apt-get update && apt-get install -y dumb-init curl && rm -rf /var/lib/apt/l
 
 # Create non-root user
 RUN groupadd -r omegaswarm && useradd -r -g omegaswarm omegaswarm
+
+# Cache bust layer — always invalidate on build
+RUN echo "Cache bust: $CACHE_BUST"
 
 # Copy pre-built frontend + backend code
 COPY dist ./dist
