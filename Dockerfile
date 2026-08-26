@@ -20,13 +20,12 @@ COPY api ./api
 COPY db ./db
 COPY server.ts ./
 COPY package.json ./
-COPY package-lock.json ./
 
 # Install ONLY production dependencies
 RUN rm -f package-lock.json && npm install --legacy-peer-deps --omit=dev
 
-# Debug: verify file freshness
-RUN echo "Build: 2026-08-26-008" && head -5 server.ts
+# Verify build freshness
+RUN cat package.json | grep buildHash && echo "Build verified"
 
 # Fix ownership
 RUN chown -R omegaswarm:omegaswarm /app
