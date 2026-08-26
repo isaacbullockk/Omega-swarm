@@ -1,18 +1,19 @@
 FROM node:20-slim
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y curl git && rm -rf /var/lib/apt/lists/*
 
-# FORCE CACHE INVALIDATION — this file changes every build
-COPY BUILD_TIMESTAMP ./
-RUN cat BUILD_TIMESTAMP
-
-# Now copy fresh code
-COPY dist ./dist
-COPY api ./api
-COPY db ./db
-COPY server.ts ./
-COPY package.json ./
+# NUCLEAR: Always fetch fresh code from GitHub main branch
+# This bypasses Docker layer caching entirely
+RUN echo "Fetching fresh code..." && \
+    git clone --depth 1 https://github.com/isaacbullockk/Omega-swarm.git /tmp/repo && \
+    cp -r /tmp/repo/api ./api && \
+    cp -r /tmp/repo/db ./db && \
+    cp -r /tmp/repo/dist ./dist && \
+    cp /tmp/repo/server.ts ./server.ts && \
+    cp /tmp/repo/package.json ./package.json && \
+    rm -rf /tmp/repo && \
+    echo "Code fetched at:" && date
 
 RUN npm install --legacy-peer-deps --omit=dev
 
