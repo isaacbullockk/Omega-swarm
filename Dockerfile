@@ -3,6 +3,11 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
+# FORCE CACHE INVALIDATION — this file changes every build
+COPY BUILD_TIMESTAMP ./
+RUN cat BUILD_TIMESTAMP
+
+# Now copy fresh code
 COPY dist ./dist
 COPY api ./api
 COPY db ./db
