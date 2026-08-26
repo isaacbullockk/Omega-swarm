@@ -321,7 +321,7 @@ export const postRouter = router({
         console.error("[Post] Create error:", msg);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to create post",
+          message: `Failed to create post: ${msg}`,
         });
       }
     }),
