@@ -1,7 +1,7 @@
 # Production Dockerfile — dist/ is pre-built and committed
 # No build step needed in Railway
 
-ARG CACHE_BUST=2026-08-26-002
+ARG CACHE_BUST=2026-08-26-003
 FROM node:20-slim
 WORKDIR /app
 
