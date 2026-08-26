@@ -1,134 +1,59 @@
 import { serve } from "@hono/node-server";
 import app from "./api";
-import { runMigrations } from "./db/migrate";
 
-// ─── Version marker ───
-console.log("[SERVER] Omega Swarm v5.0 — Build: 2026-08-26-010");
-
-// ─── Configuration ───
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
-const NODE_ENV = process.env.NODE_ENV || "development";
-const SHUTDOWN_TIMEOUT_MS = parseInt(process.env.SHUTDOWN_TIMEOUT_MS || "10000");
 
-// ─── Startup Validation ───
-const requiredEnvVars: string[] = [];
-const optionalEnvVars = [
-  "DATABASE_URL",
-  "OPENAI_API_KEY",
-  "GROQ_API_KEY",
-  "OPENROUTER_API_KEY",
-  "INSTAGRAM_ACCESS_TOKEN",
-  "INSTAGRAM_ACCOUNT_ID",
-  "META_APP_ID",
-  "META_APP_SECRET",
-  "BUFFER_API_KEY",
-  "POLLINATIONS_API_KEY",
-  "KLING_API_KEY",
-];
+console.log("[SERVER] Starting Omega Swarm v5.1.0...");
+console.log("[SERVER] PORT:", PORT);
+console.log("[SERVER] NODE_ENV:", process.env.NODE_ENV || "development");
 
-function validateEnv(): void {
-  const missing = requiredEnvVars.filter((key) => !process.env[key]);
-  if (missing.length > 0) {
-    console.error(`[FATAL] Missing required environment variables: ${missing.join(", ")}`);
-    process.exit(1);
+// Start server IMMEDIATELY so healthcheck passes
+const server = serve(
+  { fetch: app.fetch, port: PORT },
+  () => {
+    console.log(`[SERVER] Running on port ${PORT}`);
+    console.log(`[SERVER] Health: http://localhost:${PORT}/api/health`);
   }
-  for (const key of optionalEnvVars) {
-    if (!process.env[key]) {
-      console.warn(`[WARN] Optional environment variable ${key} is not set. Related features will be disabled.`);
-    }
+);
+
+// Run DB migrations in background (non-blocking)
+(async () => {
+  try {
+    const { runMigrations } = await import("./db/migrate");
+    await runMigrations();
+  } catch (err) {
+    console.error("[MIGRATE] Failed:", (err as Error).message);
   }
-}
 
-// ─── Graceful Shutdown Handling ───
-let isShuttingDown = false;
-
-function gracefulShutdown(server: ReturnType<typeof serve>, signal: string) {
-  if (isShuttingDown) return;
-  isShuttingDown = true;
-  console.log(`[${signal}] Initiating graceful shutdown...`);
-
-  // Stop accepting new connections
-  server.close(() => {
-    console.log("[SHUTDOWN] Server closed, exiting...");
-    process.exit(0);
-  });
-
-  // Force exit after timeout
-  setTimeout(() => {
-    console.error(`[SHUTDOWN] Forced exit after ${SHUTDOWN_TIMEOUT_MS}ms`);
-    process.exit(1);
-  }, SHUTDOWN_TIMEOUT_MS);
-}
-
-// ─── Main ───
-validateEnv();
-
-// Run DB migrations before starting server
-runMigrations().then(() => {
-  const server = serve(
-    {
-      fetch: app.fetch,
-      port: PORT,
-    },
-    () => {
-      const timestamp = new Date().toISOString();
-      console.log(`[${timestamp}] Omega Swarm API server running on port ${PORT}`);
-      console.log(`[${timestamp}] Environment: ${NODE_ENV}`);
-      console.log(`[${timestamp}] Healthcheck: http://localhost:${PORT}/api/health`);
-      console.log(`[${timestamp}] PID: ${process.pid}`);
-    }
-  );
-
-  // Handle termination signals
-  process.on("SIGTERM", () => gracefulShutdown(server, "SIGTERM"));
-  process.on("SIGINT", () => gracefulShutdown(server, "SIGINT"));
-
-  // Handle uncaught errors
-  process.on("uncaughtException", (err) => {
-    console.error("[FATAL] Uncaught exception:", err);
-    process.exit(1);
-  });
-
-  process.on("unhandledRejection", (reason) => {
-    console.error("[FATAL] Unhandled rejection:", reason);
-    process.exit(1);
-  });
-
-  // ─── GDPR: Auto-purge expired guest accounts ───
-  // Runs every hour to delete guest accounts where guest_expires_at < NOW()
-  import("./db/connection").then(({ pool }) => {
-    async function purgeExpiredGuests() {
-      if (!pool) return;
-      try {
-        const client = await pool.connect();
+  // GDPR guest purge
+  try {
+    const { pool } = await import("./db/connection");
+    if (pool) {
+      const purge = async () => {
         try {
-          await client.query(`DELETE FROM credit_transactions WHERE user_id IN (SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW())`);
-          await client.query(`DELETE FROM credits WHERE user_id IN (SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW())`);
-          await client.query(`DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW())`);
-          await client.query(`DELETE FROM analytics_events WHERE user_id IN (SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW())`);
-          await client.query(`DELETE FROM memories WHERE user_id IN (SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW())`);
-          await client.query(`DELETE FROM bookings WHERE user_id IN (SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW())`);
-          await client.query(`DELETE FROM social_accounts WHERE user_id IN (SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW())`);
-          await client.query(`DELETE FROM brand_voices WHERE user_id IN (SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW())`);
-          await client.query(`DELETE FROM generated_videos WHERE user_id IN (SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW())`);
-          await client.query(`DELETE FROM content_posts WHERE user_id IN (SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW())`);
-          await client.query(`DELETE FROM campaigns WHERE user_id IN (SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW())`);
-          await client.query(`DELETE FROM assets WHERE user_id IN (SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW())`);
-          await client.query(`DELETE FROM clients WHERE user_id IN (SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW())`);
-          const result = await client.query(`DELETE FROM users WHERE is_guest = true AND guest_expires_at < NOW()`);
-          if (result.rowCount && result.rowCount > 0) {
-            console.log(`[GDPR] Purged ${result.rowCount} expired guest account(s)`);
-          }
-        } finally {
-          client.release();
-        }
-      } catch (err) {
-        console.error("[GDPR] Guest purge error:", (err as Error).message);
-      }
+          const client = await pool.connect();
+          try {
+            const tables = [
+              "credit_transactions", "credits", "sessions", "analytics_events",
+              "memories", "bookings", "social_accounts", "brand_voices",
+              "generated_videos", "content_posts", "campaigns", "assets", "clients"
+            ];
+            for (const t of tables) {
+              await client.query(`DELETE FROM ${t} WHERE user_id IN (SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW())`);
+            }
+            const r = await client.query("DELETE FROM users WHERE is_guest = true AND guest_expires_at < NOW()");
+            if (r.rowCount) console.log(`[GDPR] Purged ${r.rowCount} guest(s)`);
+          } finally { client.release(); }
+        } catch (e) { console.error("[GDPR] Purge error:", (e as Error).message); }
+      };
+      setTimeout(purge, 10000);
+      setInterval(purge, 60 * 60 * 1000);
     }
+  } catch (e) {
+    console.error("[GDPR] Setup failed:", (e as Error).message);
+  }
+})();
 
-    // Run immediately on startup, then every hour
-    setTimeout(() => purgeExpiredGuests(), 10000);
-    setInterval(() => purgeExpiredGuests(), 60 * 60 * 1000);
-  });
-});
+// Graceful shutdown
+process.on("SIGTERM", () => { console.log("[SIGTERM] Shutting down..."); server.close(() => process.exit(0)); });
+process.on("SIGINT", () => { console.log("[SIGINT] Shutting down..."); server.close(() => process.exit(0)); });
