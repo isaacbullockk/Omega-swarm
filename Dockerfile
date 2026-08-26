@@ -25,6 +25,9 @@ COPY package-lock.json ./
 # Install ONLY production dependencies
 RUN rm -f package-lock.json && npm install --legacy-peer-deps --omit=dev
 
+# Debug: verify file freshness
+RUN echo "Build: 2026-08-26-008" && head -5 server.ts
+
 # Fix ownership
 RUN chown -R omegaswarm:omegaswarm /app
 USER omegaswarm
