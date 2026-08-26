@@ -1,6 +1,9 @@
 import { serve } from "@hono/node-server";
 import app from "./api";
 
+// ─── Version marker ───
+console.log("[SERVER] Omega Swarm v5.0 — Build: 2026-08-26-008");
+
 // ─── Configuration ───
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
 const NODE_ENV = process.env.NODE_ENV || "development";
