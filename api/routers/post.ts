@@ -261,6 +261,7 @@ export const postRouter = router({
           .insert(contentPosts)
           .values({
             userId: ctx.user.id,
+            clientId: input.clientId ?? null,
             title: input.topic,
             caption,
             type: "social",
@@ -282,6 +283,7 @@ export const postRouter = router({
           .insert(analyticsEvents)
           .values({
             userId: ctx.user.id,
+            clientId: input.clientId ?? null,
             type: "post_created",
             title: "New post created",
             description: `Created "${input.topic}" with AI caption`,
@@ -303,6 +305,7 @@ export const postRouter = router({
                   .insert(analyticsEvents)
                   .values({
                     userId: ctx.user.id,
+                    clientId: input.clientId ?? null,
                     type: "instagram_published",
                     title: "Posted to Instagram",
                     description: `Post "${input.topic}" published to Instagram`,
