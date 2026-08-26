@@ -529,6 +529,39 @@ export const contentAssets = pgTable(
   ]
 );
 
+/* ─── Leads (Nemotron + Kimi Symbiosis) ─── */
+
+export const leads = pgTable(
+  "leads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    clientId: uuid("client_id").references(() => clients.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 100 }).notNull(),
+    email: varchar("email", { length: 255 }).notNull(),
+    company: varchar("company", { length: 100 }),
+    source: varchar("source", { length: 100 }),
+    behavior: text("behavior"),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    status: varchar("status", { length: 20 }).notNull().default("new"), // new, nurtured, review, sent, converted, lost
+    score: integer("score").notNull().default(50),
+    lastEmailSubject: text("last_email_subject"),
+    lastEmailBody: text("last_email_body"),
+    lastEmailValidated: boolean("last_email_validated"),
+    validationIssues: jsonb("validation_issues"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("leads_user_id_idx").on(table.userId),
+    index("leads_email_idx").on(table.email),
+    index("leads_status_idx").on(table.status),
+    index("leads_score_idx").on(table.score),
+  ]
+);
+
 /* ─── Relations ─── */
 
 export const usersRelations = relations(users, ({ many, one }) => ({
@@ -546,6 +579,7 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   memories: many(memories),
   viralVideos: many(viralVideos),
   contentAssets: many(contentAssets),
+  leads: many(leads),
 }));
 
 export const clientsRelations = relations(clients, ({ one, many }) => ({
@@ -560,6 +594,12 @@ export const clientsRelations = relations(clients, ({ one, many }) => ({
   memories: many(memories),
   viralVideos: many(viralVideos),
   contentAssets: many(contentAssets),
+  leads: many(leads),
+}));
+
+export const leadsRelations = relations(leads, ({ one }) => ({
+  user: one(users, { fields: [leads.userId], references: [users.id] }),
+  client: one(clients, { fields: [leads.clientId], references: [clients.id] }),
 }));
 
 /* ─── Types ─── */
@@ -582,3 +622,5 @@ export type ViralVideo = typeof viralVideos.$inferSelect;
 export type ContentAsset = typeof contentAssets.$inferSelect;
 export type Credit = typeof credits.$inferSelect;
 export type CreditTransaction = typeof creditTransactions.$inferSelect;
+export type Lead = typeof leads.$inferSelect;
+export type NewLead = typeof leads.$inferInsert;
