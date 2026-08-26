@@ -1,7 +1,8 @@
 {
   "name": "omega-swarm",
   "private": true,
-  "version": "4.3.1",
+  "version": "5.1.0",
+  "buildHash": "v51-20260826",
   "type": "module",
   "scripts": {
     "start": "npx tsx server.ts",
@@ -49,10 +50,9 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
     "autoprefixer": "^10.5.3",
-    "bcryptjs": "^3.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "cookie": "^1.0.2",
+    "drizzle-kit": "^0.22.8",
     "drizzle-orm": "^0.43.1",
     "hono": "^4.7.7",
     "lucide-react": "^1.24.0",
@@ -66,12 +66,11 @@
     "recharts": "^3.9.2",
     "sonner": "^2.0.8",
     "superjson": "^2.2.6",
-    "tailwindcss": "^4.3.2",
     "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.2",
     "tsx": "^4.19.4",
     "typescript": "^5.6.3",
     "vite": "^8.1.4",
     "zod": "^3.25.76"
-  },
-  "devDependencies": {}
+  }
 }
