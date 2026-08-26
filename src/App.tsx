@@ -10,6 +10,7 @@ import Login from "@/pages/Login";
 
 /* ── Lazy imports (large pages ── code-split) ── */
 const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
+const LeadNurturing = lazy(() => import("@/pages/LeadNurturing"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const ContentLibrary = lazy(() => import("@/pages/ContentLibrary"));
 const MissionControl = lazy(() => import("@/pages/MissionControl"));
@@ -61,6 +62,7 @@ const ROUTES = [
   { path: "/voice-studio", element: <VoiceStudio />, withBoundary: true },
   { path: "/documentation", element: <Documentation />, withBoundary: true },
   { path: "/vision", element: <VisionStatement />, withBoundary: true },
+  { path: "/lead-nurturing", element: <LeadNurturing />, withBoundary: true },
   { path: "/replays", element: <Replays />, withBoundary: true },
 ] as const;
 
