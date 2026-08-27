@@ -1,11 +1,6 @@
 node_modules
-npm-debug.log
+dist
 .git
-.gitignore
-README.md
-.env
-.env.local
-.env.*.local
-.github
-.vscode
-*.md
+*.log
+Dockerfile_ANALYSIS.md
+README_FOR_NEW_BUILDER.md
