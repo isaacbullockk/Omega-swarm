@@ -1,20 +1,35 @@
+# Stage 1: Build frontend + backend
+FROM node:20-slim AS builder
+
+RUN apt-get update && apt-get install -y git python3 make g++ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+RUN git clone --depth 1 https://github.com/isaacbullockk/Omega-swarm.git /build
+
+# Install ALL deps (including dev deps for build)
+RUN npm install --legacy-peer-deps
+
+# Build the frontend (creates fresh dist/)
+RUN npm run build
+
+# Stage 2: Production runtime
 FROM node:20-slim
+
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y curl git && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# NUCLEAR: Always fetch fresh code from GitHub main branch
-# This bypasses Docker layer caching entirely
-RUN echo "Fetching fresh code..." && \
-    git clone --depth 1 https://github.com/isaacbullockk/Omega-swarm.git /tmp/repo && \
-    cp -r /tmp/repo/api ./api && \
-    cp -r /tmp/repo/db ./db && \
-    cp -r /tmp/repo/dist ./dist && \
-    cp /tmp/repo/server.ts ./server.ts && \
-    cp /tmp/repo/package.json ./package.json && \
-    rm -rf /tmp/repo && \
-    echo "Code fetched at:" && date
+# Copy built frontend
+COPY --from=builder /build/dist ./dist
 
+# Copy backend source
+COPY --from=builder /build/api ./api
+COPY --from=builder /build/db ./db
+COPY --from=builder /build/server.ts ./server.ts
+COPY --from=builder /build/package.json ./package.json
+COPY --from=builder /build/tsconfig.json ./tsconfig.json
+
+# Install only production deps
 RUN npm install --legacy-peer-deps --omit=dev
 
 EXPOSE 3001
