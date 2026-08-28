@@ -97,139 +97,6 @@ const MIGRATIONS = [
   `CREATE INDEX IF NOT EXISTS credit_transactions_user_id_idx ON credit_transactions(user_id);`,
 
   `ALTER TABLE clients ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;`,
-  // Convert ANY pre-existing integer user_id columns to UUID (old schema drift)
-  `DO $$
-  BEGIN
-    IF EXISTS (
-      SELECT 1 FROM information_schema.columns
-      WHERE table_name = 'credits' AND column_name = 'user_id' AND data_type <> 'uuid'
-    ) THEN
-      ALTER TABLE credits ALTER COLUMN user_id DROP NOT NULL;
-      ALTER TABLE credits ALTER COLUMN user_id TYPE UUID USING NULL;
-    END IF;
-  END $$;`,
-  `DO $$
-  BEGIN
-    IF EXISTS (
-      SELECT 1 FROM information_schema.columns
-      WHERE table_name = 'credit_transactions' AND column_name = 'user_id' AND data_type <> 'uuid'
-    ) THEN
-      ALTER TABLE credit_transactions ALTER COLUMN user_id DROP NOT NULL;
-      ALTER TABLE credit_transactions ALTER COLUMN user_id TYPE UUID USING NULL;
-    END IF;
-  END $$;`,
-  `DO $$
-  BEGIN
-    IF EXISTS (
-      SELECT 1 FROM information_schema.columns
-      WHERE table_name = 'clients' AND column_name = 'user_id' AND data_type <> 'uuid'
-    ) THEN
-      ALTER TABLE clients ALTER COLUMN user_id DROP NOT NULL;
-      ALTER TABLE clients ALTER COLUMN user_id TYPE UUID USING NULL;
-    END IF;
-  END $$;`,
-  `DO $$
-  BEGIN
-    IF EXISTS (
-      SELECT 1 FROM information_schema.columns
-      WHERE table_name = 'assets' AND column_name = 'user_id' AND data_type <> 'uuid'
-    ) THEN
-      ALTER TABLE assets ALTER COLUMN user_id DROP NOT NULL;
-      ALTER TABLE assets ALTER COLUMN user_id TYPE UUID USING NULL;
-    END IF;
-  END $$;`,
-  `DO $$
-  BEGIN
-    IF EXISTS (
-      SELECT 1 FROM information_schema.columns
-      WHERE table_name = 'campaigns' AND column_name = 'user_id' AND data_type <> 'uuid'
-    ) THEN
-      ALTER TABLE campaigns ALTER COLUMN user_id DROP NOT NULL;
-      ALTER TABLE campaigns ALTER COLUMN user_id TYPE UUID USING NULL;
-    END IF;
-  END $$;`,
-  `DO $$
-  BEGIN
-    IF EXISTS (
-      SELECT 1 FROM information_schema.columns
-      WHERE table_name = 'content_posts' AND column_name = 'user_id' AND data_type <> 'uuid'
-    ) THEN
-      ALTER TABLE content_posts ALTER COLUMN user_id DROP NOT NULL;
-      ALTER TABLE content_posts ALTER COLUMN user_id TYPE UUID USING NULL;
-    END IF;
-  END $$;`,
-  `DO $$
-  BEGIN
-    IF EXISTS (
-      SELECT 1 FROM information_schema.columns
-      WHERE table_name = 'generated_videos' AND column_name = 'user_id' AND data_type <> 'uuid'
-    ) THEN
-      ALTER TABLE generated_videos ALTER COLUMN user_id DROP NOT NULL;
-      ALTER TABLE generated_videos ALTER COLUMN user_id TYPE UUID USING NULL;
-    END IF;
-  END $$;`,
-  `DO $$
-  BEGIN
-    IF EXISTS (
-      SELECT 1 FROM information_schema.columns
-      WHERE table_name = 'brand_voices' AND column_name = 'user_id' AND data_type <> 'uuid'
-    ) THEN
-      ALTER TABLE brand_voices ALTER COLUMN user_id DROP NOT NULL;
-      ALTER TABLE brand_voices ALTER COLUMN user_id TYPE UUID USING NULL;
-    END IF;
-  END $$;`,
-  `DO $$
-  BEGIN
-    IF EXISTS (
-      SELECT 1 FROM information_schema.columns
-      WHERE table_name = 'social_accounts' AND column_name = 'user_id' AND data_type <> 'uuid'
-    ) THEN
-      ALTER TABLE social_accounts ALTER COLUMN user_id DROP NOT NULL;
-      ALTER TABLE social_accounts ALTER COLUMN user_id TYPE UUID USING NULL;
-    END IF;
-  END $$;`,
-  `DO $$
-  BEGIN
-    IF EXISTS (
-      SELECT 1 FROM information_schema.columns
-      WHERE table_name = 'bookings' AND column_name = 'user_id' AND data_type <> 'uuid'
-    ) THEN
-      ALTER TABLE bookings ALTER COLUMN user_id DROP NOT NULL;
-      ALTER TABLE bookings ALTER COLUMN user_id TYPE UUID USING NULL;
-    END IF;
-  END $$;`,
-  `DO $$
-  BEGIN
-    IF EXISTS (
-      SELECT 1 FROM information_schema.columns
-      WHERE table_name = 'analytics_events' AND column_name = 'user_id' AND data_type <> 'uuid'
-    ) THEN
-      ALTER TABLE analytics_events ALTER COLUMN user_id DROP NOT NULL;
-      ALTER TABLE analytics_events ALTER COLUMN user_id TYPE UUID USING NULL;
-    END IF;
-  END $$;`,
-  `DO $$
-  BEGIN
-    IF EXISTS (
-      SELECT 1 FROM information_schema.columns
-      WHERE table_name = 'sessions' AND column_name = 'user_id' AND data_type <> 'uuid'
-    ) THEN
-      ALTER TABLE sessions ALTER COLUMN user_id DROP NOT NULL;
-      ALTER TABLE sessions ALTER COLUMN user_id TYPE UUID USING NULL;
-    END IF;
-  END $$;`,
-  // memories pre-exists with INTEGER user_id from the old system — convert to UUID
-  // (old integer rows are orphans: their users no longer exist; USING NULL clears them)
-  `DO $$
-  BEGIN
-    IF EXISTS (
-      SELECT 1 FROM information_schema.columns
-      WHERE table_name = 'memories' AND column_name = 'user_id' AND data_type <> 'uuid'
-    ) THEN
-      ALTER TABLE memories ALTER COLUMN user_id DROP NOT NULL;
-      ALTER TABLE memories ALTER COLUMN user_id TYPE UUID USING NULL;
-    END IF;
-  END $$;`,
 
   `ALTER TABLE brand_voices ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id) ON DELETE CASCADE;`,
   `ALTER TABLE assets ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id) ON DELETE CASCADE;`,
@@ -268,6 +135,189 @@ const MIGRATIONS = [
   `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;`,
   `CREATE INDEX IF NOT EXISTS clients_user_id_idx ON clients(user_id);`,
 
+  // FK-safe UUID conversion for any pre-existing integer user_id columns
+  `DO $$
+  DECLARE fk RECORD;
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'credits' AND column_name = 'user_id' AND data_type <> 'uuid'
+    ) THEN
+      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'credits'::regclass AND contype = 'f' LOOP
+        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'credits', fk.conname);
+      END LOOP;
+      ALTER TABLE credits ALTER COLUMN user_id DROP NOT NULL;
+      ALTER TABLE credits ALTER COLUMN user_id TYPE UUID USING NULL;
+    END IF;
+  END $$;`,
+  `DO $$
+  DECLARE fk RECORD;
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'credit_transactions' AND column_name = 'user_id' AND data_type <> 'uuid'
+    ) THEN
+      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'credit_transactions'::regclass AND contype = 'f' LOOP
+        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'credit_transactions', fk.conname);
+      END LOOP;
+      ALTER TABLE credit_transactions ALTER COLUMN user_id DROP NOT NULL;
+      ALTER TABLE credit_transactions ALTER COLUMN user_id TYPE UUID USING NULL;
+    END IF;
+  END $$;`,
+  `DO $$
+  DECLARE fk RECORD;
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'clients' AND column_name = 'user_id' AND data_type <> 'uuid'
+    ) THEN
+      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'clients'::regclass AND contype = 'f' LOOP
+        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'clients', fk.conname);
+      END LOOP;
+      ALTER TABLE clients ALTER COLUMN user_id DROP NOT NULL;
+      ALTER TABLE clients ALTER COLUMN user_id TYPE UUID USING NULL;
+    END IF;
+  END $$;`,
+  `DO $$
+  DECLARE fk RECORD;
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'assets' AND column_name = 'user_id' AND data_type <> 'uuid'
+    ) THEN
+      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'assets'::regclass AND contype = 'f' LOOP
+        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'assets', fk.conname);
+      END LOOP;
+      ALTER TABLE assets ALTER COLUMN user_id DROP NOT NULL;
+      ALTER TABLE assets ALTER COLUMN user_id TYPE UUID USING NULL;
+    END IF;
+  END $$;`,
+  `DO $$
+  DECLARE fk RECORD;
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'campaigns' AND column_name = 'user_id' AND data_type <> 'uuid'
+    ) THEN
+      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'campaigns'::regclass AND contype = 'f' LOOP
+        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'campaigns', fk.conname);
+      END LOOP;
+      ALTER TABLE campaigns ALTER COLUMN user_id DROP NOT NULL;
+      ALTER TABLE campaigns ALTER COLUMN user_id TYPE UUID USING NULL;
+    END IF;
+  END $$;`,
+  `DO $$
+  DECLARE fk RECORD;
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'content_posts' AND column_name = 'user_id' AND data_type <> 'uuid'
+    ) THEN
+      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'content_posts'::regclass AND contype = 'f' LOOP
+        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'content_posts', fk.conname);
+      END LOOP;
+      ALTER TABLE content_posts ALTER COLUMN user_id DROP NOT NULL;
+      ALTER TABLE content_posts ALTER COLUMN user_id TYPE UUID USING NULL;
+    END IF;
+  END $$;`,
+  `DO $$
+  DECLARE fk RECORD;
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'generated_videos' AND column_name = 'user_id' AND data_type <> 'uuid'
+    ) THEN
+      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'generated_videos'::regclass AND contype = 'f' LOOP
+        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'generated_videos', fk.conname);
+      END LOOP;
+      ALTER TABLE generated_videos ALTER COLUMN user_id DROP NOT NULL;
+      ALTER TABLE generated_videos ALTER COLUMN user_id TYPE UUID USING NULL;
+    END IF;
+  END $$;`,
+  `DO $$
+  DECLARE fk RECORD;
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'brand_voices' AND column_name = 'user_id' AND data_type <> 'uuid'
+    ) THEN
+      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'brand_voices'::regclass AND contype = 'f' LOOP
+        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'brand_voices', fk.conname);
+      END LOOP;
+      ALTER TABLE brand_voices ALTER COLUMN user_id DROP NOT NULL;
+      ALTER TABLE brand_voices ALTER COLUMN user_id TYPE UUID USING NULL;
+    END IF;
+  END $$;`,
+  `DO $$
+  DECLARE fk RECORD;
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'social_accounts' AND column_name = 'user_id' AND data_type <> 'uuid'
+    ) THEN
+      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'social_accounts'::regclass AND contype = 'f' LOOP
+        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'social_accounts', fk.conname);
+      END LOOP;
+      ALTER TABLE social_accounts ALTER COLUMN user_id DROP NOT NULL;
+      ALTER TABLE social_accounts ALTER COLUMN user_id TYPE UUID USING NULL;
+    END IF;
+  END $$;`,
+  `DO $$
+  DECLARE fk RECORD;
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'bookings' AND column_name = 'user_id' AND data_type <> 'uuid'
+    ) THEN
+      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'bookings'::regclass AND contype = 'f' LOOP
+        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'bookings', fk.conname);
+      END LOOP;
+      ALTER TABLE bookings ALTER COLUMN user_id DROP NOT NULL;
+      ALTER TABLE bookings ALTER COLUMN user_id TYPE UUID USING NULL;
+    END IF;
+  END $$;`,
+  `DO $$
+  DECLARE fk RECORD;
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'analytics_events' AND column_name = 'user_id' AND data_type <> 'uuid'
+    ) THEN
+      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'analytics_events'::regclass AND contype = 'f' LOOP
+        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'analytics_events', fk.conname);
+      END LOOP;
+      ALTER TABLE analytics_events ALTER COLUMN user_id DROP NOT NULL;
+      ALTER TABLE analytics_events ALTER COLUMN user_id TYPE UUID USING NULL;
+    END IF;
+  END $$;`,
+  `DO $$
+  DECLARE fk RECORD;
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'sessions' AND column_name = 'user_id' AND data_type <> 'uuid'
+    ) THEN
+      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'sessions'::regclass AND contype = 'f' LOOP
+        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'sessions', fk.conname);
+      END LOOP;
+      ALTER TABLE sessions ALTER COLUMN user_id DROP NOT NULL;
+      ALTER TABLE sessions ALTER COLUMN user_id TYPE UUID USING NULL;
+    END IF;
+  END $$;`,
+  `DO $$
+  DECLARE fk RECORD;
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'memories' AND column_name = 'user_id' AND data_type <> 'uuid'
+    ) THEN
+      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'memories'::regclass AND contype = 'f' LOOP
+        EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'memories', fk.conname);
+      END LOOP;
+      ALTER TABLE memories ALTER COLUMN user_id DROP NOT NULL;
+      ALTER TABLE memories ALTER COLUMN user_id TYPE UUID USING NULL;
+    END IF;
+  END $$;`,
   // Add client_id columns where missing
   `ALTER TABLE content_posts ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id) ON DELETE CASCADE;`,
   `ALTER TABLE content_posts ADD COLUMN IF NOT EXISTS instagram_post_id VARCHAR(100);`,
