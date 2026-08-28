@@ -96,6 +96,10 @@ const MIGRATIONS = [
   );`,
   `CREATE INDEX IF NOT EXISTS credit_transactions_user_id_idx ON credit_transactions(user_id);`,
 
+  `ALTER TABLE clients ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;`,
+  `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;`,
+  `CREATE INDEX IF NOT EXISTS clients_user_id_idx ON clients(user_id);`,
+
   // Add client_id columns where missing
   `ALTER TABLE content_posts ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id) ON DELETE CASCADE;`,
   `ALTER TABLE content_posts ADD COLUMN IF NOT EXISTS instagram_post_id VARCHAR(100);`,
