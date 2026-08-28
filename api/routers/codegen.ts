@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "../trpc";
+import { router, rateLimitedProcedure } from "../trpc";
 import { codeSymbiosis } from "../openrouter";
 
 /**
@@ -7,7 +7,7 @@ import { codeSymbiosis } from "../openrouter";
  * Used for marketing automation scripts, CRM integrations, data pipelines.
  */
 export const codegenRouter = router({
-  generate: protectedProcedure
+  generate: rateLimitedProcedure
     .input(
       z.object({
         prompt: z.string().min(10).max(4000),
