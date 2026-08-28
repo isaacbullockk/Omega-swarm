@@ -6,7 +6,8 @@
  * - zod for input validation
  */
 
-import { compare, hash } from "bcryptjs";
+import bcrypt from "bcryptjs";
+const { compare, hash } = bcrypt;
 import { randomBytes } from "crypto";
 import { z } from "zod";
 
