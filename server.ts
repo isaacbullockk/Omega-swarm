@@ -1,7 +1,7 @@
 import { serve } from "@hono/node-server";
 import app from "./api";
 
-const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 console.log("[SERVER] Starting Omega Swarm v5.1.0...");
 console.log("[SERVER] PORT:", PORT);
