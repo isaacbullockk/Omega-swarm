@@ -1,4 +1,24 @@
-import { router, authedProcedure } from '../trpc'  ; import { TRPCError } from '@trpc/server'; import { db } from '../../db/connection'; import { users, sessions, credits, creditTransactions, clients, assets, campaigns, contentPosts, generatedVideos, brandVoices, socialAccounts, bookings, analyticsEvents, memories } from '../../db/schema'; import { eq } from 'drizzle-orm'; import { z } from 'zod'; export const gdprRouter = router({   debugExport: authedProcedure
+import { router, authedProcedure } from '../trpc'  ; import { TRPCError } from '@trpc/server'; import { db } from '../../db/connection'; import { users, sessions, credits, creditTransactions, clients, assets, campaigns, contentPosts, generatedVideos, brandVoices, socialAccounts, bookings, analyticsEvents, memories } from '../../db/schema'; import { eq } from 'drizzle-orm'; import { z } from 'zod'; export const gdprRouter = router({   debugSchema: authedProcedure
+    .query(async () => {
+      const { sql } = await import("drizzle-orm");
+      const cols = await db.execute(sql`
+        SELECT table_schema, table_name, column_name, data_type
+        FROM information_schema.columns
+        WHERE table_name = 'brand_voices'
+        ORDER BY table_schema, ordinal_position
+      `);
+      // Also try the conversion and capture the real error
+      let conversionResult = "not attempted";
+      try {
+        await db.execute(sql`ALTER TABLE brand_voices ALTER COLUMN user_id DROP NOT NULL`);
+        await db.execute(sql`ALTER TABLE brand_voices ALTER COLUMN user_id TYPE UUID USING NULL`);
+        conversionResult = "SUCCESS";
+      } catch (e) {
+        conversionResult = `FAILED: ${(e as Error).message.slice(0, 200)}`;
+      }
+      return { columns: cols.rows ?? cols, conversionResult };
+    }),
+  debugExport: authedProcedure
     .query(async ({ ctx }) => {
       const userId = ctx.user.id;
       const results: Record<string, string> = {};
