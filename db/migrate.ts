@@ -7,6 +7,7 @@ import { pool } from "./connection";
 
 const MIGRATIONS = [
   // === ENUM TYPES FIRST (tables below reference them) ===
+  `DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'campaign_status') THEN
       CREATE TYPE campaign_status AS ENUM ('queued', 'running', 'completed', 'failed');
     END IF;
@@ -194,34 +195,16 @@ const MIGRATIONS = [
   `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS time VARCHAR(10);`,
   `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS notes TEXT;`,
   `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;`,
-  // brand_voices: unconditional conversion attempt (guard may have missed it)
-  // brand_voices legacy integer-ID table — GUARDED conversion (runs only if still integer).
-  // Legacy integer ids are orphans (users table is UUID); USING NULL clears only unconvertible legacy values.
+  // brand_voices legacy: only safe samples json->jsonb conversion (user_id/id handled by FK-safe blocks below)
   `DO $$
-  BEGIN
-    IF EXISTS (
-      SELECT 1 FROM information_schema.columns
-      WHERE table_name = 'brand_voices' AND column_name = 'user_id' AND data_type <> 'uuid'
-    ) THEN
-      ALTER TABLE brand_voices ALTER COLUMN user_id DROP DEFAULT;
-      ALTER TABLE brand_voices ALTER COLUMN user_id DROP NOT NULL;
-      ALTER TABLE brand_voices ALTER COLUMN user_id TYPE UUID USING NULL;
-    END IF;
-    IF EXISTS (
-      SELECT 1 FROM information_schema.columns
-      WHERE table_name = 'brand_voices' AND column_name = 'id' AND data_type <> 'uuid'
-    ) THEN
-      ALTER TABLE brand_voices ALTER COLUMN id DROP DEFAULT;
-      ALTER TABLE brand_voices ALTER COLUMN id TYPE UUID USING NULL;
-      ALTER TABLE brand_voices ALTER COLUMN id SET DEFAULT gen_random_uuid();
-    END IF;
-    IF EXISTS (
-      SELECT 1 FROM information_schema.columns
-      WHERE table_name = 'brand_voices' AND column_name = 'samples' AND data_type = 'json'
-    ) THEN
-      ALTER TABLE brand_voices ALTER COLUMN samples TYPE JSONB USING samples::text::jsonb;
-    END IF;
-  END $$;`,
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'brand_voices' AND column_name = 'samples' AND data_type = 'json'
+  ) THEN
+    ALTER TABLE brand_voices ALTER COLUMN samples TYPE JSONB USING samples::text::jsonb;
+  END IF;
+END $$;`,
 
   // FK-safe UUID conversion for any pre-existing integer user_id columns
   `DO $$
@@ -231,11 +214,22 @@ const MIGRATIONS = [
       SELECT 1 FROM information_schema.columns
       WHERE table_name = 'credits' AND column_name = 'user_id' AND data_type <> 'uuid'
     ) THEN
-      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'credits'::regclass AND contype = 'f' LOOP
+      FOR fk IN
+        SELECT con.conname FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'credits'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      LOOP
         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'credits', fk.conname);
       END LOOP;
       ALTER TABLE credits ALTER COLUMN user_id DROP NOT NULL;
       ALTER TABLE credits ALTER COLUMN user_id TYPE UUID USING NULL;
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'credits'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      ) THEN
+        ALTER TABLE credits ADD CONSTRAINT fk_credits_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+      END IF;
     END IF;
   END $$;`,
   `DO $$
@@ -245,11 +239,22 @@ const MIGRATIONS = [
       SELECT 1 FROM information_schema.columns
       WHERE table_name = 'credit_transactions' AND column_name = 'user_id' AND data_type <> 'uuid'
     ) THEN
-      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'credit_transactions'::regclass AND contype = 'f' LOOP
+      FOR fk IN
+        SELECT con.conname FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'credit_transactions'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      LOOP
         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'credit_transactions', fk.conname);
       END LOOP;
       ALTER TABLE credit_transactions ALTER COLUMN user_id DROP NOT NULL;
       ALTER TABLE credit_transactions ALTER COLUMN user_id TYPE UUID USING NULL;
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'credit_transactions'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      ) THEN
+        ALTER TABLE credit_transactions ADD CONSTRAINT fk_credit_transactions_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+      END IF;
     END IF;
   END $$;`,
   `DO $$
@@ -259,11 +264,22 @@ const MIGRATIONS = [
       SELECT 1 FROM information_schema.columns
       WHERE table_name = 'clients' AND column_name = 'user_id' AND data_type <> 'uuid'
     ) THEN
-      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'clients'::regclass AND contype = 'f' LOOP
+      FOR fk IN
+        SELECT con.conname FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'clients'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      LOOP
         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'clients', fk.conname);
       END LOOP;
       ALTER TABLE clients ALTER COLUMN user_id DROP NOT NULL;
       ALTER TABLE clients ALTER COLUMN user_id TYPE UUID USING NULL;
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'clients'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      ) THEN
+        ALTER TABLE clients ADD CONSTRAINT fk_clients_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+      END IF;
     END IF;
   END $$;`,
   `DO $$
@@ -273,11 +289,22 @@ const MIGRATIONS = [
       SELECT 1 FROM information_schema.columns
       WHERE table_name = 'assets' AND column_name = 'user_id' AND data_type <> 'uuid'
     ) THEN
-      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'assets'::regclass AND contype = 'f' LOOP
+      FOR fk IN
+        SELECT con.conname FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'assets'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      LOOP
         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'assets', fk.conname);
       END LOOP;
       ALTER TABLE assets ALTER COLUMN user_id DROP NOT NULL;
       ALTER TABLE assets ALTER COLUMN user_id TYPE UUID USING NULL;
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'assets'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      ) THEN
+        ALTER TABLE assets ADD CONSTRAINT fk_assets_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+      END IF;
     END IF;
   END $$;`,
   `DO $$
@@ -287,11 +314,22 @@ const MIGRATIONS = [
       SELECT 1 FROM information_schema.columns
       WHERE table_name = 'campaigns' AND column_name = 'user_id' AND data_type <> 'uuid'
     ) THEN
-      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'campaigns'::regclass AND contype = 'f' LOOP
+      FOR fk IN
+        SELECT con.conname FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'campaigns'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      LOOP
         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'campaigns', fk.conname);
       END LOOP;
       ALTER TABLE campaigns ALTER COLUMN user_id DROP NOT NULL;
       ALTER TABLE campaigns ALTER COLUMN user_id TYPE UUID USING NULL;
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'campaigns'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      ) THEN
+        ALTER TABLE campaigns ADD CONSTRAINT fk_campaigns_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+      END IF;
     END IF;
   END $$;`,
   `DO $$
@@ -301,11 +339,22 @@ const MIGRATIONS = [
       SELECT 1 FROM information_schema.columns
       WHERE table_name = 'content_posts' AND column_name = 'user_id' AND data_type <> 'uuid'
     ) THEN
-      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'content_posts'::regclass AND contype = 'f' LOOP
+      FOR fk IN
+        SELECT con.conname FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'content_posts'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      LOOP
         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'content_posts', fk.conname);
       END LOOP;
       ALTER TABLE content_posts ALTER COLUMN user_id DROP NOT NULL;
       ALTER TABLE content_posts ALTER COLUMN user_id TYPE UUID USING NULL;
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'content_posts'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      ) THEN
+        ALTER TABLE content_posts ADD CONSTRAINT fk_content_posts_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+      END IF;
     END IF;
   END $$;`,
   `DO $$
@@ -315,11 +364,22 @@ const MIGRATIONS = [
       SELECT 1 FROM information_schema.columns
       WHERE table_name = 'generated_videos' AND column_name = 'user_id' AND data_type <> 'uuid'
     ) THEN
-      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'generated_videos'::regclass AND contype = 'f' LOOP
+      FOR fk IN
+        SELECT con.conname FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'generated_videos'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      LOOP
         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'generated_videos', fk.conname);
       END LOOP;
       ALTER TABLE generated_videos ALTER COLUMN user_id DROP NOT NULL;
       ALTER TABLE generated_videos ALTER COLUMN user_id TYPE UUID USING NULL;
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'generated_videos'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      ) THEN
+        ALTER TABLE generated_videos ADD CONSTRAINT fk_generated_videos_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+      END IF;
     END IF;
   END $$;`,
   `DO $$
@@ -329,11 +389,22 @@ const MIGRATIONS = [
       SELECT 1 FROM information_schema.columns
       WHERE table_name = 'brand_voices' AND column_name = 'user_id' AND data_type <> 'uuid'
     ) THEN
-      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'brand_voices'::regclass AND contype = 'f' LOOP
+      FOR fk IN
+        SELECT con.conname FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'brand_voices'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      LOOP
         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'brand_voices', fk.conname);
       END LOOP;
       ALTER TABLE brand_voices ALTER COLUMN user_id DROP NOT NULL;
       ALTER TABLE brand_voices ALTER COLUMN user_id TYPE UUID USING NULL;
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'brand_voices'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      ) THEN
+        ALTER TABLE brand_voices ADD CONSTRAINT fk_brand_voices_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+      END IF;
     END IF;
   END $$;`,
   `DO $$
@@ -343,11 +414,22 @@ const MIGRATIONS = [
       SELECT 1 FROM information_schema.columns
       WHERE table_name = 'social_accounts' AND column_name = 'user_id' AND data_type <> 'uuid'
     ) THEN
-      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'social_accounts'::regclass AND contype = 'f' LOOP
+      FOR fk IN
+        SELECT con.conname FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'social_accounts'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      LOOP
         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'social_accounts', fk.conname);
       END LOOP;
       ALTER TABLE social_accounts ALTER COLUMN user_id DROP NOT NULL;
       ALTER TABLE social_accounts ALTER COLUMN user_id TYPE UUID USING NULL;
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'social_accounts'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      ) THEN
+        ALTER TABLE social_accounts ADD CONSTRAINT fk_social_accounts_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+      END IF;
     END IF;
   END $$;`,
   `DO $$
@@ -357,11 +439,22 @@ const MIGRATIONS = [
       SELECT 1 FROM information_schema.columns
       WHERE table_name = 'bookings' AND column_name = 'user_id' AND data_type <> 'uuid'
     ) THEN
-      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'bookings'::regclass AND contype = 'f' LOOP
+      FOR fk IN
+        SELECT con.conname FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'bookings'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      LOOP
         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'bookings', fk.conname);
       END LOOP;
       ALTER TABLE bookings ALTER COLUMN user_id DROP NOT NULL;
       ALTER TABLE bookings ALTER COLUMN user_id TYPE UUID USING NULL;
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'bookings'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      ) THEN
+        ALTER TABLE bookings ADD CONSTRAINT fk_bookings_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+      END IF;
     END IF;
   END $$;`,
   `DO $$
@@ -371,11 +464,22 @@ const MIGRATIONS = [
       SELECT 1 FROM information_schema.columns
       WHERE table_name = 'analytics_events' AND column_name = 'user_id' AND data_type <> 'uuid'
     ) THEN
-      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'analytics_events'::regclass AND contype = 'f' LOOP
+      FOR fk IN
+        SELECT con.conname FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'analytics_events'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      LOOP
         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'analytics_events', fk.conname);
       END LOOP;
       ALTER TABLE analytics_events ALTER COLUMN user_id DROP NOT NULL;
       ALTER TABLE analytics_events ALTER COLUMN user_id TYPE UUID USING NULL;
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'analytics_events'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      ) THEN
+        ALTER TABLE analytics_events ADD CONSTRAINT fk_analytics_events_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+      END IF;
     END IF;
   END $$;`,
   `DO $$
@@ -385,11 +489,22 @@ const MIGRATIONS = [
       SELECT 1 FROM information_schema.columns
       WHERE table_name = 'sessions' AND column_name = 'user_id' AND data_type <> 'uuid'
     ) THEN
-      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'sessions'::regclass AND contype = 'f' LOOP
+      FOR fk IN
+        SELECT con.conname FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'sessions'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      LOOP
         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'sessions', fk.conname);
       END LOOP;
       ALTER TABLE sessions ALTER COLUMN user_id DROP NOT NULL;
       ALTER TABLE sessions ALTER COLUMN user_id TYPE UUID USING NULL;
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'sessions'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      ) THEN
+        ALTER TABLE sessions ADD CONSTRAINT fk_sessions_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+      END IF;
     END IF;
   END $$;`,
   `DO $$
@@ -399,11 +514,22 @@ const MIGRATIONS = [
       SELECT 1 FROM information_schema.columns
       WHERE table_name = 'memories' AND column_name = 'user_id' AND data_type <> 'uuid'
     ) THEN
-      FOR fk IN SELECT conname FROM pg_constraint WHERE conrelid = 'memories'::regclass AND contype = 'f' LOOP
+      FOR fk IN
+        SELECT con.conname FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'memories'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      LOOP
         EXECUTE format('ALTER TABLE %I DROP CONSTRAINT %I', 'memories', fk.conname);
       END LOOP;
       ALTER TABLE memories ALTER COLUMN user_id DROP NOT NULL;
       ALTER TABLE memories ALTER COLUMN user_id TYPE UUID USING NULL;
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint con
+        JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ANY(con.conkey)
+        WHERE con.conrelid = 'memories'::regclass AND con.contype = 'f' AND att.attname = 'user_id'
+      ) THEN
+        ALTER TABLE memories ADD CONSTRAINT fk_memories_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+      END IF;
     END IF;
   END $$;`,
   // Add client_id columns where missing
@@ -457,8 +583,6 @@ const MIGRATIONS = [
   // Ensure guest_expires_at exists
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS guest_expires_at TIMESTAMPTZ;`,
 
-  // Add enum types if missing
-  `DO $$ BEGIN
   // Add leads table for Nemotron + Kimi symbiosis
   `CREATE TABLE IF NOT EXISTS leads (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
