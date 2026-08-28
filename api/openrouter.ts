@@ -227,3 +227,112 @@ export async function nemotronValidator(params: {
 
   return JSON.parse(response);
 }
+
+/**
+ * ============================================================================
+ * CODE SYMBIOSIS: Kimi K3 (generator) → Nemotron 3 Ultra (QA/fact-checker)
+ * ============================================================================
+ */
+
+// Code pipeline models
+export const CODE_MODELS = {
+  GENERATOR: "moonshotai/kimi-k3",                    // Kimi writes the code
+  REVIEWER: "nvidia/nemotron-3-ultra-550b-a55b",      // Nemotron reviews it
+} as const;
+
+export interface CodeReviewResult {
+  status: "APPROVED" | "REJECTED";
+  fouten: string[];
+  gecorrigeerde_code: string;
+}
+
+/**
+ * Stap 1: Kimi K3 genereert code of marketing-automation logica
+ */
+export async function kimiCodeGenerator(prompt: string): Promise<string> {
+  const messages: OpenRouterMessage[] = [
+    {
+      role: "system",
+      content:
+        "Je bent een senior full-stack engineer en marketing-automation specialist. " +
+        "Schrijf complete, werkende code. Geen placeholders, geen hardcoded secrets — " +
+        "gebruik environment variables voor API keys. Geef alleen de code terug, geen uitleg.",
+    },
+    { role: "user", content: prompt },
+  ];
+
+  try {
+    return await callOpenRouter(messages, { model: CODE_MODELS.GENERATOR, temperature: 0.4, maxTokens: 8192 });
+  } catch {
+    // Fallback als Kimi K3 (nog) niet op OpenRouter staat
+    return await callOpenRouter(messages, { model: MODELS.FALLBACK, temperature: 0.4, maxTokens: 8192 });
+  }
+}
+
+/**
+ * Stap 2: Nemotron 3 Ultra controleert de code van Kimi op fouten
+ * Dwingt strikte JSON output via response_format.
+ */
+export async function nemotronFactChecker(gegenereerdeCode: string): Promise<CodeReviewResult> {
+  const factCheckPrompt = `Je bent een Senior QA Engineer en Python/TypeScript Expert. Controleer de onderstaande code die door een andere AI is gegenereerd op:
+1. Syntax-fouten of ontbrekende imports.
+2. Logische fouten in de marketing automation logica.
+3. Beveiligingsrisico's (zoals hardcoded API keys).
+
+Code om te controleren:
+${gegenereerdeCode}
+
+Geef je output strikt in dit JSON-formaat:
+{
+  "status": "APPROVED" of "REJECTED",
+  "fouten": ["lijst met gevonden fouten, leeg indien APPROVED"],
+  "gecorrigeerde_code": "De volledige, werkende en gecorrigeerde code"
+}`;
+
+  const messages: OpenRouterMessage[] = [{ role: "user", content: factCheckPrompt }];
+
+  let raw: string;
+  try {
+    raw = await callOpenRouter(messages, {
+      model: CODE_MODELS.REVIEWER,
+      temperature: 0.1,
+      maxTokens: 8192,
+      responseFormat: { type: "json_object" },
+    });
+  } catch {
+    raw = await callOpenRouter(messages, {
+      model: MODELS.VALIDATOR,
+      temperature: 0.1,
+      maxTokens: 8192,
+      responseFormat: { type: "json_object" },
+    });
+  }
+
+  // Strip eventuele markdown fences, parse strict JSON
+  const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  const parsed = JSON.parse(cleaned) as CodeReviewResult;
+
+  if (!parsed.status || !Array.isArray(parsed.fouten) || typeof parsed.gecorrigeerde_code !== "string") {
+    throw new Error("Nemotron returned malformed review JSON");
+  }
+  return parsed;
+}
+
+/**
+ * Volledige pipeline: Kimi genereert → Nemotron controleert → veilige code terug
+ */
+export async function codeSymbiosis(prompt: string): Promise<{
+  ruwe_code: string;
+  evaluatie: CodeReviewResult;
+  veilige_code: string;
+  approved: boolean;
+}> {
+  const ruwe_code = await kimiCodeGenerator(prompt);
+  const evaluatie = await nemotronFactChecker(ruwe_code);
+  return {
+    ruwe_code,
+    evaluatie,
+    veilige_code: evaluatie.gecorrigeerde_code,
+    approved: evaluatie.status === "APPROVED",
+  };
+}
