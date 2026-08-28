@@ -7,9 +7,9 @@ const ALLOWED_WEBHOOK_HOSTS = (process.env.ALLOWED_WEBHOOK_HOSTS ?? "")
   .filter(Boolean);
 
 const PIPELINE_MODELS = {
-  ORCHESTRATOR: "nvidia/nemotron-3-ultra-550b-a55b",
+  ORCHESTRATOR: "nvidia/nemotron-3-ultra-550b-a55b:free",
   COPY_FILLER: "moonshotai/kimi-k2.5",
-  GATEWAY: "nvidia/nemotron-3-ultra-550b-a55b",
+  GATEWAY: "nvidia/nemotron-3-ultra-550b-a55b:free",
 } as const;
 
 export interface MarketingPayload {

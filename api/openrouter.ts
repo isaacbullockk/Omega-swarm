@@ -9,12 +9,17 @@
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
-// Model routing for symbiosis workflow
+// Model routing for symbiosis workflow — all behind the single OPENROUTER_API_KEY
+// (routing reviewed and approved by Nemotron 3 Ultra compliance gate, 2026-08-28)
 export const MODELS = {
-  PLANNER: "nvidia/llama-3.1-nemotron-ultra-v1",      // Step 1: Analyze + Strategize
-  COPYWRITER: "meta-llama/llama-4-maverick",           // Step 2: Write human copy
-  VALIDATOR: "nvidia/llama-3.1-nemotron-70b-instruct", // Step 3: Validate + Format
-  FALLBACK: "google/gemini-2.5-pro-preview",           // Fallback
+  PLANNER: "nvidia/nemotron-3-ultra-550b-a55b:free",        // Step 1: Analyze + Strategize (1M ctx, free)
+  COPYWRITER: "moonshotai/kimi-k2.5",                      // Step 2: Write human copy ($0.60/$3.00, vision)
+  VALIDATOR: "nvidia/nemotron-3-ultra-550b-a55b:free",     // Step 3: Validate + Format (1M ctx, free)
+  CONTENT_SAFETY: "nvidia/nemotron-3.5-content-safety:free", // Pre-publish moderation of marketing copy
+  VISION: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", // Asset tagging/analysis (omni-modal)
+  FAST: "nvidia/nemotron-3-super-120b-a12b:free",          // Lead scoring / quick tasks (free)
+  IMAGE_GEN: "google/gemini-3.1-flash-lite-image",         // Key-backed image generation ($0.25)
+  FALLBACK: "google/gemini-2.5-flash",                     // Fallback (1M ctx multimodal)
 } as const;
 
 export interface OpenRouterMessage {
@@ -55,7 +60,7 @@ export async function callOpenRouter(
     body.response_format = options.responseFormat;
   }
 
-  const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+  let response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -65,6 +70,21 @@ export async function callOpenRouter(
     },
     body: JSON.stringify(body),
   });
+
+  // Free-pool models share rate limits — on 429/404 retry once with the paid variant
+  if (!response.ok && model.endsWith(":free") && (response.status === 429 || response.status === 404)) {
+    const paidModel = model.replace(/:free$/, "");
+    response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer": "https://ndeku.com",
+        "X-Title": "Omega Swarm",
+      },
+      body: JSON.stringify({ ...body, model: paidModel }),
+    });
+  }
 
   if (!response.ok) {
     const error = await response.text();
@@ -236,8 +256,8 @@ export async function nemotronValidator(params: {
 
 // Code pipeline models
 export const CODE_MODELS = {
-  GENERATOR: "moonshotai/kimi-k3",                    // Kimi writes the code
-  REVIEWER: "nvidia/nemotron-3-ultra-550b-a55b",      // Nemotron reviews it
+  GENERATOR: "moonshotai/kimi-k2.7-code",             // Kimi writes the code (dedicated code model, 4.5x cheaper than k3)
+  REVIEWER: "nvidia/nemotron-3-ultra-550b-a55b:free",  // Nemotron reviews it (1M ctx, free)
 } as const;
 
 export interface CodeReviewResult {
@@ -300,8 +320,9 @@ Geef je output strikt in dit JSON-formaat:
       responseFormat: { type: "json_object" },
     });
   } catch {
+    // Reviewer failed — fall back to a DISTINCT model, not the same free pool
     raw = await callOpenRouter(messages, {
-      model: MODELS.VALIDATOR,
+      model: MODELS.FALLBACK,
       temperature: 0.1,
       maxTokens: 8192,
       responseFormat: { type: "json_object" },
