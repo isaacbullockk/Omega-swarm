@@ -135,6 +135,22 @@ const MIGRATIONS = [
   `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;`,
   `CREATE INDEX IF NOT EXISTS clients_user_id_idx ON clients(user_id);`,
 
+  // social_accounts pre-exists without user_id
+  `ALTER TABLE social_accounts ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;`,
+  // bookings full column coverage (old shape missing client_company etc.)
+  `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_company VARCHAR(100);`,
+  `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_name VARCHAR(100);`,
+  `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS client_email VARCHAR(255);`,
+  `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS service_id VARCHAR(50);`,
+  `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS service_name VARCHAR(100);`,
+  `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS date VARCHAR(20);`,
+  `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS time VARCHAR(10);`,
+  `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS notes TEXT;`,
+  `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;`,
+  // brand_voices: unconditional conversion attempt (guard may have missed it)
+  `ALTER TABLE brand_voices ALTER COLUMN user_id DROP NOT NULL;`,
+  `ALTER TABLE brand_voices ALTER COLUMN user_id TYPE UUID USING NULL;`,
+
   // FK-safe UUID conversion for any pre-existing integer user_id columns
   `DO $$
   DECLARE fk RECORD;
