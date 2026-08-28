@@ -97,6 +97,26 @@ const MIGRATIONS = [
   `CREATE INDEX IF NOT EXISTS credit_transactions_user_id_idx ON credit_transactions(user_id);`,
 
   `ALTER TABLE clients ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;`,
+  // generated_videos may pre-exist with old shape — add all newer columns
+  `ALTER TABLE generated_videos ADD COLUMN IF NOT EXISTS reference_assets JSONB DEFAULT '[]'::jsonb;`,
+  `ALTER TABLE generated_videos ADD COLUMN IF NOT EXISTS thumbnail_url TEXT;`,
+  `ALTER TABLE generated_videos ADD COLUMN IF NOT EXISTS aspect_ratio VARCHAR(10) NOT NULL DEFAULT '16:9';`,
+  `ALTER TABLE generated_videos ADD COLUMN IF NOT EXISTS provider VARCHAR(50);`,
+  `ALTER TABLE generated_videos ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'completed';`,
+  `ALTER TABLE generated_videos ADD COLUMN IF NOT EXISTS date TIMESTAMPTZ DEFAULT NOW();`,
+  `ALTER TABLE generated_videos ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`,
+  // Defensive coverage for other pre-existing tables
+  `ALTER TABLE brand_voices ADD COLUMN IF NOT EXISTS samples JSONB NOT NULL DEFAULT '[]'::jsonb;`,
+  `ALTER TABLE brand_voices ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`,
+  `ALTER TABLE brand_voices ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`,
+  `ALTER TABLE social_accounts ADD COLUMN IF NOT EXISTS access_token TEXT;`,
+  `ALTER TABLE social_accounts ADD COLUMN IF NOT EXISTS page_id VARCHAR(100);`,
+  `ALTER TABLE social_accounts ADD COLUMN IF NOT EXISTS connected_at TIMESTAMPTZ;`,
+  `ALTER TABLE social_accounts ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`,
+  `ALTER TABLE memories ADD COLUMN IF NOT EXISTS details JSONB;`,
+  `ALTER TABLE memories ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`,
+  `ALTER TABLE assets ADD COLUMN IF NOT EXISTS used_in JSONB NOT NULL DEFAULT '[]'::jsonb;`,
+
   // Full campaigns column coverage (GDPR export reads full rows)
   `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;`,
   `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS outputs JSONB;`,
