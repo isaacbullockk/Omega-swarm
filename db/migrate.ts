@@ -6,6 +6,53 @@
 import { pool } from "./connection";
 
 const MIGRATIONS = [
+  // === ENUM TYPES FIRST (tables below reference them) ===
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'campaign_status') THEN
+      CREATE TYPE campaign_status AS ENUM ('queued', 'running', 'completed', 'failed');
+    END IF;
+  END $$;`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'content_type') THEN
+      CREATE TYPE content_type AS ENUM ('social', 'video', 'ad', 'blog');
+    END IF;
+  END $$;`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'content_status') THEN
+      CREATE TYPE content_status AS ENUM ('published', 'draft', 'scheduled');
+    END IF;
+  END $$;`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'video_status') THEN
+      CREATE TYPE video_status AS ENUM ('ready', 'generating', 'failed');
+    END IF;
+  END $$;`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'social_platform') THEN
+      CREATE TYPE social_platform AS ENUM ('instagram', 'facebook', 'youtube', 'tiktok', 'twitter', 'linkedin');
+    END IF;
+  END $$;`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'booking_status') THEN
+      CREATE TYPE booking_status AS ENUM ('pending', 'confirmed', 'completed', 'cancelled');
+    END IF;
+  END $$;`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'asset_type') THEN
+      CREATE TYPE asset_type AS ENUM ('image', 'video', 'audio', 'reference');
+    END IF;
+  END $$;`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'memory_type') THEN
+      CREATE TYPE memory_type AS ENUM ('win', 'loss', 'pattern');
+    END IF;
+  END $$;`,
+
+  // Add analytics_events type enum
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'analytics_event_type') THEN
+      CREATE TYPE analytics_event_type AS ENUM ('post_created', 'video_generated', 'campaign_started', 'campaign_completed', 'agent_chat', 'instagram_published', 'user_login', 'user_registered', 'content_downloaded', 'ai_generation');
+    END IF;
+  END $$;`,
   `CREATE TABLE IF NOT EXISTS assets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -412,52 +459,6 @@ const MIGRATIONS = [
 
   // Add enum types if missing
   `DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'campaign_status') THEN
-      CREATE TYPE campaign_status AS ENUM ('queued', 'running', 'completed', 'failed');
-    END IF;
-  END $$;`,
-  `DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'content_type') THEN
-      CREATE TYPE content_type AS ENUM ('social', 'video', 'ad', 'blog');
-    END IF;
-  END $$;`,
-  `DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'content_status') THEN
-      CREATE TYPE content_status AS ENUM ('published', 'draft', 'scheduled');
-    END IF;
-  END $$;`,
-  `DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'video_status') THEN
-      CREATE TYPE video_status AS ENUM ('ready', 'generating', 'failed');
-    END IF;
-  END $$;`,
-  `DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'social_platform') THEN
-      CREATE TYPE social_platform AS ENUM ('instagram', 'facebook', 'youtube', 'tiktok', 'twitter', 'linkedin');
-    END IF;
-  END $$;`,
-  `DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'booking_status') THEN
-      CREATE TYPE booking_status AS ENUM ('pending', 'confirmed', 'completed', 'cancelled');
-    END IF;
-  END $$;`,
-  `DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'asset_type') THEN
-      CREATE TYPE asset_type AS ENUM ('image', 'video', 'audio', 'reference');
-    END IF;
-  END $$;`,
-  `DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'memory_type') THEN
-      CREATE TYPE memory_type AS ENUM ('win', 'loss', 'pattern');
-    END IF;
-  END $$;`,
-
-  // Add analytics_events type enum
-  `DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'analytics_event_type') THEN
-      CREATE TYPE analytics_event_type AS ENUM ('post_created', 'video_generated', 'campaign_started', 'campaign_completed', 'agent_chat', 'instagram_published', 'user_login', 'user_registered', 'content_downloaded', 'ai_generation');
-    END IF;
-  END $$;`,
   // Add leads table for Nemotron + Kimi symbiosis
   `CREATE TABLE IF NOT EXISTS leads (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
