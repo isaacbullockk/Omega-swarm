@@ -1,13 +1,10 @@
-/**
- * Omega Swarm — Marketing Pipeline
- * Nemotron 3 Ultra Orchestrator → Kimi K2.5 Copy Filler → Nemotron Gateway Audit → CRM Webhook
- *
- * Zero-tolerance: als de gateway audit REJECTED geeft, wordt de webhook geblokkeerd.
- */
-
 import { callOpenRouter } from "./openrouter";
 
 const MARKETING_WEBHOOK_URL = process.env.BOOKING_WEBHOOK_URL;
+const ALLOWED_WEBHOOK_HOSTS = (process.env.ALLOWED_WEBHOOK_HOSTS ?? "")
+  .split(",")
+  .map((h) => h.trim())
+  .filter(Boolean);
 
 const PIPELINE_MODELS = {
   ORCHESTRATOR: "nvidia/nemotron-3-ultra-550b-a55b",
@@ -31,7 +28,34 @@ export interface Blueprint {
 
 function parseJson<T>(raw: string): T {
   const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-  return JSON.parse(cleaned) as T;
+  try {
+    return JSON.parse(cleaned) as T;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown JSON parse error";
+    throw new Error(`parseJson failed: ${msg}. Raw input (first 500 chars): ${raw.slice(0, 500)}`);
+  }
+}
+
+function sanitize(input: string): string {
+  return input.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]!));
+}
+
+function delimitUserInput(label: string, value: string): string {
+  return `<${label}>${sanitize(value)}</${label}>`;
+}
+
+function validateWebhookHost(url: string): boolean {
+  let hostname: string;
+  try {
+    hostname = new URL(url).hostname;
+  } catch {
+    return false;
+  }
+  if (ALLOWED_WEBHOOK_HOSTS.length === 0) {
+    const envHost = MARKETING_WEBHOOK_URL ? new URL(MARKETING_WEBHOOK_URL).hostname : "";
+    return hostname === envHost;
+  }
+  return ALLOWED_WEBHOOK_HOSTS.includes(hostname);
 }
 
 /**
@@ -44,12 +68,12 @@ export async function runNemotronMarketingOrchestrator(
 Schrijf daarnaast een rigide, onveranderlijk e-mailsjabloon waarin een copy-assistent dadelijk ALLEEN de invulvelden tussen [vierkante haakjes] mag invullen.
 
 Campagne Gegevens:
-${JSON.stringify(payload, null, 2)}
+${delimitUserInput("payload", JSON.stringify(payload, null, 2))}
 
 Output verplicht exact een JSON-object met deze structuur (geen markdown, geen extra tekst):
 {
     "blueprint": {
-        "client_name": "${payload.client_name}",
+        "client_name": "${delimitUserInput("client_name", payload.client_name)}",
         "core_angle": "De psychologische invalshoek op basis van de doelgroep",
         "required_cta": "De exacte Call to Action die in de tekst MOET voorkomen"
     },
@@ -76,12 +100,21 @@ export async function runKimiCopyFiller(
   painPoint: string,
   payload: MarketingPayload
 ): Promise<string> {
+  const invuldata = {
+    naam: leadName,
+    branche: payload.industry,
+    pijnpunt: painPoint,
+    core_offer: payload.core_offer,
+    required_cta: blueprint.required_cta,
+    client_name: blueprint.client_name,
+  };
+
   const prompt = `Je bent een junior copywriter-assistent bij Omega Swarm. Je mag de zinsstructuur NIET aanpassen en GEEN extra zinnen verzinnen.
 Vul de lege velden tussen de haakjes van het sjabloon in met de marketingfeiten uit de blauwdruk.
 
-Sjabloon: ${template}
-Blauwdruk: ${JSON.stringify(blueprint)}
-Invuldata: { "naam": "${leadName}", "branche": "${payload.industry}", "pijnpunt": "${painPoint}", "core_offer": "${payload.core_offer}" }
+Sjabloon: ${delimitUserInput("template", template)}
+Blauwdruk: ${delimitUserInput("blueprint", JSON.stringify(blueprint))}
+Invuldata: ${delimitUserInput("invuldata", JSON.stringify(invuldata))}
 
 Output uitsluitend de ingevulde tekst. Geen inleiding, geen praatjes achteraf.`;
 
@@ -95,7 +128,7 @@ Output uitsluitend de ingevulde tekst. Geen inleiding, geen praatjes achteraf.`;
 }
 
 /**
- * FASE 3: Nemotron Gateway Audit — zero tolerance, temperature 0.0
+ * FASE 3: Nemotron Gateway Audit — zero tolerance, temperature 0.01
  */
 export async function runNemotronGatewayAudit(
   blueprint: Blueprint,
@@ -104,8 +137,8 @@ export async function runNemotronGatewayAudit(
   const prompt = `Je bent de Supreme Quality Auditor van Omega Swarm. Controleer de gegenereerde e-mailtekst streng tegen de strategische blauwdruk.
 Als de verplichte CTA is aangepast, de merknaam verkeerd is gespeld, of ongeautoriseerde marketingclaims zijn toegevoegd, moet je de tekst direct AFKEUREN.
 
-Strategische Blauwdruk: ${JSON.stringify(blueprint)}
-Gegenereerde E-mail: "${draftEmail}"
+Strategische Blauwdruk: ${delimitUserInput("blueprint", JSON.stringify(blueprint))}
+Gegenereerde E-mail: ${delimitUserInput("draftEmail", draftEmail)}
 
 Output verplicht exact een JSON-object (geen tekst buiten het object):
 {
@@ -115,7 +148,7 @@ Output verplicht exact een JSON-object (geen tekst buiten het object):
 
   const raw = await callOpenRouter([{ role: "user", content: prompt }], {
     model: PIPELINE_MODELS.GATEWAY,
-    temperature: 0.0,
+    temperature: 0.01,
     maxTokens: 2048,
     responseFormat: { type: "json_object" },
   });
@@ -161,17 +194,30 @@ export async function runMarketingPipeline(
     // Stuur goedgekeurde content naar Make.com / HubSpot / ActiveCampaign
     let webhookSent = false;
     if (MARKETING_WEBHOOK_URL) {
-      const res = await fetch(MARKETING_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: "verified_marketing_content",
-          meta: blueprint,
-          email_body: finalEmail,
-          lead_contact: leadName,
-        }),
-      });
-      webhookSent = res.ok;
+      if (!validateWebhookHost(MARKETING_WEBHOOK_URL)) {
+        return { success: false, blocked: true, webhookSent: false, blueprint, emailBody: finalEmail, error: "Webhook host not allowed by allowlist" };
+      }
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      try {
+        const res = await fetch(MARKETING_WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: "verified_marketing_content",
+            meta: blueprint,
+            email_body: finalEmail,
+            lead_contact: leadName,
+          }),
+          signal: controller.signal,
+        });
+        webhookSent = res.ok;
+        if (!res.ok) {
+          throw new Error(`Webhook non-2xx: ${res.status} ${res.statusText}`);
+        }
+      } finally {
+        clearTimeout(timeoutId);
+      }
     }
 
     return { success: true, blocked: false, webhookSent, blueprint, emailBody: finalEmail, auditReason: audit.reason };
