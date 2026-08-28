@@ -8,6 +8,14 @@ import { pool } from "./connection";
 const MIGRATIONS = [
   // Add client_id columns where missing
   `ALTER TABLE content_posts ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id) ON DELETE CASCADE;`,
+  `ALTER TABLE content_posts ADD COLUMN IF NOT EXISTS instagram_post_id VARCHAR(100);`,
+  `ALTER TABLE content_posts ADD COLUMN IF NOT EXISTS likes INTEGER NOT NULL DEFAULT 0;`,
+  `ALTER TABLE content_posts ADD COLUMN IF NOT EXISTS comments INTEGER NOT NULL DEFAULT 0;`,
+  `ALTER TABLE content_posts ADD COLUMN IF NOT EXISTS views INTEGER NOT NULL DEFAULT 0;`,
+  `ALTER TABLE content_posts ADD COLUMN IF NOT EXISTS reference_assets JSONB DEFAULT '[]'::jsonb;`,
+  `ALTER TABLE content_posts ADD COLUMN IF NOT EXISTS image_url TEXT;`,
+  `ALTER TABLE content_posts ADD COLUMN IF NOT EXISTS date TIMESTAMPTZ DEFAULT NOW();`,
+  `ALTER TABLE content_posts ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();`,
   `ALTER TABLE generated_videos ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id) ON DELETE CASCADE;`,
   `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id) ON DELETE CASCADE;`,
   `ALTER TABLE analytics_events ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id) ON DELETE CASCADE;`,
