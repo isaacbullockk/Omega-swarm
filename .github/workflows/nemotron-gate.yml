@@ -1,0 +1,60 @@
+name: Nemotron Pre-Deploy Gate
+
+# Every push to `staging` must pass: type-check → boot smoke → Nemotron review.
+# Only then is it merged to `main`, which Railway deploys. Direct pushes to
+# main are no longer part of the workflow — main only receives gated merges.
+
+on:
+  push:
+    branches: [staging]
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # needed to merge staging -> main
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # needed for diff vs main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Type-check
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Boot smoke test (server must answer /api/health)
+        run: |
+          npx tsx server.ts &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/api/health > /dev/null; then
+              echo "Smoke test passed"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Smoke test FAILED — server never answered /api/health"
+          exit 1
+
+      - name: Fetch main for diff
+        run: git fetch origin main
+
+      - name: Nemotron compliance review
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: node scripts/nemotron_gate.mjs
+
+      - name: Merge staging into main (Railway deploys from main)
+        run: |
+          git config user.email "gate@ndeku.com"
+          git config user.name "Nemotron Gate"
+          git checkout main
+          git merge --ff-only origin/staging
+          git push origin main
