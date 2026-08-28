@@ -20,6 +20,7 @@ import { metricsRouter } from "./routers/metrics";
 import { gdprRouter } from "./routers/gdpr";
 
 import { leadRouter } from "./routers/lead";
+import { codegenRouter } from "./routers/codegen";
 
 export const appRouter = router({
   agent: agentRouter,
@@ -40,6 +41,7 @@ export const appRouter = router({
   metrics: metricsRouter,
   gdpr: gdprRouter,
   lead: leadRouter,
+  codegen: codegenRouter,
 });
 
 export type AppRouter = typeof appRouter;
