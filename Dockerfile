@@ -27,7 +27,4 @@ RUN npm install --legacy-peer-deps --omit=dev
 
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD curl -f http://localhost:${PORT:-3000}/api/health || exit 1
-
 CMD ["node", "--import", "tsx", "server.ts"]
