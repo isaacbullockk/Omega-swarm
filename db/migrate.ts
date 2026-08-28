@@ -97,6 +97,9 @@ const MIGRATIONS = [
   `CREATE INDEX IF NOT EXISTS credit_transactions_user_id_idx ON credit_transactions(user_id);`,
 
   `ALTER TABLE clients ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;`,
+  `ALTER TABLE brand_voices ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id) ON DELETE CASCADE;`,
+  `ALTER TABLE assets ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id) ON DELETE CASCADE;`,
+
   // generated_videos may pre-exist with old shape — add all newer columns
   `ALTER TABLE generated_videos ADD COLUMN IF NOT EXISTS reference_assets JSONB DEFAULT '[]'::jsonb;`,
   `ALTER TABLE generated_videos ADD COLUMN IF NOT EXISTS thumbnail_url TEXT;`,
