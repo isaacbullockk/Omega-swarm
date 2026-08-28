@@ -1,9 +1,11 @@
 /**
- * Omega Swarm v5.0 — Video Router (PostgreSQL + Auth)
+ * Omega Swarm v5.1 — Video Router (PostgreSQL + Auth)
  *
- * AI generation endpoints use rateLimitedProcedure (10 req/min).
- * List/delete operations use authedProcedure. Data is filtered by user_id.
- * Replaces JSON store with Drizzle ORM + PostgreSQL.
+ * REAL video generation via Runway API (async task + polling):
+ *   video.create  -> starts Runway task, stores row with status "generating"
+ *   video.refresh -> polls Runway for the user's generating rows, updates to
+ *                    "ready" with the final mp4 URL (or "failed")
+ * Every prompt passes the Nemotron content-safety gate before submission.
  */
 
 import { z } from "zod";
@@ -12,9 +14,8 @@ import { router, authedProcedure, rateLimitedProcedure } from "../trpc";
 import { db, isPostgresAvailable } from "../../db/connection";
 import { generatedVideos, analyticsEvents } from "../../db/schema";
 import { eq, and } from "drizzle-orm";
-
-const POLLINATIONS_API_KEY = process.env.POLLINATIONS_API_KEY;
-const KLING_API_KEY = process.env.KLING_API_KEY;
+import { runwayConfigured, startVideoTask, getVideoTask, RUNWAY_MODELS } from "../runway";
+import { checkContentSafety } from "../openrouter";
 
 /* ─── Zod Schemas ─── */
 
@@ -27,21 +28,21 @@ const referenceAssetSchema = z.object({
 
 const createVideoSchema = z.object({
   clientId: z.string().uuid().optional(),
-  prompt: z.string().min(1, "Prompt is required"),
-  duration: z.number().min(3).max(60).default(5),
+  prompt: z.string().min(1).max(1000, "Prompt too long for the video model"),
+  duration: z.number().min(2).max(10).default(5),
   aspectRatio: z.enum(["9:16", "16:9", "1:1", "3:4", "4:3"]).default("9:16"),
-  provider: z.enum(["pollinations", "kling"]).default("pollinations"),
+  model: z.enum(["quality", "audio"]).default("quality"),
   referenceAssets: z.array(referenceAssetSchema).optional().default([]),
 });
 
 export const videoRouter = router({
   /* ─── Check provider status ─── */
   status: authedProcedure.query(() => ({
-    pollinations: !!POLLINATIONS_API_KEY,
-    kling: !!KLING_API_KEY,
+    runway: runwayConfigured(),
+    models: { quality: RUNWAY_MODELS.QUALITY, audio: RUNWAY_MODELS.AUDIO },
   })),
 
-  /* ─── Create a video (rate limited) ─── */
+  /* ─── Start a video generation task (rate limited) ─── */
   create: rateLimitedProcedure
     .input(createVideoSchema)
     .mutation(async ({ ctx, input }) => {
@@ -51,9 +52,25 @@ export const videoRouter = router({
           message: "Database not available",
         });
       }
+      if (!runwayConfigured()) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "RUNWAY_API_KEY not configured. Create a key at dev.runwayml.com and add it to Railway variables.",
+        });
+      }
 
       try {
-        // Build enriched prompt from reference assets
+        // 0. Content safety gate — unsafe prompts never reach the paid API
+        const safety = await checkContentSafety(input.prompt);
+        if (!safety.safe) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Prompt blocked by safety gate: ${safety.reason}`,
+          });
+        }
+
+        // 1. Build enriched prompt from reference assets
         let enrichedPrompt = input.prompt;
         if (input.referenceAssets.length > 0) {
           const refDesc = input.referenceAssets
@@ -62,27 +79,23 @@ export const videoRouter = router({
           enrichedPrompt = `${input.prompt}. Style inspired by: ${refDesc}`;
         }
 
-        // Build video URL
-        let videoUrl: string;
-        let status: "ready" | "generating" | "failed" = "ready";
+        // 2. Optional first-frame image (public URL only — data URLs unsupported)
+        const startImage = input.referenceAssets.find((a) => a.url)?.url;
 
-        const encoded = encodeURIComponent(enrichedPrompt);
-
-        // Pollinations video generation works without an API key (URL-based)
-        // Kling requires a key — fall back to Pollinations if Kling key is missing
-        if (input.provider === "kling" && !KLING_API_KEY) {
-          console.warn("[Video] Kling API key not set, falling back to Pollinations");
-        }
-
-        const useKling = input.provider === "kling" && KLING_API_KEY;
-        videoUrl = useKling
-          ? `https://api.klingai.com/v1/videos?prompt=${encoded}&duration=${input.duration}&aspect_ratio=${input.aspectRatio}`
-          : `https://gen.pollinations.ai/video/${encoded}?duration=${input.duration}&aspectRatio=${input.aspectRatio}`;
+        // 3. Start the Runway task
+        const model = input.model === "audio" ? RUNWAY_MODELS.AUDIO : RUNWAY_MODELS.QUALITY;
+        const taskId = await startVideoTask({
+          prompt: enrichedPrompt,
+          aspectRatio: input.aspectRatio,
+          duration: input.duration,
+          startImageUrl: startImage,
+          model,
+        });
 
         const title =
           input.prompt.slice(0, 60) + (input.prompt.length > 60 ? "..." : "");
 
-        // Insert into database
+        // 4. Persist with status "generating" — refresh resolves the final URL
         const result = await db!
           .insert(generatedVideos)
           .values({
@@ -90,27 +103,28 @@ export const videoRouter = router({
             clientId: input.clientId ?? null,
             title,
             prompt: input.prompt,
-            videoUrl,
+            videoUrl: "", // filled by video.refresh when the task succeeds
             thumbnailUrl: null,
             duration: input.duration,
             aspectRatio: input.aspectRatio,
-            provider: input.provider,
-            status,
+            provider: "runway",
+            taskId,
+            status: "generating",
             referenceAssets: input.referenceAssets,
           })
           .returning();
 
         const video = result[0];
 
-        // Track analytics event
+        // 5. Track analytics event
         await db!
           .insert(analyticsEvents)
           .values({
             userId: ctx.user.id,
             clientId: input.clientId ?? null,
             type: "video_generated",
-            title: "AI Video generated",
-            description: `Generated ${input.duration}s video: "${title}"`,
+            title: "AI Video started",
+            description: `Started ${input.duration}s video: "${title}" (Runway ${model})`,
             agentColor: "#A855F7",
             agentName: "Vision",
           });
@@ -121,10 +135,84 @@ export const videoRouter = router({
         console.error("[Video] Create error:", (err as Error).message);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to generate video",
+          message: `Failed to start video generation: ${(err as Error).message}`,
         });
       }
     }),
+
+  /* ─── Poll Runway for all "generating" videos of this user ─── */
+  refresh: authedProcedure.mutation(async ({ ctx }) => {
+    if (!isPostgresAvailable() || !db) return { updated: 0, stillGenerating: 0, failed: 0 };
+    if (!runwayConfigured()) return { updated: 0, stillGenerating: 0, failed: 0 };
+
+    const generating = await db
+      .select()
+      .from(generatedVideos)
+      .where(
+        and(eq(generatedVideos.userId, ctx.user.id), eq(generatedVideos.status, "generating"))
+      );
+
+    let updated = 0;
+    let stillGenerating = 0;
+    let failed = 0;
+
+    // Poll with limited concurrency (4 at a time) — sequential polling is too
+    // slow for users with many rendering videos
+    async function pollOne(video: (typeof generating)[number]): Promise<void> {
+      if (!video.taskId) {
+        // Legacy row without a task id — mark failed so it stops polling
+        await db!
+          .update(generatedVideos)
+          .set({ status: "failed" })
+          .where(eq(generatedVideos.id, video.id));
+        failed++;
+        return;
+      }
+      try {
+        const task = await getVideoTask(video.taskId);
+        if (task.status === "SUCCEEDED" && task.output?.[0]) {
+          await db!
+            .update(generatedVideos)
+            .set({ status: "ready", videoUrl: task.output[0] })
+            .where(eq(generatedVideos.id, video.id));
+          updated++;
+
+          await db!.insert(analyticsEvents).values({
+            userId: ctx.user.id,
+            clientId: video.clientId ?? null,
+            type: "video_generated",
+            title: "AI Video ready",
+            description: `Video "${video.title}" finished rendering`,
+            agentColor: "#22C55E",
+            agentName: "Vision",
+          });
+        } else if (task.status === "FAILED" || task.status === "CANCELLED") {
+          await db!
+            .update(generatedVideos)
+            .set({ status: "failed" })
+            .where(eq(generatedVideos.id, video.id));
+          failed++;
+          console.warn(`[Video] Task ${video.taskId} failed:`, task.failure ?? task.failureCode);
+        } else {
+          // PENDING / RUNNING / THROTTLED — still in the queue
+          if (task.status === "THROTTLED") {
+            console.warn(`[Video] Task ${video.taskId} throttled by Runway (rate/tier limit)`);
+          }
+          stillGenerating++;
+        }
+      } catch (err) {
+        console.error(`[Video] Poll error for ${video.taskId}:`, (err as Error).message);
+        stillGenerating++;
+      }
+    }
+
+    const BATCH = 4;
+    for (let i = 0; i < generating.length; i += BATCH) {
+      await Promise.all(generating.slice(i, i + BATCH).map(pollOne));
+    }
+
+    return { updated, stillGenerating, failed };
+  }),
 
   /* ─── List all videos for the authenticated user ─── */
   list: authedProcedure.query(async ({ ctx }) => {

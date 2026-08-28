@@ -333,7 +333,8 @@ export const generatedVideos = pgTable(
     thumbnailUrl: text("thumbnail_url"),
     duration: integer("duration").notNull().default(0),
     aspectRatio: varchar("aspect_ratio", { length: 10 }).notNull().default("16:9"),
-    provider: varchar("provider", { length: 50 }).notNull().default("pollinations"), // pollinations, kling
+    provider: varchar("provider", { length: 50 }).notNull().default("pollinations"), // runway, pollinations, kling
+    taskId: text("task_id"), // provider-side async task id (Runway)
     status: videoStatusEnum("status").notNull().default("ready"),
     date: timestamp("date", { withTimezone: true }).notNull().defaultNow(),
     referenceAssets: jsonb("reference_assets").$type<

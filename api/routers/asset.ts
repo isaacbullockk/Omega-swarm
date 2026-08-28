@@ -15,15 +15,19 @@ import { analyzeImage, generateImageOpenRouter } from "../openrouter";
 
 /* ─── Zod Schemas ─── */
 
-const assetUploadSchema = z.object({
-  clientId: z.string().uuid().optional(),
-  name: z.string().min(1, "Name is required"),
-  type: z.enum(["image", "video", "audio", "reference"]),
-  dataUrl: z.string().optional(),
-  url: z.string().url().optional(),
-  description: z.string().optional(),
-  tags: z.array(z.string()).default([]),
-});
+const assetUploadSchema = z
+  .object({
+    clientId: z.string().uuid().optional(),
+    name: z.string().min(1, "Name is required"),
+    type: z.enum(["image", "video", "audio", "reference"]),
+    dataUrl: z.string().optional(),
+    url: z.string().url().optional(),
+    description: z.string().optional(),
+    tags: z.array(z.string()).default([]),
+  })
+  .refine((a) => a.dataUrl || a.url, {
+    message: "Asset requires either a dataUrl or a public url",
+  });
 
 const assetUpdateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -84,6 +88,7 @@ export const assetRouter = router({
         clientId: z.string().uuid().optional(),
         prompt: z.string().min(5).max(2000),
         name: z.string().min(1).max(255),
+        tier: z.enum(["lite", "quality", "bulk"]).default("lite"),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -92,7 +97,7 @@ export const assetRouter = router({
       }
       let dataUrl: string;
       try {
-        dataUrl = await generateImageOpenRouter(input.prompt);
+        dataUrl = await generateImageOpenRouter(input.prompt, input.tier);
       } catch (err) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",

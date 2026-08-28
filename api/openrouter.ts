@@ -8,6 +8,18 @@
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+// Reasoning models (Nemotron Ultra) can think for minutes — default 180s
+const FETCH_TIMEOUT_MS = Number(process.env.OPENROUTER_FETCH_TIMEOUT_MS ?? 180000);
+
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(id);
+  }
+}
 
 // Model routing for symbiosis workflow — all behind the single OPENROUTER_API_KEY
 // (routing reviewed and approved by Nemotron 3 Ultra compliance gate, 2026-08-28)
@@ -18,7 +30,9 @@ export const MODELS = {
   CONTENT_SAFETY: "nvidia/nemotron-3.5-content-safety:free", // Pre-publish moderation of marketing copy
   VISION: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", // Asset tagging/analysis (omni-modal)
   FAST: "nvidia/nemotron-3-super-120b-a12b:free",          // Lead scoring / quick tasks (free)
-  IMAGE_GEN: "google/gemini-3.1-flash-lite-image",         // Key-backed image generation ($0.25)
+  IMAGE_GEN: "google/gemini-3.1-flash-lite-image",         // Key-backed image generation, fast/cheap ($0.25)
+  IMAGE_GEN_QUALITY: "google/gemini-3.1-flash-image",      // Nano Banana 2 — hero/quality images ($0.50)
+  IMAGE_GEN_BULK: "bytedance-seed/seedream-4.5",           // Flat $0.04/image for volume work
   FALLBACK: "google/gemini-2.5-flash",                     // Fallback (1M ctx multimodal)
 } as const;
 
@@ -64,7 +78,7 @@ export async function callOpenRouter(
     body.response_format = options.responseFormat;
   }
 
-  let response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+  let response = await fetchWithTimeout(`${OPENROUTER_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -73,12 +87,12 @@ export async function callOpenRouter(
       "X-Title": "Omega Swarm",
     },
     body: JSON.stringify(body),
-  });
+  }, FETCH_TIMEOUT_MS);
 
   // Free-pool models share rate limits — on 429/404 retry once with the paid variant
   if (!response.ok && model.endsWith(":free") && (response.status === 429 || response.status === 404)) {
     const paidModel = model.replace(/:free$/, "");
-    response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+    response = await fetchWithTimeout(`${OPENROUTER_BASE_URL}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -87,7 +101,7 @@ export async function callOpenRouter(
         "X-Title": "Omega Swarm",
       },
       body: JSON.stringify({ ...body, model: paidModel }),
-    });
+    }, FETCH_TIMEOUT_MS);
   }
 
   if (!response.ok) {
@@ -496,16 +510,24 @@ export async function scoreLeadFast(lead: {
   return { score, reason: parsed.reason };
 }
 
+export type ImageTier = "lite" | "quality" | "bulk";
+
+const IMAGE_TIER_MODELS: Record<ImageTier, string> = {
+  lite: MODELS.IMAGE_GEN,
+  quality: MODELS.IMAGE_GEN_QUALITY,
+  bulk: MODELS.IMAGE_GEN_BULK,
+};
+
 /**
- * IMAGE_GEN: key-backed image generation via OpenRouter
- * (google/gemini-3.1-flash-lite-image). Returns a data URL (base64).
+ * IMAGE_GEN: key-backed image generation via the OpenRouter Images API
+ * (POST /api/v1/images, base64 out). Returns a data URL.
  * NOTE: for Instagram publishing use a PUBLIC url (Pollinations) — Graph API
  * cannot fetch data URLs. This helper is for the asset library.
  */
-export async function generateImageOpenRouter(prompt: string): Promise<string> {
+export async function generateImageOpenRouter(prompt: string, tier: ImageTier = "lite"): Promise<string> {
   if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY not configured");
 
-  const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+  const response = await fetchWithTimeout(`${OPENROUTER_BASE_URL}/images`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -514,11 +536,10 @@ export async function generateImageOpenRouter(prompt: string): Promise<string> {
       "X-Title": "Omega Swarm",
     },
     body: JSON.stringify({
-      model: MODELS.IMAGE_GEN,
-      messages: [{ role: "user", content: `Generate an image: ${prompt}` }],
-      modalities: ["image", "text"],
+      model: IMAGE_TIER_MODELS[tier],
+      prompt,
     }),
-  });
+  }, FETCH_TIMEOUT_MS);
 
   if (!response.ok) {
     const err = await response.text();
@@ -526,9 +547,15 @@ export async function generateImageOpenRouter(prompt: string): Promise<string> {
   }
 
   const data = await response.json();
-  const img = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-  if (!img || typeof img !== "string") {
-    throw new Error("Image model returned no image");
+  const first = data.data?.[0];
+  const b64 = first?.b64_json;
+  if (b64 && typeof b64 === "string") {
+    const mediaType = first.media_type || "image/png";
+    return `data:${mediaType};base64,${b64}`;
   }
-  return img; // data:image/...;base64,...
+  // Some providers return a hosted URL instead of b64
+  if (first?.url && typeof first.url === "string") {
+    return first.url;
+  }
+  throw new Error("Image model returned no image");
 }
