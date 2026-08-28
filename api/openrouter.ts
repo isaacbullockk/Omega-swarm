@@ -22,9 +22,13 @@ export const MODELS = {
   FALLBACK: "google/gemini-2.5-flash",                     // Fallback (1M ctx multimodal)
 } as const;
 
+export type OpenRouterContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
 export interface OpenRouterMessage {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: string | OpenRouterContentPart[];
 }
 
 export interface OpenRouterOptions {
@@ -143,7 +147,17 @@ export async function nemotronPlanner(params: {
     responseFormat: { type: "json_object" },
   });
 
-  return JSON.parse(response);
+  const parsed = JSON.parse(response);
+  if (
+    typeof parsed.strategy !== "string" ||
+    !["low", "medium", "high", "enterprise"].includes(parsed.urgency) ||
+    typeof parsed.productInfo !== "string" ||
+    typeof parsed.copywriterBrief !== "string" ||
+    typeof parsed.segment !== "string"
+  ) {
+    throw new Error("Nemotron Planner returned malformed JSON");
+  }
+  return parsed;
 }
 
 /**
@@ -194,7 +208,17 @@ export async function kimiCopywriter(params: {
     responseFormat: { type: "json_object" },
   });
 
-  return JSON.parse(response);
+  const parsed = JSON.parse(response);
+  if (
+    typeof parsed.subject !== "string" ||
+    typeof parsed.body !== "string" ||
+    typeof parsed.cta !== "string" ||
+    typeof parsed.tone !== "string" ||
+    typeof parsed.personalizationNotes !== "string"
+  ) {
+    throw new Error("Kimi Copywriter returned malformed JSON");
+  }
+  return parsed;
 }
 
 /**
@@ -245,7 +269,20 @@ export async function nemotronValidator(params: {
     responseFormat: { type: "json_object" },
   });
 
-  return JSON.parse(response);
+  const parsed = JSON.parse(response);
+  if (
+    typeof parsed.valid !== "boolean" ||
+    !Array.isArray(parsed.issues) ||
+    typeof parsed.formattedPayload !== "object" || parsed.formattedPayload === null ||
+    typeof parsed.formattedPayload.subject !== "string" ||
+    typeof parsed.formattedPayload.body !== "string" ||
+    typeof parsed.formattedPayload.cta !== "string" ||
+    typeof parsed.formattedPayload.htmlBody !== "string" ||
+    typeof parsed.webhookJson !== "string"
+  ) {
+    throw new Error("Nemotron Validator returned malformed JSON");
+  }
+  return parsed;
 }
 
 /**
@@ -356,4 +393,142 @@ export async function codeSymbiosis(prompt: string): Promise<{
     veilige_code: evaluatie.gecorrigeerde_code,
     approved: evaluatie.status === "APPROVED",
   };
+}
+
+/* ═══════════ Role helpers for the consolidated routing table ═══════════ */
+
+/**
+ * CONTENT_SAFETY: pre-publish moderation of marketing copy.
+ * Returns { safe, reason }. Fails OPEN (safe: true) if the moderator is
+ * unreachable — the paid-variant retry in callOpenRouter handles 429s first.
+ */
+export async function checkContentSafety(text: string): Promise<{ safe: boolean; reason: string }> {
+  try {
+    const raw = await callOpenRouter(
+      [
+        {
+          role: "user",
+          content:
+            "You are a content safety classifier for marketing copy. " +
+            "Classify the following text. Reply with STRICT JSON only: " +
+            '{"safe": true|false, "reason": "short explanation"}. ' +
+            "Unsafe means: hate speech, explicit sexual content, illegal claims, " +
+            "medical/financial guarantees, or personal data exposure.\n\nTEXT:\n" + text,
+        },
+      ],
+      { model: MODELS.CONTENT_SAFETY, temperature: 0.0, maxTokens: 512 }
+    );
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    const parsed = JSON.parse(cleaned);
+    if (typeof parsed.safe !== "boolean") throw new Error("malformed");
+    return { safe: parsed.safe, reason: String(parsed.reason ?? "") };
+  } catch (err) {
+    console.warn("[Safety] Moderation unavailable, allowing post:", (err as Error).message);
+    return { safe: true, reason: "moderator unavailable" };
+  }
+}
+
+/**
+ * VISION: analyze an image (asset tagging / description).
+ * Uses the omni-modal Nemotron nano. Accepts a public URL or data URL.
+ */
+export async function analyzeImage(
+  imageUrl: string,
+  question = "Describe this image for a marketing asset library. Then output 5-10 comma-separated tags."
+): Promise<{ description: string; tags: string[] }> {
+  const raw = await callOpenRouter(
+    [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: question + "\n\nReply STRICT JSON: {\"description\": \"...\", \"tags\": [\"...\"]}",
+          },
+          { type: "image_url", image_url: { url: imageUrl } },
+        ],
+      },
+    ],
+    { model: MODELS.VISION, temperature: 0.3, maxTokens: 1024 }
+  );
+  const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  const parsed = JSON.parse(cleaned);
+  if (typeof parsed.description !== "string" || !Array.isArray(parsed.tags)) {
+    throw new Error("Vision model returned malformed JSON");
+  }
+  return {
+    description: parsed.description,
+    tags: parsed.tags.map(String),
+  };
+}
+
+/**
+ * FAST: cheap lead scoring via Nemotron Super (free pool).
+ * Returns score 0-100 plus a one-line reason.
+ */
+export async function scoreLeadFast(lead: {
+  name: string;
+  email: string;
+  company?: string | null;
+  source?: string | null;
+  behavior?: string | null;
+  tags?: string[];
+}): Promise<{ score: number; reason: string }> {
+  const raw = await callOpenRouter(
+    [
+      {
+        role: "user",
+        content:
+          "You are a B2B lead scoring engine. Score this lead 0-100 for conversion likelihood " +
+          "based on company signal, source quality, and behavior. Reply STRICT JSON only: " +
+          '{"score": <int 0-100>, "reason": "<one sentence>"}.\n\nLEAD:\n' +
+          JSON.stringify(lead),
+      },
+    ],
+    { model: MODELS.FAST, temperature: 0.2, maxTokens: 512 }
+  );
+  const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  const parsed = JSON.parse(cleaned);
+  if (typeof parsed.score !== "number" || typeof parsed.reason !== "string") {
+    throw new Error("Fast scoring model returned malformed JSON");
+  }
+  const score = Math.max(0, Math.min(100, Math.round(parsed.score)));
+  return { score, reason: parsed.reason };
+}
+
+/**
+ * IMAGE_GEN: key-backed image generation via OpenRouter
+ * (google/gemini-3.1-flash-lite-image). Returns a data URL (base64).
+ * NOTE: for Instagram publishing use a PUBLIC url (Pollinations) — Graph API
+ * cannot fetch data URLs. This helper is for the asset library.
+ */
+export async function generateImageOpenRouter(prompt: string): Promise<string> {
+  if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY not configured");
+
+  const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      "HTTP-Referer": "https://ndeku.com",
+      "X-Title": "Omega Swarm",
+    },
+    body: JSON.stringify({
+      model: MODELS.IMAGE_GEN,
+      messages: [{ role: "user", content: `Generate an image: ${prompt}` }],
+      modalities: ["image", "text"],
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Image generation failed ${response.status}: ${err.slice(0, 200)}`);
+  }
+
+  const data = await response.json();
+  const img = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  if (!img || typeof img !== "string") {
+    throw new Error("Image model returned no image");
+  }
+  return img; // data:image/...;base64,...
 }

@@ -7,10 +7,11 @@
 
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, authedProcedure } from "../trpc";
+import { router, authedProcedure, rateLimitedProcedure } from "../trpc";
 import { db, isPostgresAvailable } from "../../db/connection";
 import { assets } from "../../db/schema";
 import { eq, and, like } from "drizzle-orm";
+import { analyzeImage, generateImageOpenRouter } from "../openrouter";
 
 /* ─── Zod Schemas ─── */
 
@@ -35,6 +36,85 @@ const assetUpdateSchema = z.object({
 });
 
 export const assetRouter = router({
+  /* ─── Analyze an image asset with the vision model (auto description + tags) ─── */
+  analyze: rateLimitedProcedure
+    .input(z.object({ assetId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      if (!isPostgresAvailable() || !db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      }
+      const rows = await db
+        .select()
+        .from(assets)
+        .where(and(eq(assets.id, input.assetId), eq(assets.userId, ctx.user.id)))
+        .limit(1);
+      const asset = rows[0];
+      if (!asset) throw new TRPCError({ code: "NOT_FOUND", message: "Asset not found" });
+
+      const imageUrl = asset.url ?? asset.dataUrl;
+      if (!imageUrl) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Asset has no image URL" });
+      }
+
+      let analysis: { description: string; tags: string[] };
+      try {
+        analysis = await analyzeImage(imageUrl);
+      } catch (err) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Vision analysis failed: ${(err as Error).message}`,
+        });
+      }
+
+      await db
+        .update(assets)
+        .set({
+          description: analysis.description,
+          tags: Array.from(new Set([...(asset.tags ?? []), ...analysis.tags])),
+        })
+        .where(eq(assets.id, asset.id));
+
+      return analysis;
+    }),
+
+  /* ─── Generate an image asset via the key-backed image model ─── */
+  generate: rateLimitedProcedure
+    .input(
+      z.object({
+        clientId: z.string().uuid().optional(),
+        prompt: z.string().min(5).max(2000),
+        name: z.string().min(1).max(255),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!isPostgresAvailable() || !db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      }
+      let dataUrl: string;
+      try {
+        dataUrl = await generateImageOpenRouter(input.prompt);
+      } catch (err) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Image generation failed: ${(err as Error).message}`,
+        });
+      }
+      const result = await db
+        .insert(assets)
+        .values({
+          userId: ctx.user.id,
+          clientId: input.clientId ?? null,
+          name: input.name,
+          type: "image",
+          dataUrl,
+          description: input.prompt,
+          tags: ["ai-generated"],
+          usedIn: [],
+        })
+        .returning();
+      return result[0];
+    }),
+
   /* ─── List all assets for the authenticated user ─── */
   list: authedProcedure.query(async ({ ctx }) => {
     if (!isPostgresAvailable()) return [];

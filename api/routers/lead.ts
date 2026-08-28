@@ -12,7 +12,7 @@ import { router, authedProcedure, rateLimitedProcedure } from "../trpc";
 import { db, isPostgresAvailable } from "../../db/connection";
 import { leads, analyticsEvents } from "../../db/schema";
 import { eq } from "drizzle-orm";
-import { nemotronPlanner, kimiCopywriter, nemotronValidator } from "../openrouter";
+import { nemotronPlanner, kimiCopywriter, nemotronValidator, scoreLeadFast } from "../openrouter";
 
 /* ─── Zod Schemas ─── */
 
@@ -46,6 +46,44 @@ async function getClientContext(userId: string) {
 }
 
 export const leadRouter = router({
+  /* ─── Score a lead with the fast Nemotron model (0-100) ─── */
+  score: rateLimitedProcedure
+    .input(z.object({ leadId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      if (!isPostgresAvailable() || !db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      }
+      const rows = await db
+        .select()
+        .from(leads)
+        .where(eq(leads.id, input.leadId))
+        .limit(1);
+      const lead = rows[0];
+      if (!lead || lead.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Lead not found" });
+      }
+
+      let result: { score: number; reason: string };
+      try {
+        result = await scoreLeadFast({
+          name: lead.name,
+          email: lead.email,
+          company: lead.company,
+          source: lead.source,
+          behavior: lead.behavior,
+          tags: lead.tags ?? [],
+        });
+      } catch (err) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Lead scoring failed: ${(err as Error).message}`,
+        });
+      }
+
+      await db.update(leads).set({ score: result.score }).where(eq(leads.id, lead.id));
+      return result;
+    }),
+
   /* ─── Create a new lead ─── */
   create: authedProcedure
     .input(leadSchema)

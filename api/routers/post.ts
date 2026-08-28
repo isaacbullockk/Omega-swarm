@@ -13,6 +13,7 @@ import { generateCaption, generateImage } from "../openai";
 import { db, isPostgresAvailable } from "../../db/connection";
 import { contentPosts, analyticsEvents } from "../../db/schema";
 import { eq, and } from "drizzle-orm";
+import { resolveTarget, publishPost } from "../socialPublish";
 
 const INSTAGRAM_ACCESS_TOKEN = process.env.INSTAGRAM_ACCESS_TOKEN;
 const INSTAGRAM_ACCOUNT_ID = process.env.INSTAGRAM_ACCOUNT_ID;
@@ -22,88 +23,6 @@ const META_APP_ID = process.env.META_APP_ID;
 function maskToken(token: string): string {
   if (token.length <= 8) return "***";
   return token.slice(0, 4) + "..." + token.slice(-4);
-}
-
-async function postToInstagram(
-  caption: string,
-  imageUrl: string
-): Promise<{
-  success: boolean;
-  postId?: string;
-  permalink?: string;
-  error?: string;
-}> {
-  if (!INSTAGRAM_ACCESS_TOKEN || !INSTAGRAM_ACCOUNT_ID) {
-    return {
-      success: false,
-      error: "INSTAGRAM_ACCESS_TOKEN or INSTAGRAM_ACCOUNT_ID not set",
-    };
-  }
-
-  const apiBase = `https://graph.facebook.com/v18.0/${INSTAGRAM_ACCOUNT_ID}`;
-
-  try {
-    // Create media container — token sent in POST body (not URL query)
-    const createBody = new URLSearchParams();
-    createBody.append("caption", caption);
-    createBody.append("image_url", imageUrl);
-    createBody.append("access_token", INSTAGRAM_ACCESS_TOKEN);
-
-    const createRes = await fetch(`${apiBase}/media`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: createBody.toString(),
-    });
-    const createData = await createRes.json();
-
-    if (createData.error) {
-      return {
-        success: false,
-        error: `Instagram create failed: ${createData.error.message}`,
-      };
-    }
-
-    const creationId = createData.id;
-    if (!creationId) {
-      return {
-        success: false,
-        error: "No creation ID returned from Instagram",
-      };
-    }
-
-    // Publish media — token sent in POST body
-    const publishBody = new URLSearchParams();
-    publishBody.append("creation_id", creationId);
-    publishBody.append("access_token", INSTAGRAM_ACCESS_TOKEN);
-
-    const publishRes = await fetch(`${apiBase}/media_publish`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: publishBody.toString(),
-    });
-    const publishData = await publishRes.json();
-
-    if (publishData.error) {
-      return {
-        success: false,
-        error: `Instagram publish failed: ${publishData.error.message}`,
-      };
-    }
-
-    return {
-      success: true,
-      postId: publishData.id,
-      permalink: `https://instagram.com/p/${publishData.id}`,
-    };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Unknown";
-    // Ensure token is not leaked in error messages
-    const safeMsg = msg.replace(INSTAGRAM_ACCESS_TOKEN, maskToken(INSTAGRAM_ACCESS_TOKEN));
-    return {
-      success: false,
-      error: `Instagram API error: ${safeMsg}`,
-    };
-  }
 }
 
 async function getInstagramAccount() {
@@ -291,10 +210,15 @@ export const postRouter = router({
             agentName: "Pulse",
           });
 
-        // 5. Post to Instagram in background
-        if (INSTAGRAM_ACCESS_TOKEN && INSTAGRAM_ACCOUNT_ID && imageUrl) {
-          postToInstagram(caption, imageUrl)
-            .then(async (result) => {
+        // 5. Publish to social via the publishing layer (safety-gated).
+        //    Uses connected account tokens, falls back to env Instagram vars.
+        let publish: { success: boolean; platform?: string; postId?: string; error?: string } | null = null;
+        if (imageUrl) {
+          try {
+            const target = await resolveTarget(ctx.user.id, { platform: "instagram" });
+            if (target) {
+              const result = await publishPost(target, caption, imageUrl);
+              publish = result;
               if (result.success && result.postId) {
                 await db!
                   .update(contentPosts)
@@ -312,12 +236,16 @@ export const postRouter = router({
                     agentColor: "#EC4899",
                     agentName: "Pulse",
                   });
+              } else {
+                console.log("[Post] Publish failed:", result.error);
               }
-            })
-            .catch((err) => console.log("Instagram post failed:", err));
+            }
+          } catch (err) {
+            console.log("[Post] Publish error:", (err as Error).message);
+          }
         }
 
-        return post;
+        return { ...post, publish };
       } catch (err) {
         if (err instanceof TRPCError) throw err;
         const msg = (err as Error).message;

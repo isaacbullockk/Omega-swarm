@@ -1,10 +1,37 @@
+import { callOpenRouter, MODELS } from "./openrouter";
+
 const openaiKey = process.env.OPENAI_API_KEY;
 const groqKey = process.env.GROQ_API_KEY;
+const openrouterKey = process.env.OPENROUTER_API_KEY;
 
 function getClient() {
+  // Single-key priority: OpenRouter gives access to all routed models
+  if (openrouterKey) return { type: "openrouter", key: openrouterKey };
   if (groqKey) return { type: "groq", key: groqKey };
   if (openaiKey) return { type: "openai", key: openaiKey };
   return null;
+}
+
+/** Shared OpenRouter chat call for agent/caption/chat flows */
+async function callViaOpenRouter(
+  systemPrompt: string,
+  userPrompt: string,
+  model: string,
+  temperature: number,
+  maxTokens: number
+): Promise<string | null> {
+  try {
+    return await callOpenRouter(
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      { model, temperature, maxTokens }
+    );
+  } catch (err) {
+    console.error("[AI] OpenRouter error:", (err as Error).message);
+    return null;
+  }
 }
 
 /**
@@ -56,7 +83,7 @@ function fallbackAgentOutput(agentName: string, campaignObjective: string): stri
 
 **Objective:** ${campaignObjective}
 
-> ⚠️ AI generation is using fallback mode. Add GROQ_API_KEY or OPENAI_API_KEY to Railway for real AI-generated content.
+> ⚠️ AI generation is using fallback mode. Add OPENROUTER_API_KEY to Railway for real AI-generated content.
 
 ## Recommendations
 
@@ -80,7 +107,7 @@ export async function generateWithAgent(
 ): Promise<string> {
   const client = getClient();
   if (!client) {
-    console.warn("[AI] No API key set — using fallback agent output. Add GROQ_API_KEY or OPENAI_API_KEY to Railway.");
+    console.warn("[AI] No API key set — using fallback agent output. Add OPENROUTER_API_KEY to Railway.");
     return fallbackAgentOutput(agentName, campaignObjective);
   }
 
@@ -94,6 +121,10 @@ export async function generateWithAgent(
 Generate your deliverables. Be thorough and specific.`;
 
   try {
+    if (client.type === "openrouter") {
+      const out = await callViaOpenRouter(systemPrompt, userPrompt, MODELS.PLANNER, 0.8, 2000);
+      return out || fallbackAgentOutput(agentName, campaignObjective);
+    }
     if (client.type === "groq") {
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -163,19 +194,29 @@ export async function generateImage(prompt: string, provider?: "pollinations" | 
 
 function fallbackCaption(topic: string, brandVoice?: string): string {
   const voice = brandVoice ? `Written in a ${brandVoice} tone. ` : "";
-  return `${voice}✨ ${topic} ✨\n\nThis is AI-generated content from Omega Swarm. Add GROQ_API_KEY or OPENAI_API_KEY to Railway for real AI-generated captions.\n\n#OmegaSwarm #AI #Marketing #ContentCreation`;
+  return `${voice}✨ ${topic} ✨\n\nThis is AI-generated content from Omega Swarm. Add OPENROUTER_API_KEY to Railway for real AI-generated captions.\n\n#OmegaSwarm #AI #Marketing #ContentCreation`;
 }
 
 export async function generateCaption(topic: string, brandVoice?: string): Promise<string> {
   const client = getClient();
   if (!client) {
-    console.warn("[AI] No API key set — using fallback caption. Add GROQ_API_KEY or OPENAI_API_KEY to Railway.");
+    console.warn("[AI] No API key set — using fallback caption. Add OPENROUTER_API_KEY to Railway.");
     return fallbackCaption(topic, brandVoice);
   }
 
   const systemPrompt = `You are a social media expert. Write an engaging Instagram caption. ${brandVoice || ""} Include relevant hashtags. Keep it under 2,200 characters.`;
 
   try {
+    if (client.type === "openrouter") {
+      const out = await callViaOpenRouter(
+        systemPrompt,
+        `Write an Instagram caption about: ${topic}`,
+        MODELS.COPYWRITER,
+        0.9,
+        1500
+      );
+      return out || fallbackCaption(topic, brandVoice);
+    }
     if (client.type === "groq") {
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -222,7 +263,7 @@ export async function generateCaption(topic: string, brandVoice?: string): Promi
 }
 
 function fallbackChat(agentName: string, userMessage: string): string {
-  return `[${agentName}] I hear you on "${userMessage.slice(0, 50)}..."\n\n> ⚠️ I'm running in fallback mode. Add GROQ_API_KEY or OPENAI_API_KEY to Railway for real AI conversations.`;
+  return `[${agentName}] I hear you on "${userMessage.slice(0, 50)}..."\n\n> ⚠️ I'm running in fallback mode. Add OPENROUTER_API_KEY to Railway for real AI conversations.`;
 }
 
 export async function chatWithAgent(
@@ -233,7 +274,7 @@ export async function chatWithAgent(
 ): Promise<string> {
   const client = getClient();
   if (!client) {
-    console.warn("[AI] No API key set — using fallback chat. Add GROQ_API_KEY or OPENAI_API_KEY to Railway.");
+    console.warn("[AI] No API key set — using fallback chat. Add OPENROUTER_API_KEY to Railway.");
     return fallbackChat(agentName, userMessage);
   }
 
@@ -241,6 +282,10 @@ export async function chatWithAgent(
   const userPrompt = userMessage;
 
   try {
+    if (client.type === "openrouter") {
+      const out = await callViaOpenRouter(systemPrompt, userPrompt, MODELS.COPYWRITER, 0.8, 1500);
+      return out || fallbackChat(agentName, userMessage);
+    }
     if (client.type === "groq") {
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",

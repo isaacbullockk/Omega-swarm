@@ -8,10 +8,11 @@
 
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, authedProcedure, publicProcedure } from "../trpc";
+import { router, authedProcedure, publicProcedure, rateLimitedProcedure } from "../trpc";
 import { db, isPostgresAvailable } from "../../db/connection";
-import { socialAccounts } from "../../db/schema";
+import { socialAccounts, contentPosts, analyticsEvents } from "../../db/schema";
 import { eq, and } from "drizzle-orm";
+import { resolveTarget, publishPost } from "../socialPublish";
 
 const BUFFER_API_KEY = process.env.BUFFER_API_KEY;
 
@@ -201,6 +202,89 @@ export const socialRouter = router({
           envConnected: { instagram: false, buffer: false },
         };
       }
+    }),
+
+  /* ─── Publish directly via Meta Graph API (connected account or env) ─── */
+  publish: rateLimitedProcedure
+    .input(
+      z.object({
+        accountId: z.string().uuid().optional(),
+        platform: z.enum(["instagram", "facebook"]).optional(),
+        clientId: z.string().uuid().optional(),
+        text: z.string().min(1).max(2200),
+        imageUrl: z.string().url().optional(),
+        title: z.string().max(255).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const target = await resolveTarget(ctx.user.id, {
+        accountId: input.accountId,
+        platform: input.platform,
+      });
+      if (!target) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "No connected Instagram/Facebook account found. Connect one first (social.connect) or set INSTAGRAM_ACCESS_TOKEN + INSTAGRAM_ACCOUNT_ID in Railway.",
+        });
+      }
+
+      const result = await publishPost(target, input.text, input.imageUrl);
+
+      // Persist the post row regardless of outcome (audit trail)
+      let postId: string | null = null;
+      if (isPostgresAvailable() && db) {
+        try {
+          const inserted = await db
+            .insert(contentPosts)
+            .values({
+              userId: ctx.user.id,
+              clientId: input.clientId ?? null,
+              title: input.title ?? input.text.slice(0, 80),
+              caption: input.text,
+              type: "social",
+              status: result.success ? "published" : "draft",
+              date: new Date(),
+              imageUrl: input.imageUrl ?? null,
+              instagramPostId: result.platform === "instagram" ? result.postId ?? null : null,
+              likes: 0,
+              comments: 0,
+              views: 0,
+              referenceAssets: [],
+            })
+            .returning();
+          postId = inserted[0]?.id ?? null;
+
+          await db.insert(analyticsEvents).values({
+            userId: ctx.user.id,
+            clientId: input.clientId ?? null,
+            type: result.success ? "instagram_published" : "post_created",
+            title: result.success ? `Published to ${result.platform}` : `Publish failed on ${result.platform}`,
+            description: result.success
+              ? `Post published to ${target.handle} (${result.postId})`
+              : result.error ?? "unknown error",
+            agentColor: result.success ? "#EC4899" : "#EF4444",
+            agentName: "Pulse",
+          });
+        } catch (err) {
+          console.error("[Social] Publish persist error:", (err as Error).message);
+        }
+      }
+
+      if (!result.success) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: result.error ?? "Publish failed",
+        });
+      }
+
+      return {
+        success: true,
+        platform: result.platform,
+        postId: result.postId,
+        contentPostId: postId,
+        handle: target.handle,
+      };
     }),
 
   /* ─── Buffer: Get connected profiles (public, no user data) ─── */
