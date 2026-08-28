@@ -97,6 +97,17 @@ const MIGRATIONS = [
   `CREATE INDEX IF NOT EXISTS credit_transactions_user_id_idx ON credit_transactions(user_id);`,
 
   `ALTER TABLE clients ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;`,
+  // Full campaigns column coverage (GDPR export reads full rows)
+  `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;`,
+  `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS outputs JSONB;`,
+  `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS objective TEXT;`,
+  `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS budget VARCHAR(50);`,
+  `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS timeline VARCHAR(50);`,
+  `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS mode VARCHAR(50) NOT NULL DEFAULT 'sequential';`,
+  `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`,
+  // Defensive: bookings full coverage too
+  `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`,
+  `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`,
   `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;`,
   `CREATE INDEX IF NOT EXISTS clients_user_id_idx ON clients(user_id);`,
 
