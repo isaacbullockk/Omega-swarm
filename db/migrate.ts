@@ -97,6 +97,19 @@ const MIGRATIONS = [
   `CREATE INDEX IF NOT EXISTS credit_transactions_user_id_idx ON credit_transactions(user_id);`,
 
   `ALTER TABLE clients ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;`,
+  // memories pre-exists with INTEGER user_id from the old system — convert to UUID
+  // (old integer rows are orphans: their users no longer exist; USING NULL clears them)
+  `DO $$
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'memories' AND column_name = 'user_id' AND data_type <> 'uuid'
+    ) THEN
+      ALTER TABLE memories ALTER COLUMN user_id DROP NOT NULL;
+      ALTER TABLE memories ALTER COLUMN user_id TYPE UUID USING NULL;
+    END IF;
+  END $$;`,
+
   `ALTER TABLE brand_voices ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id) ON DELETE CASCADE;`,
   `ALTER TABLE assets ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id) ON DELETE CASCADE;`,
 
