@@ -6,7 +6,8 @@
  */
 
 import { type CreateHTTPContextOptions } from "@trpc/server/adapters/standalone";
-import { parse } from "cookie";
+import cookie from "cookie";
+const { parse } = cookie;
 import { db, isPostgresAvailable } from "../db/connection";
 import { users, sessions } from "../db/schema";
 import { eq } from "drizzle-orm";
