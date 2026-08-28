@@ -6,6 +6,75 @@
 import { pool } from "./connection";
 
 const MIGRATIONS = [
+  `CREATE TABLE IF NOT EXISTS assets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    type asset_type NOT NULL,
+    data_url TEXT,
+    url TEXT,
+    description TEXT,
+    tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+    used_in JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );`,
+  `CREATE INDEX IF NOT EXISTS assets_user_id_idx ON assets(user_id);`,
+  `CREATE TABLE IF NOT EXISTS brand_voices (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    client_id UUID NOT NULL UNIQUE REFERENCES clients(id) ON DELETE CASCADE,
+    tone VARCHAR(100) NOT NULL,
+    description TEXT NOT NULL,
+    samples JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );`,
+  `CREATE TABLE IF NOT EXISTS generated_videos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    prompt TEXT NOT NULL,
+    video_url TEXT NOT NULL,
+    thumbnail_url TEXT,
+    duration INTEGER NOT NULL DEFAULT 0,
+    aspect_ratio VARCHAR(10) NOT NULL DEFAULT '16:9',
+    provider VARCHAR(50),
+    status VARCHAR(20) NOT NULL DEFAULT 'completed',
+    date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    reference_assets JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );`,
+  `CREATE INDEX IF NOT EXISTS generated_videos_user_id_idx ON generated_videos(user_id);`,
+  `CREATE TABLE IF NOT EXISTS memories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    type memory_type NOT NULL DEFAULT 'pattern',
+    ctr VARCHAR(20),
+    cpa VARCHAR(20),
+    date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    agents TEXT,
+    confidence INTEGER,
+    details JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );`,
+  `CREATE TABLE IF NOT EXISTS social_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+    platform social_platform NOT NULL,
+    account_name VARCHAR(100) NOT NULL,
+    handle VARCHAR(50) NOT NULL,
+    connected BOOLEAN NOT NULL DEFAULT FALSE,
+    access_token TEXT,
+    page_id VARCHAR(100),
+    connected_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );`,
+
   // Create missing tables (GDPR export + credit system)
   `CREATE TABLE IF NOT EXISTS credits (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
