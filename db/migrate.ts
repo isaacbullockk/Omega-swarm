@@ -148,8 +148,15 @@ const MIGRATIONS = [
   `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS notes TEXT;`,
   `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;`,
   // brand_voices: unconditional conversion attempt (guard may have missed it)
+  // brand_voices is a legacy integer-ID table — drop defaults, convert to UUID
+  `ALTER TABLE brand_voices ALTER COLUMN user_id DROP DEFAULT;`,
   `ALTER TABLE brand_voices ALTER COLUMN user_id DROP NOT NULL;`,
   `ALTER TABLE brand_voices ALTER COLUMN user_id TYPE UUID USING NULL;`,
+  `ALTER TABLE brand_voices ALTER COLUMN id DROP DEFAULT;`,
+  `ALTER TABLE brand_voices ALTER COLUMN id TYPE UUID USING NULL;`,
+  `ALTER TABLE brand_voices ALTER COLUMN id SET DEFAULT gen_random_uuid();`,
+  // samples column is json (legacy) — convert to jsonb
+  `ALTER TABLE brand_voices ALTER COLUMN samples TYPE JSONB USING samples::text::jsonb;`,
 
   // FK-safe UUID conversion for any pre-existing integer user_id columns
   `DO $$
