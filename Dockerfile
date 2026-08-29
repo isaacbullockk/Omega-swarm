@@ -1,15 +1,16 @@
 # Stage 1: Build everything from source
 FROM node:20-slim AS builder
 
-# Railway injects NODE_ENV=production into builds, which makes npm skip
-# devDependencies — but the builder NEEDS them (vite, typescript). Force dev.
-ENV NODE_ENV=development
-ENV NPM_CONFIG_PRODUCTION=false
-
+# Railway auto-adds NODE_ENV=production to service variables and injects it into
+# builds; npm then skips devDependencies in ways --include=dev doesn't reliably
+# override across npm versions. So the build-critical toolchain (vite, tailwind,
+# postcss...) lives in dependencies — install works under ANY npm config.
 WORKDIR /build
 
 COPY package.json package-lock.json ./
-RUN npm ci --legacy-peer-deps --include=dev
+RUN npm ci --legacy-peer-deps
+# Fail fast with a clear error if the toolchain is missing
+RUN test -x node_modules/.bin/vite || (echo "FATAL: vite not installed" && exit 1)
 
 COPY . .
 RUN npm run build
