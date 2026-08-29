@@ -1,10 +1,15 @@
 # Stage 1: Build everything from source
 FROM node:20-slim AS builder
 
+# Railway injects NODE_ENV=production into builds, which makes npm skip
+# devDependencies — but the builder NEEDS them (vite, typescript). Force dev.
+ENV NODE_ENV=development
+ENV NPM_CONFIG_PRODUCTION=false
+
 WORKDIR /build
 
 COPY package.json package-lock.json ./
-RUN npm ci --legacy-peer-deps
+RUN npm ci --legacy-peer-deps --include=dev
 
 COPY . .
 RUN npm run build
