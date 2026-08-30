@@ -417,11 +417,23 @@ function ContentCard({ item, onView, onDelete, index }: {
             ) : (
               <Video className="size-12 opacity-20" style={{ color: config.color }} />
             )}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <button onClick={() => onView(item)} className="flex items-center justify-center size-14 rounded-full transition-all hover:scale-110" style={{ background: `${config.color}dd`, backdropFilter: "blur(4px)" }}>
-                <Play className="size-6 fill-current text-white ml-1" />
-              </button>
-            </div>
+            {item.status === "generating" ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/50">
+                <Loader2 className="size-8 animate-spin" style={{ color: "#A855F7" }} />
+                <span className="text-[11px] font-bold" style={{ color: "var(--text-secondary)" }}>Rendering… ~1–2 min</span>
+              </div>
+            ) : item.status === "failed" ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/50">
+                <X className="size-8" style={{ color: "#EF4444" }} />
+                <span className="text-[11px] font-bold" style={{ color: "#EF4444" }}>Render failed — delete & retry</span>
+              </div>
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <button onClick={() => onView(item)} className="flex items-center justify-center size-14 rounded-full transition-all hover:scale-110" style={{ background: `${config.color}dd`, backdropFilter: "blur(4px)" }}>
+                  <Play className="size-6 fill-current text-white ml-1" />
+                </button>
+              </div>
+            )}
           </div>
         ) : item.imageUrl ? (
           <SmartImage src={item.imageUrl} alt={item.title} className="w-full h-full" />
@@ -595,10 +607,13 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
     onError: (err) => sonnerToast.error(err.message),
   });
   const createVideo = trpc.video.create.useMutation({
-    onSuccess: (data) => {
-      setPreview(data as unknown as ContentItem);
+    onSuccess: () => {
+      // Don't open the content preview for a queued video — there is nothing
+      // to show yet (that dialog just displayed the raw prompt, looking like
+      // "nothing happened"). The library auto-polls video.refresh and the
+      // card flips to a player when Runway finishes.
       utils.video.list.invalidate();
-      sonnerToast.success("Video queued!");
+      sonnerToast.success("Video queued — rendering takes ~1–2 min. It will appear in your library when ready.");
       onCreated();
     },
     onError: (err) => sonnerToast.error(err.message),
@@ -974,6 +989,34 @@ export default function ContentLibrary() {
     const i = setInterval(() => setTick((t) => t + 1), 10000);
     return () => clearInterval(i);
   }, []);
+
+  // ── Video render polling ──
+  // video.create only STARTS the Runway task (status "generating", no URL yet).
+  // While any video is generating, poll video.refresh every 12s; refresh asks
+  // Runway for the result and writes the final video_url, then we invalidate
+  // the list so the card flips from "Generating" to a playable video.
+  const refreshVideos = trpc.video.refresh.useMutation({
+    onSuccess: (data) => {
+      if ((data?.updated ?? 0) > 0 || (data?.failed ?? 0) > 0) {
+        utils.video.list.invalidate();
+        utils.content.list.invalidate();
+        if ((data?.updated ?? 0) > 0) addToast("Video finished rendering", "success");
+        if ((data?.failed ?? 0) > 0) addToast("A video render failed — try again", "error");
+      }
+    },
+  });
+  const hasGeneratingVideos = (videos ?? []).some((v) => v.status === "generating");
+  const refreshRef = useRef(refreshVideos);
+  refreshRef.current = refreshVideos;
+  useEffect(() => {
+    if (!hasGeneratingVideos) return;
+    const poll = () => {
+      if (!refreshRef.current.isPending) refreshRef.current.mutate();
+    };
+    poll();
+    const i = setInterval(poll, 12000);
+    return () => clearInterval(i);
+  }, [hasGeneratingVideos]);
 
   const allContent = useMemo<ContentItem[]>(() => {
     const items: ContentItem[] = [];
