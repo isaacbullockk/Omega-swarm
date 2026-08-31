@@ -139,9 +139,17 @@ export const postRouter = router({
         };
       }
       try {
-        const res = await fetch(
-          `https://graph.facebook.com/v18.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${input.shortToken}`
-        );
+        // URLSearchParams — token/secret may contain characters that break a
+        // template-literal URL (would cause runtime exchange failures)
+        const exchangeUrl =
+          "https://graph.facebook.com/v18.0/oauth/access_token?" +
+          new URLSearchParams({
+            grant_type: "fb_exchange_token",
+            client_id: appId,
+            client_secret: appSecret,
+            fb_exchange_token: input.shortToken,
+          }).toString();
+        const res = await fetch(exchangeUrl);
         const data = await res.json();
         if (data.error) {
           return { error: data.error.message };

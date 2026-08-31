@@ -232,14 +232,21 @@ export const agentRouter = router({
           .from(brandVoices)
           .where(voiceWhere)
           .limit(1)
-          .catch(() => []);
+          .catch((err: Error) => {
+            // Degrade gracefully but NEVER swallow silently — infra errors must be visible
+            console.error("[Agent] Brand voice lookup failed:", err.message);
+            return [];
+          });
         if (!brandVoiceRow[0] && campaign.clientId) {
           brandVoiceRow = await db
             .select()
             .from(brandVoices)
             .where(eq(brandVoices.userId, ctx.user.id))
             .limit(1)
-            .catch(() => []);
+            .catch((err: Error) => {
+              console.error("[Agent] Brand voice fallback lookup failed:", err.message);
+              return [];
+            });
         }
         const brandVoice = brandVoiceRow[0]
           ? { tone: brandVoiceRow[0].tone, description: brandVoiceRow[0].description }

@@ -46,7 +46,7 @@ function changedFiles() {
     .filter((f) => /\.(ts|tsx|js|mjs|json)$/.test(f));
 }
 
-async function callNemotron(messages, maxTokens = 8000) {
+async function callNemotron(messages, maxTokens = 16000) {
   // 5 min per request — Nemotron Ultra is a reasoning model and large review
   // bundles legitimately take minutes; a short timeout would abort valid reviews
   const controller = new AbortController();
@@ -130,11 +130,11 @@ Review for ACTIONABLE defects only: runtime crashes, broken imports/exports, SQL
 
 Files may be truncated for size (marked "// ... [truncated for review]"). The TypeScript compiler has ALREADY PASSED on the complete files — so missing/truncated functions, imports, or braces are NOT defects. Only report defects in code you can actually see; never speculate about code outside the bundle.
 
-Output EXACTLY:
+Output EXACTLY — and START your reply with the STATUS line (no analysis before it; reasoning models: do your reasoning internally, output only the verdict):
 STATUS: APPROVED or STATUS: REJECTED
 FOUTEN:
 - (actionable defects only, or 'none')
-If REJECTED, include the corrected code fragments after the fouten list.`;
+If REJECTED, include the corrected code fragments after the fouten list. Keep analysis concise — the STATUS line is mandatory.`;
 
   console.log(`[GATE] Sending ${bundle.length} chars to Nemotron for review...`);
 
