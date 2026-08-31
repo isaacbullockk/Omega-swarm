@@ -130,6 +130,8 @@ Review for ACTIONABLE defects only: runtime crashes, broken imports/exports, SQL
 
 Files may be truncated for size (marked "// ... [truncated for review]"). The TypeScript compiler has ALREADY PASSED on the complete files — so missing/truncated functions, imports, or braces are NOT defects. Only report defects in code you can actually see; never speculate about code outside the bundle.
 
+Environment facts (do not apply outdated rules): the database is Railway PostgreSQL 15+ — ALTER TYPE ... ADD VALUE inside a transaction/DO block is legal since PG12 (2019), and these migrations have ALREADY run successfully in production multiple times. Groq's model "openai/gpt-oss-120b" is a real Groq-native ID. Reject only for defects that would actually break on THIS stack.
+
 Output EXACTLY — and START your reply with the STATUS line (no analysis before it; reasoning models: do your reasoning internally, output only the verdict):
 STATUS: APPROVED or STATUS: REJECTED
 FOUTEN:

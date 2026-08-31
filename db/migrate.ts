@@ -48,8 +48,13 @@ const MIGRATIONS = [
     END IF;
   END $$;`,
   // Memory Bank knowledge types — idempotent enum extension.
-  // NOTE: ADD VALUE runs in the migration transaction; new values are only
-  // used at runtime after commit, which is the supported pattern (PG12+).
+  // NOTE: ALTER TYPE ... ADD VALUE inside a transaction/DO block is LEGAL
+  // since PostgreSQL 12 (2019). The pre-12 prohibition does not apply to
+  // Railway's modern Postgres. The only surviving restriction — new enum
+  // values can't be USED within the same transaction — is honored: these
+  // values are only used at runtime, after the migration commits. The
+  // pg_enum guards make re-runs idempotent; bare ADD VALUE statements would
+  // crash on every restart with duplicate_object — do not "simplify" this.
   `DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid WHERE t.typname = 'memory_type' AND e.enumlabel = 'insight') THEN
       ALTER TYPE memory_type ADD VALUE 'insight';
