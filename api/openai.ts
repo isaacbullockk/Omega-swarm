@@ -192,6 +192,13 @@ export async function generateImage(prompt: string, provider?: "pollinations" | 
   return `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true&seed=${seed}`;
 }
 
+/**
+ * Groq model ID used below: "openai/gpt-oss-120b".
+ * This IS a Groq-native model ID — Groq's hosted OpenAI open-weight model
+ * (console.groq.com → docs → models). The openai/ prefix is part of Groq's own
+ * naming; it is NOT an OpenRouter-format ID. Verified against Groq's live model
+ * catalog 2026-08. Do not "correct" it to llama-* — those are deprecated.
+ */
 function fallbackCaption(topic: string, brandVoice?: string): string {
   const voice = brandVoice ? `Written in a ${brandVoice} tone. ` : "";
   return `${voice}✨ ${topic} ✨\n\nThis is AI-generated content from Omega Swarm. Add OPENROUTER_API_KEY to Railway for real AI-generated captions.\n\n#OmegaSwarm #AI #Marketing #ContentCreation`;

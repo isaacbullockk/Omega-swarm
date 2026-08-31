@@ -36,7 +36,7 @@ interface MemoryEntry {
   date: string;
   confidence: number;
   source: string;
-  type: "insight" | "fact" | "strategy" | "feedback";
+  type: "insight" | "fact" | "strategy" | "feedback" | "win" | "loss" | "pattern";
 }
 
 interface Category {
@@ -75,6 +75,9 @@ function MemoryCard({
     fact: { icon: CheckCircle, color: "#22C55E", bg: "rgba(34,197,94,0.1)" },
     strategy: { icon: Sparkles, color: "#A855F7", bg: "rgba(168,85,247,0.1)" },
     feedback: { icon: MessageCircle, color: "#06B6D4", bg: "rgba(6,182,212,0.1)" },
+    win: { icon: CheckCircle, color: "#84CC16", bg: "rgba(132,204,34,0.1)" },
+    loss: { icon: AlertTriangle, color: "#EF4444", bg: "rgba(239,68,68,0.1)" },
+    pattern: { icon: Database, color: "#F97316", bg: "rgba(249,115,22,0.1)" },
   };
 
   const cfg = typeColors[memory.type] || typeColors.insight;
@@ -212,18 +215,21 @@ export default function MemoryBank() {
   });
 
   const KNOWLEDGE_TYPES: MemoryEntry["type"][] = ["insight", "fact", "strategy", "feedback"];
+  const ALL_TYPES: MemoryEntry["type"][] = [...KNOWLEDGE_TYPES, "win", "loss", "pattern"];
   const memories: MemoryEntry[] = useMemo(
     () =>
       (rows ?? []).map((r) => ({
         id: r.id,
         title: r.title,
         content: r.content ?? "",
-        category: KNOWLEDGE_TYPES.includes(r.type as MemoryEntry["type"]) ? r.type : "insight",
+        category: ALL_TYPES.includes(r.type as MemoryEntry["type"]) ? r.type : "pattern",
         tags: Array.isArray(r.tags) ? (r.tags as string[]) : [],
         date: new Date(r.date).toISOString().slice(0, 10),
         confidence: Math.min(Math.max((r.confidence ?? 90) / 100, 0), 1),
         source: r.source ?? "user",
-        type: KNOWLEDGE_TYPES.includes(r.type as MemoryEntry["type"]) ? (r.type as MemoryEntry["type"]) : "insight",
+        // No coercion: every database enum value maps to itself so the UI
+        // always represents the stored type truthfully
+        type: ALL_TYPES.includes(r.type as MemoryEntry["type"]) ? (r.type as MemoryEntry["type"]) : "pattern",
       })),
     [rows]
   );

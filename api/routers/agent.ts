@@ -110,6 +110,20 @@ export const agentRouter = router({
           ? selectAdaptiveAgents(input.objective)
           : AGENTS;
 
+        // Data integrity: in adaptive mode, agents NOT selected must not stay
+        // "pending" forever while the campaign shows "completed" — mark them
+        // "skipped" up front so campaign outputs always tell the truth.
+        if (input.mode === "adaptive") {
+          const selectedIds = new Set(executingAgents.map((a) => a.id));
+          const outputs = (campaign.outputs as Array<{ agentId: string; status: string }>).map((o) =>
+            selectedIds.has(o.agentId) ? o : { ...o, status: "skipped" }
+          );
+          await db!
+            .update(campaigns)
+            .set({ outputs })
+            .where(and(eq(campaigns.id, campaignId), eq(campaigns.userId, ctx.user.id)));
+        }
+
         if (input.mode === "sequential") {
           for (const agent of executingAgents) {
             await runAgentInDb(ctx.user.id, campaignId, agent, input);
