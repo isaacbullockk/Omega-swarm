@@ -10,6 +10,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, authedProcedure, rateLimitedProcedure } from "../trpc";
 import { generateCaption, generateImage } from "../openai";
+import { getMemoryContext } from "../memoryContext";
 import { db, isPostgresAvailable } from "../../db/connection";
 import { contentPosts, analyticsEvents } from "../../db/schema";
 import { eq, and } from "drizzle-orm";
@@ -145,10 +146,11 @@ export const postRouter = router({
                 .join("\n")
             : "";
 
-        // 1. Generate caption with AI
+        // 1. Generate caption with AI — taught by the user's Memory Bank
         let caption: string;
         try {
-          caption = await generateCaption(input.topic + refContext, input.brandVoice);
+          const memoryContext = await getMemoryContext(ctx.user.id);
+          caption = await generateCaption(input.topic + refContext, input.brandVoice, memoryContext);
         } catch (e) {
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",

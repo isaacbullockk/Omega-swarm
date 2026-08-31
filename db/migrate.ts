@@ -47,6 +47,26 @@ const MIGRATIONS = [
       CREATE TYPE memory_type AS ENUM ('win', 'loss', 'pattern');
     END IF;
   END $$;`,
+  // Memory Bank knowledge types — idempotent enum extension.
+  // NOTE: ADD VALUE runs in the migration transaction; new values are only
+  // used at runtime after commit, which is the supported pattern (PG12+).
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid WHERE t.typname = 'memory_type' AND e.enumlabel = 'insight') THEN
+      ALTER TYPE memory_type ADD VALUE 'insight';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid WHERE t.typname = 'memory_type' AND e.enumlabel = 'fact') THEN
+      ALTER TYPE memory_type ADD VALUE 'fact';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid WHERE t.typname = 'memory_type' AND e.enumlabel = 'strategy') THEN
+      ALTER TYPE memory_type ADD VALUE 'strategy';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid WHERE t.typname = 'memory_type' AND e.enumlabel = 'feedback') THEN
+      ALTER TYPE memory_type ADD VALUE 'feedback';
+    END IF;
+  END $$;`,
+  // Memory Bank knowledge columns (teach-the-agents feature)
+  // (Memory Bank knowledge columns are added AFTER the memories table is
+  // created below — ALTER requires the table to exist on fresh databases.)
 
   // Add analytics_events type enum
   `DO $$ BEGIN
@@ -109,6 +129,11 @@ const MIGRATIONS = [
     details JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );`,
+  // Memory Bank knowledge columns (teach-the-agents feature) — must run AFTER
+  // the memories CREATE above so fresh databases work too
+  `ALTER TABLE memories ADD COLUMN IF NOT EXISTS content TEXT NOT NULL DEFAULT '';`,
+  `ALTER TABLE memories ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb;`,
+  `ALTER TABLE memories ADD COLUMN IF NOT EXISTS source VARCHAR(255) NOT NULL DEFAULT 'user';`,
   `CREATE TABLE IF NOT EXISTS social_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -23,6 +23,7 @@ import {
   Inbox,
 } from "lucide-react";
 import { EmptyState, ErrorState, Spinner } from "@/components/states";
+import { trpc } from "@/lib/trpc";
 
 /* ─────────────────────────── Types ─────────────────────────── */
 
@@ -55,74 +56,8 @@ const CATEGORIES: Category[] = [
   { id: "feedback", label: "Feedback", icon: MessageCircle, description: "User and agent feedback" },
 ];
 
-const MOCK_MEMORIES: MemoryEntry[] = [
-  {
-    id: "1",
-    title: "Omega Verse — Narrative Arc",
-    content: "Every marketing story should start with a deep emotional core (butterfly identity → origins → function). The narrative arc follows the hero's journey: trigger → refusal → turning point → commitment. All visuals must be photorealistic and metaphorical. Key emotional anchors: culture-rich origin, emotional resonance, and connection. The narrative follows personal adversity → high stakes → purpose discovery → meaningful choice → grand finale.",
-    category: "insight",
-    tags: ["narrative", "brand", "strategy"],
-    date: "2024-03-15",
-    confidence: 0.95,
-    source: "Omega Verse Swarm",
-    type: "insight",
-  },
-  {
-    id: "2",
-    title: "Visual Brand System — The Omega Visual Way",
-    content: "Photorealistic, metaphorical, and immersive. All visuals must embody natural beauty (never mechanical or cold). Color-coded palettes create hierarchy: dark science = cool tones, personal warmth = warm tones. Black icons are mandatory for visual hierarchy. 3D aspect ratio must be 2:3. The Omega particle aesthetic should drive all motion — building blocks of wisdom, light, and curiosity. Golden accents, blueprint references, and organic fluidity are hallmarks.",
-    category: "fact",
-    tags: ["visual", "brand", "design"],
-    date: "2024-03-14",
-    confidence: 0.98,
-    source: "Brand Strategist Agent",
-    type: "fact",
-  },
-  {
-    id: "3",
-    title: "Content Calendar — Platform Optimization",
-    content: "Instagram: high-res lifestyle photography, 3:4/9:16 aspect ratios, Carousel (3-5 slides), Reels (15-60s). LinkedIn: long-form thought leadership, 1:1/3:2 aspect ratios, native video (3-15 min). Twitter/X: punchy text + native short video, 1:1/2:1/3:2. Cross-platform: each post should have platform-optimized content — NOT just cross-posting.",
-    category: "strategy",
-    tags: ["content", "platform", "optimization"],
-    date: "2024-03-13",
-    confidence: 0.92,
-    source: "Content Strategy Agent",
-    type: "strategy",
-  },
-  {
-    id: "4",
-    title: "Omega Chat — Conversational Logic",
-    content: "Agent mode: blend persuasion and inquiry. Functions: research assistant, content strategist, brand voice consultant, digital twin. Authority principle: 'Your mindset isn't the only one of the butterfly' — value is limited if only your mind is there. Always explore, adapt, optimize. Full stack solution includes authority and powerbuilding capabilities.",
-    category: "insight",
-    tags: ["chat", "agent", "logic"],
-    date: "2024-03-12",
-    confidence: 0.88,
-    source: "Omega Chat Agent",
-    type: "insight",
-  },
-  {
-    id: "5",
-    title: "Client Feedback — Content Quality",
-    content: "The content generated has excellent visual quality but needs stronger emotional hooks in the first 3 seconds of video. The brand voice is consistent but slightly repetitive — introduce more tonal variety. The calendar pacing is good but could be more aggressive for product launch phases. Suggest adding more 'expertise-level' content for LinkedIn.",
-    category: "feedback",
-    tags: ["feedback", "quality", "improvement"],
-    date: "2024-03-11",
-    confidence: 0.85,
-    source: "Client Review",
-    type: "feedback",
-  },
-  {
-    id: "6",
-    title: "Omega Brain — Knowledge Architecture",
-    content: "The system uses a 4-level knowledge hierarchy: Core Facts (immutable), Insights (learned patterns), Strategies (actionable plans), and Feedback (user-driven learning). Each memory entry has confidence scoring (0.0-1.0) and automatic tagging. The memory bank is structured as: brand identity, product knowledge, customer profiles, and campaign data. All memories are interconnected through semantic relationships.",
-    category: "fact",
-    tags: ["architecture", "knowledge", "system"],
-    date: "2024-03-10",
-    confidence: 0.96,
-    source: "System Architecture",
-    type: "fact",
-  },
-];
+/* Mock data removed — Memory Bank is now backed by PostgreSQL via trpc.memory.* */
+
 
 /* ─────────────────────────── Sub-components ─────────────────────────── */
 
@@ -254,7 +189,44 @@ export default function MemoryBank() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "confidence" | "title">("date");
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
-  const [memories, setMemories] = useState<MemoryEntry[]>(MOCK_MEMORIES);
+
+  // ── Real data: PostgreSQL via trpc.memory.* (replaces the old mock array) ──
+  const utils = trpc.useUtils();
+  const { data: rows, isLoading } = trpc.memory.list.useQuery();
+  const [showAdd, setShowAdd] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newContent, setNewContent] = useState("");
+  const [newType, setNewType] = useState<MemoryEntry["type"]>("insight");
+  const [newTags, setNewTags] = useState("");
+
+  const createMemory = trpc.memory.create.useMutation({
+    onSuccess: () => {
+      utils.memory.list.invalidate();
+      setShowAdd(false);
+      setNewTitle(""); setNewContent(""); setNewTags(""); setNewType("insight");
+    },
+  });
+  const deleteMemory = trpc.memory.delete.useMutation({
+    onSuccess: () => utils.memory.list.invalidate(),
+    onSettled: () => setIsDeleting(null),
+  });
+
+  const KNOWLEDGE_TYPES: MemoryEntry["type"][] = ["insight", "fact", "strategy", "feedback"];
+  const memories: MemoryEntry[] = useMemo(
+    () =>
+      (rows ?? []).map((r) => ({
+        id: r.id,
+        title: r.title,
+        content: r.content ?? "",
+        category: KNOWLEDGE_TYPES.includes(r.type as MemoryEntry["type"]) ? r.type : "insight",
+        tags: Array.isArray(r.tags) ? (r.tags as string[]) : [],
+        date: new Date(r.date).toISOString().slice(0, 10),
+        confidence: Math.min(Math.max((r.confidence ?? 90) / 100, 0), 1),
+        source: r.source ?? "user",
+        type: KNOWLEDGE_TYPES.includes(r.type as MemoryEntry["type"]) ? (r.type as MemoryEntry["type"]) : "insight",
+      })),
+    [rows]
+  );
 
   /* ── Filter & Sort ── */
   const filteredMemories = useMemo(() => {
@@ -283,10 +255,18 @@ export default function MemoryBank() {
 
   const handleDelete = (id: string) => {
     setIsDeleting(id);
-    setTimeout(() => {
-      setMemories((prev) => prev.filter((m) => m.id !== id));
-      setIsDeleting(null);
-    }, 600);
+    deleteMemory.mutate({ id });
+  };
+
+  const handleAdd = (e: React.FormEvent) => {
+    e.preventDefault();
+    createMemory.mutate({
+      title: newTitle.trim(),
+      content: newContent.trim(),
+      type: newType,
+      tags: newTags.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 10),
+      source: "user",
+    });
   };
 
   const stats = useMemo(() => {
@@ -320,6 +300,7 @@ export default function MemoryBank() {
               {stats.total} entries
             </span>
             <button
+              onClick={() => setShowAdd(true)}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:scale-105"
               style={{
                 background: "linear-gradient(135deg, #F59E0B, #F97316)",
@@ -414,19 +395,21 @@ export default function MemoryBank() {
 
         {/* ═══ Memory List ═══ */}
         <div className="space-y-4">
-          {filteredMemories.length === 0 ? (
+          {isLoading ? (
+            <MemoryBankSkeleton />
+          ) : filteredMemories.length === 0 ? (
             <EmptyState
               icon={searchQuery ? Search : Inbox}
               title={searchQuery ? "No matches found" : "No memories yet"}
               description={
                 searchQuery
                   ? `No memories match "${searchQuery}". Try a different search term.`
-                  : "The memory bank is empty. Start a campaign or chat with an agent to generate memories."
+                  : "Teach your agents: add brand facts, strategies and feedback here — they're injected into every caption and agent chat."
               }
-              actionLabel={searchQuery ? "Clear Search" : "Start a Campaign"}
+              actionLabel={searchQuery ? "Clear Search" : "Add your first memory"}
               onAction={() => {
                 if (searchQuery) setSearchQuery("");
-                else window.location.href = "/mission-control";
+                else setShowAdd(true);
               }}
             />
           ) : (
@@ -446,6 +429,102 @@ export default function MemoryBank() {
           )}
         </div>
       </div>
+
+      {/* ═══ Add Memory Modal ═══ */}
+      {showAdd && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+          onClick={() => setShowAdd(false)}
+        >
+          <form
+            onSubmit={handleAdd}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg rounded-2xl p-6 space-y-4"
+            style={{ background: "var(--bg-card-solid)", border: "1px solid var(--border-subtle)" }}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+                Teach the Swarm
+              </h2>
+              <button type="button" onClick={() => setShowAdd(false)} aria-label="Close">
+                <XCircle className="size-5" style={{ color: "var(--text-muted)" }} />
+              </button>
+            </div>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              This memory is injected into every caption and agent chat — what you write here shapes future output.
+            </p>
+            <input
+              type="text"
+              required
+              maxLength={255}
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder="Title — e.g. 'Our tone is warm, never corporate'"
+              className="w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2"
+              style={{ background: "var(--bg-elevated)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)" }}
+            />
+            <textarea
+              required
+              maxLength={8000}
+              rows={4}
+              value={newContent}
+              onChange={(e) => setNewContent(e.target.value)}
+              placeholder="The actual knowledge — what should the agents always remember?"
+              className="w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 resize-none"
+              style={{ background: "var(--bg-elevated)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)" }}
+            />
+            <div className="flex gap-2">
+              {KNOWLEDGE_TYPES.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setNewType(t)}
+                  className="flex-1 px-2 py-2 rounded-xl text-xs font-bold capitalize transition-all"
+                  style={{
+                    background: newType === t ? "var(--accent-primary)" : "var(--bg-elevated)",
+                    color: newType === t ? "#fff" : "var(--text-muted)",
+                    border: `1px solid ${newType === t ? "transparent" : "var(--border-subtle)"}`,
+                  }}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+            <input
+              type="text"
+              value={newTags}
+              onChange={(e) => setNewTags(e.target.value)}
+              placeholder="Tags (comma-separated, optional) — e.g. brand, tone, instagram"
+              className="w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2"
+              style={{ background: "var(--bg-elevated)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)" }}
+            />
+            {createMemory.error && (
+              <p className="text-xs font-medium" style={{ color: "#EF4444" }}>
+                {createMemory.error.message}
+              </p>
+            )}
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowAdd(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium"
+                style={{ background: "var(--bg-elevated)", color: "var(--text-muted)" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={createMemory.isPending || !newTitle.trim() || !newContent.trim()}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
+                style={{ background: "linear-gradient(135deg, #F59E0B, #F97316)", color: "#0C0A09" }}
+              >
+                {createMemory.isPending ? "Saving…" : "Save Memory"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

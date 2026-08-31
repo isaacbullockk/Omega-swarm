@@ -197,14 +197,14 @@ function fallbackCaption(topic: string, brandVoice?: string): string {
   return `${voice}✨ ${topic} ✨\n\nThis is AI-generated content from Omega Swarm. Add OPENROUTER_API_KEY to Railway for real AI-generated captions.\n\n#OmegaSwarm #AI #Marketing #ContentCreation`;
 }
 
-export async function generateCaption(topic: string, brandVoice?: string): Promise<string> {
+export async function generateCaption(topic: string, brandVoice?: string, memoryContext?: string): Promise<string> {
   const client = getClient();
   if (!client) {
     console.warn("[AI] No API key set — using fallback caption. Add OPENROUTER_API_KEY to Railway.");
     return fallbackCaption(topic, brandVoice);
   }
 
-  const systemPrompt = `You are a social media expert. Write an engaging Instagram caption. ${brandVoice || ""} Include relevant hashtags. Keep it under 2,200 characters.`;
+  const systemPrompt = `You are a social media expert. Write an engaging Instagram caption. ${brandVoice || ""} Include relevant hashtags. Keep it under 2,200 characters.${memoryContext ?? ""}`;
 
   try {
     if (client.type === "openrouter") {
@@ -270,7 +270,8 @@ export async function chatWithAgent(
   agentName: string,
   agentRole: string,
   userMessage: string,
-  brandVoice?: { tone: string; description: string } | null
+  brandVoice?: { tone: string; description: string } | null,
+  memoryContext?: string
 ): Promise<string> {
   const client = getClient();
   if (!client) {
@@ -278,7 +279,7 @@ export async function chatWithAgent(
     return fallbackChat(agentName, userMessage);
   }
 
-  const systemPrompt = buildChatSystemPrompt(agentName, agentRole, brandVoice);
+  const systemPrompt = buildChatSystemPrompt(agentName, agentRole, brandVoice) + (memoryContext ?? "");
   const userPrompt = userMessage;
 
   try {

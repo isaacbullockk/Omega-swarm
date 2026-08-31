@@ -10,6 +10,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, authedProcedure, rateLimitedProcedure } from "../trpc";
 import { generateWithAgent, chatWithAgent } from "../openai";
+import { getMemoryContext } from "../memoryContext";
 import { db, isPostgresAvailable } from "../../db/connection";
 import { campaigns, brandVoices } from "../../db/schema";
 import { eq, and } from "drizzle-orm";
@@ -254,11 +255,13 @@ export const agentRouter = router({
       }
 
       try {
+        const memoryContext = await getMemoryContext(ctx.user.id);
         const output = await chatWithAgent(
           agent.name,
           agent.role,
           input.message,
-          brandVoice
+          brandVoice,
+          memoryContext
         );
 
         return { output, agentName: agent.name, agentEmoji: agent.emoji };

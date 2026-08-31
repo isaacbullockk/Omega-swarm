@@ -85,6 +85,11 @@ export const memoryTypeEnum = pgEnum("memory_type", [
   "win",
   "loss",
   "pattern",
+  // Memory Bank knowledge types (teaching the agents)
+  "insight",
+  "fact",
+  "strategy",
+  "feedback",
 ]);
 
 export const analyticsEventTypeEnum = pgEnum("analytics_event_type", [
@@ -466,6 +471,11 @@ export const memories = pgTable(
     clientId: uuid("client_id").references(() => clients.id, { onDelete: "cascade" }),
     title: varchar("title", { length: 255 }).notNull(),
     type: memoryTypeEnum("type").notNull().default("pattern"),
+    // Memory Bank knowledge fields — what the user teaches the agents.
+    // `content` is injected into planner/copywriter prompts via memoryContext.
+    content: text("content").notNull().default(""),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    source: varchar("source", { length: 255 }).notNull().default("user"),
     ctr: varchar("ctr", { length: 20 }),
     cpa: varchar("cpa", { length: 20 }),
     date: timestamp("date", { withTimezone: true }).notNull().defaultNow(),
