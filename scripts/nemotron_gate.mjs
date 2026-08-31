@@ -128,6 +128,8 @@ async function main() {
 
 Review for ACTIONABLE defects only: runtime crashes, broken imports/exports, SQL/schema mistakes, security issues (token leakage, injection, missing auth scoping), fake/placeholder behavior presented as real, incorrect third-party API usage. Do NOT flag style, and do NOT claim models/endpoints don't exist — model IDs and API shapes in this codebase were verified live against provider documentation.
 
+Files may be truncated for size (marked "// ... [truncated for review]"). The TypeScript compiler has ALREADY PASSED on the complete files — so missing/truncated functions, imports, or braces are NOT defects. Only report defects in code you can actually see; never speculate about code outside the bundle.
+
 Output EXACTLY:
 STATUS: APPROVED or STATUS: REJECTED
 FOUTEN:

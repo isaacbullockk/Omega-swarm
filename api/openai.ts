@@ -103,7 +103,8 @@ export async function generateWithAgent(
   campaignObjective: string,
   budget: string,
   timeline: string,
-  brandVoice?: { tone: string; description: string } | null
+  brandVoice?: { tone: string; description: string } | null,
+  memoryContext?: string
 ): Promise<string> {
   const client = getClient();
   if (!client) {
@@ -111,7 +112,7 @@ export async function generateWithAgent(
     return fallbackAgentOutput(agentName, campaignObjective);
   }
 
-  const systemPrompt = buildSystemPrompt(agentName, agentRole, brandVoice);
+  const systemPrompt = buildSystemPrompt(agentName, agentRole, brandVoice) + (memoryContext ?? "");
 
   const userPrompt = `Campaign Brief:
 - Objective: ${campaignObjective}

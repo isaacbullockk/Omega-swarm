@@ -54,6 +54,9 @@ const CATEGORIES: Category[] = [
   { id: "fact", label: "Facts", icon: CheckCircle, description: "Verified facts and data" },
   { id: "strategy", label: "Strategies", icon: Sparkles, description: "Strategic learnings" },
   { id: "feedback", label: "Feedback", icon: MessageCircle, description: "User and agent feedback" },
+  { id: "win", label: "Wins", icon: CheckCircle, description: "Campaign wins" },
+  { id: "loss", label: "Losses", icon: AlertTriangle, description: "Campaign losses" },
+  { id: "pattern", label: "Patterns", icon: Database, description: "Learned patterns" },
 ];
 
 /* Mock data removed — Memory Bank is now backed by PostgreSQL via trpc.memory.* */

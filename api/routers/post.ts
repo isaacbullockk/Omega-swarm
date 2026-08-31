@@ -12,7 +12,7 @@ import { router, authedProcedure, rateLimitedProcedure } from "../trpc";
 import { generateCaption, generateImage } from "../openai";
 import { getMemoryContext } from "../memoryContext";
 import { db, isPostgresAvailable } from "../../db/connection";
-import { contentPosts, analyticsEvents } from "../../db/schema";
+import { contentPosts, analyticsEvents, socialAccounts } from "../../db/schema";
 import { eq, and } from "drizzle-orm";
 import { resolveTarget, publishPost } from "../socialPublish";
 
@@ -82,14 +82,48 @@ const createPostSchema = z.object({
 
 export const postRouter = router({
   /* ─── Check Instagram connection status ─── */
-  instagramStatus: authedProcedure.query(async () => {
+  instagramStatus: authedProcedure.query(async ({ ctx }) => {
+    // Per-user connected account first (social_accounts), env fallback after
+    if (isPostgresAvailable() && db) {
+      try {
+        const rows = await db
+          .select()
+          .from(socialAccounts)
+          .where(
+            and(
+              eq(socialAccounts.userId, ctx.user.id),
+              eq(socialAccounts.platform, "instagram"),
+              eq(socialAccounts.connected, true)
+            )
+          )
+          .limit(1);
+        const acc = rows[0];
+        if (acc?.accessToken && acc.pageId) {
+          const res = await fetch(
+            `https://graph.facebook.com/v18.0/${acc.pageId}?fields=username,media_count`,
+            { headers: { Authorization: `Bearer ${acc.accessToken}` } }
+          );
+          const data = await res.json();
+          if (!data.error) {
+            return {
+              connected: true,
+              username: data.username ?? acc.handle,
+              accountId: acc.pageId,
+              mediaCount: data.media_count,
+            };
+          }
+        }
+      } catch (err) {
+        console.warn("[Post] instagramStatus social_accounts lookup failed:", (err as Error).message);
+      }
+    }
     return getInstagramAccount();
   }),
 
   /* ─── Exchange short-lived token for long-lived token ─── */
   exchangeToken: authedProcedure
     .input(z.object({ shortToken: z.string().min(1) }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const appId = META_APP_ID;
       if (!appId) {
         return {
@@ -110,10 +144,70 @@ export const postRouter = router({
         if (data.error) {
           return { error: data.error.message };
         }
+
+        // Never return the raw long-lived token in a response body (token leak
+        // via logs/proxies). Store it server-side on the user's connected
+        // social account instead. The account id comes from the env config;
+        // without it we cannot bind the token, so we refuse rather than leak.
+        const longToken: string = data.access_token;
+        if (!INSTAGRAM_ACCOUNT_ID) {
+          return {
+            error: "INSTAGRAM_ACCOUNT_ID not set in Railway — cannot bind the token to an account.",
+          };
+        }
+        if (!isPostgresAvailable() || !db) {
+          return { error: "Database not available — token not stored." };
+        }
+
+        // Resolve the username for a friendly handle
+        let handle = "instagram";
+        try {
+          const me = await fetch(
+            `https://graph.facebook.com/v18.0/${INSTAGRAM_ACCOUNT_ID}?fields=username`,
+            { headers: { Authorization: `Bearer ${longToken}` } }
+          );
+          const meData = await me.json();
+          if (meData.username) handle = meData.username;
+        } catch {
+          // non-fatal — keep default handle
+        }
+
+        const existing = await db
+          .select()
+          .from(socialAccounts)
+          .where(and(eq(socialAccounts.userId, ctx.user.id), eq(socialAccounts.platform, "instagram")))
+          .limit(1);
+
+        if (existing[0]) {
+          await db
+            .update(socialAccounts)
+            .set({
+              accessToken: longToken,
+              pageId: INSTAGRAM_ACCOUNT_ID,
+              handle,
+              accountName: handle,
+              connected: true,
+              connectedAt: new Date(),
+            })
+            .where(and(eq(socialAccounts.id, existing[0].id), eq(socialAccounts.userId, ctx.user.id)));
+        } else {
+          await db.insert(socialAccounts).values({
+            userId: ctx.user.id,
+            platform: "instagram",
+            accountName: handle,
+            handle,
+            connected: true,
+            accessToken: longToken,
+            pageId: INSTAGRAM_ACCOUNT_ID,
+            connectedAt: new Date(),
+          });
+        }
+
         return {
-          longToken: data.access_token,
+          connected: true,
+          handle,
           expiresIn: data.expires_in,
-          note: "Paste this longToken into Railway INSTAGRAM_ACCESS_TOKEN variable",
+          note: "Token exchanged and stored securely on your connected Instagram account — nothing to paste anywhere.",
         };
       } catch (e) {
         return {

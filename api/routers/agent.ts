@@ -124,12 +124,15 @@ export const agentRouter = router({
             .where(and(eq(campaigns.id, campaignId), eq(campaigns.userId, ctx.user.id)));
         }
 
+        // Memory Bank teachings apply to campaign agents too — fetch once
+        const memoryContext = await getMemoryContext(ctx.user.id);
+
         if (input.mode === "sequential") {
           for (const agent of executingAgents) {
-            await runAgentInDb(ctx.user.id, campaignId, agent, input);
+            await runAgentInDb(ctx.user.id, campaignId, agent, input, memoryContext);
           }
         } else {
-          await Promise.all(executingAgents.map((a) => runAgentInDb(ctx.user.id, campaignId, a, input)));
+          await Promise.all(executingAgents.map((a) => runAgentInDb(ctx.user.id, campaignId, a, input, memoryContext)));
         }
 
         // Mark campaign complete
@@ -198,20 +201,63 @@ export const agentRouter = router({
   /* ─── Run a single agent (rate limited) ─── */
   runAgent: rateLimitedProcedure
     .input(runAgentSchema)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const agent = AGENTS.find((a) => a.id === input.agentId);
       if (!agent) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Agent not found" });
       }
 
+      // Authorization: campaignId must belong to the authenticated user
+      if (!isPostgresAvailable() || !db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      }
+      const campaignResult = await db
+        .select()
+        .from(campaigns)
+        .where(and(eq(campaigns.id, input.campaignId), eq(campaigns.userId, ctx.user.id)))
+        .limit(1);
+      const campaign = campaignResult[0];
+      if (!campaign) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Campaign not found" });
+      }
+
       try {
+        const brandVoiceRow = await db
+          .select()
+          .from(brandVoices)
+          .where(eq(brandVoices.userId, ctx.user.id))
+          .limit(1)
+          .catch(() => []);
+        const brandVoice = brandVoiceRow[0]
+          ? { tone: brandVoiceRow[0].tone, description: brandVoiceRow[0].description }
+          : null;
+        const memoryContext = await getMemoryContext(ctx.user.id);
+
         const output = await generateWithAgent(
           agent.name,
           agent.role,
           input.objective,
           input.budget,
-          input.timeline
+          input.timeline,
+          brandVoice,
+          memoryContext
         );
+
+        // Persist into the campaign's outputs so the result is not lost
+        const outputs = ((campaign.outputs || []) as Array<{
+          agentId: string; agentName: string; agentEmoji: string;
+          status: string; output: string; completedAt?: string;
+        }>);
+        const out = outputs.find((o) => o.agentId === agent.id);
+        if (out) {
+          out.status = "completed";
+          out.output = output;
+          out.completedAt = new Date().toISOString();
+          await db
+            .update(campaigns)
+            .set({ outputs })
+            .where(and(eq(campaigns.id, campaign.id), eq(campaigns.userId, ctx.user.id)));
+        }
 
         return { agentId: agent.id, agentName: agent.name, output };
       } catch (err) {
@@ -329,7 +375,8 @@ async function runAgentInDb(
   userId: string,
   campaignId: string,
   agent: (typeof AGENTS)[0],
-  input: { objective: string; budget: string; timeline: string }
+  input: { objective: string; budget: string; timeline: string },
+  memoryContext?: string
 ) {
   if (!isPostgresAvailable()) return;
 
@@ -385,7 +432,8 @@ async function runAgentInDb(
       input.objective,
       input.budget,
       input.timeline,
-      brandVoice
+      brandVoice,
+      memoryContext
     );
 
     // Update to completed
