@@ -396,6 +396,8 @@ export const socialAccounts = pgTable(
     accessToken: text("access_token"),
     pageId: varchar("page_id", { length: 100 }),
     connectedAt: timestamp("connected_at", { withTimezone: true }),
+    // Long-lived OAuth token expiry (Meta expires_in) — enables proactive refresh
+    tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

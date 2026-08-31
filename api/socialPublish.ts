@@ -10,6 +10,7 @@ import { db, isPostgresAvailable } from "../db/connection";
 import { socialAccounts } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { checkContentSafety } from "./openrouter";
+import { decryptToken } from "./tokenCrypto";
 
 const GRAPH_BASE = "https://graph.facebook.com/v21.0";
 
@@ -62,7 +63,7 @@ export async function resolveTarget(
     const acc = rows[0];
     if (acc?.accessToken && acc.pageId && (acc.platform === "instagram" || acc.platform === "facebook")) {
       return {
-        accessToken: acc.accessToken,
+        accessToken: decryptToken(acc.accessToken), // tokens are AES-256-GCM at rest
         accountId: acc.pageId,
         platform: acc.platform as "instagram" | "facebook",
         handle: acc.handle,

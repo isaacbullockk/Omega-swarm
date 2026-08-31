@@ -15,6 +15,7 @@ import { db, isPostgresAvailable } from "../../db/connection";
 import { contentPosts, analyticsEvents, socialAccounts } from "../../db/schema";
 import { eq, and } from "drizzle-orm";
 import { resolveTarget, publishPost } from "../socialPublish";
+import { encryptToken, decryptToken } from "../tokenCrypto";
 
 const INSTAGRAM_ACCESS_TOKEN = process.env.INSTAGRAM_ACCESS_TOKEN;
 const INSTAGRAM_ACCOUNT_ID = process.env.INSTAGRAM_ACCOUNT_ID;
@@ -99,9 +100,10 @@ export const postRouter = router({
           .limit(1);
         const acc = rows[0];
         if (acc?.accessToken && acc.pageId) {
+          const plainToken = decryptToken(acc.accessToken); // AES-256-GCM at rest
           const res = await fetch(
             `https://graph.facebook.com/v18.0/${acc.pageId}?fields=username,media_count`,
-            { headers: { Authorization: `Bearer ${acc.accessToken}` } }
+            { headers: { Authorization: `Bearer ${plainToken}` } }
           );
           const data = await res.json();
           if (!data.error) {
@@ -146,31 +148,58 @@ export const postRouter = router({
         }
 
         // Never return the raw long-lived token in a response body (token leak
-        // via logs/proxies). Store it server-side on the user's connected
-        // social account instead. The account id comes from the env config;
-        // without it we cannot bind the token, so we refuse rather than leak.
+        // via logs/proxies). Store it ENCRYPTED server-side on the user's own
+        // connected social account.
         const longToken: string = data.access_token;
-        if (!INSTAGRAM_ACCOUNT_ID) {
-          return {
-            error: "INSTAGRAM_ACCOUNT_ID not set in Railway — cannot bind the token to an account.",
-          };
-        }
         if (!isPostgresAvailable() || !db) {
           return { error: "Database not available — token not stored." };
         }
 
-        // Resolve the username for a friendly handle
+        // Derive the REAL Instagram Business account for THIS token — not an
+        // env var, which would bind every user to the same account.
+        // Flow: /me/accounts (Facebook Pages) -> page's instagram_business_account.
+        let pageId: string | null = null;
         let handle = "instagram";
         try {
-          const me = await fetch(
-            `https://graph.facebook.com/v18.0/${INSTAGRAM_ACCOUNT_ID}?fields=username`,
+          const pagesRes = await fetch(
+            `https://graph.facebook.com/v18.0/me/accounts?fields=id,name,instagram_business_account{id,username}`,
             { headers: { Authorization: `Bearer ${longToken}` } }
           );
-          const meData = await me.json();
-          if (meData.username) handle = meData.username;
+          const pagesData = await pagesRes.json();
+          const page = (pagesData.data ?? []).find(
+            (p: { instagram_business_account?: { id: string } }) => p.instagram_business_account?.id
+          );
+          if (page) {
+            pageId = page.instagram_business_account.id;
+            handle = page.instagram_business_account.username ?? page.name ?? handle;
+          }
         } catch {
-          // non-fatal — keep default handle
+          // non-fatal — env fallback below
         }
+        // Env fallback (single-brand deployments) — only if derivation failed
+        if (!pageId && INSTAGRAM_ACCOUNT_ID) {
+          pageId = INSTAGRAM_ACCOUNT_ID;
+          try {
+            const me = await fetch(
+              `https://graph.facebook.com/v18.0/${pageId}?fields=username`,
+              { headers: { Authorization: `Bearer ${longToken}` } }
+            );
+            const meData = await me.json();
+            if (meData.username) handle = meData.username;
+          } catch {
+            // keep default handle
+          }
+        }
+        if (!pageId) {
+          return {
+            error:
+              "Could not derive an Instagram Business account from this token. Make sure the token has pages_show_list + instagram_basic permissions and your IG is a Business/Creator account linked to a Facebook Page.",
+          };
+        }
+
+        const tokenExpiresAt =
+          typeof data.expires_in === "number" ? new Date(Date.now() + data.expires_in * 1000) : null;
+        const encryptedToken = encryptToken(longToken);
 
         const existing = await db
           .select()
@@ -182,12 +211,13 @@ export const postRouter = router({
           await db
             .update(socialAccounts)
             .set({
-              accessToken: longToken,
-              pageId: INSTAGRAM_ACCOUNT_ID,
+              accessToken: encryptedToken,
+              pageId,
               handle,
               accountName: handle,
               connected: true,
               connectedAt: new Date(),
+              tokenExpiresAt,
             })
             .where(and(eq(socialAccounts.id, existing[0].id), eq(socialAccounts.userId, ctx.user.id)));
         } else {
@@ -197,9 +227,10 @@ export const postRouter = router({
             accountName: handle,
             handle,
             connected: true,
-            accessToken: longToken,
-            pageId: INSTAGRAM_ACCOUNT_ID,
+            accessToken: encryptedToken,
+            pageId,
             connectedAt: new Date(),
+            tokenExpiresAt,
           });
         }
 

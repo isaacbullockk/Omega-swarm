@@ -147,6 +147,8 @@ const MIGRATIONS = [
     connected_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );`,
+  // OAuth token expiry for proactive refresh (runs after table exists)
+  `ALTER TABLE social_accounts ADD COLUMN IF NOT EXISTS token_expires_at TIMESTAMPTZ;`,
 
   // Create missing tables (GDPR export + credit system)
   `CREATE TABLE IF NOT EXISTS credits (

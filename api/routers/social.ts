@@ -9,6 +9,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, authedProcedure, publicProcedure, rateLimitedProcedure } from "../trpc";
+import { encryptToken } from "../tokenCrypto";
 import { db, isPostgresAvailable } from "../../db/connection";
 import { socialAccounts, contentPosts, analyticsEvents } from "../../db/schema";
 import { eq, and } from "drizzle-orm";
@@ -94,7 +95,7 @@ export const socialRouter = router({
             .update(socialAccounts)
             .set({
               connected: true,
-              accessToken: input.accessToken,
+              accessToken: encryptToken(input.accessToken), // AES-256-GCM at rest
               pageId: input.pageId ?? null,
               connectedAt: new Date(),
             })
@@ -113,7 +114,7 @@ export const socialRouter = router({
             accountName: input.accountName,
             handle: input.handle,
             connected: true,
-            accessToken: input.accessToken,
+            accessToken: encryptToken(input.accessToken), // AES-256-GCM at rest
             pageId: input.pageId ?? null,
             connectedAt: new Date(),
           })

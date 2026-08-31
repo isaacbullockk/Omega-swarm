@@ -222,12 +222,25 @@ export const agentRouter = router({
       }
 
       try {
-        const brandVoiceRow = await db
+        // Brand voice scoped to the campaign's client (multi-client safe);
+        // fall back to any voice of this user
+        const voiceWhere = campaign.clientId
+          ? and(eq(brandVoices.userId, ctx.user.id), eq(brandVoices.clientId, campaign.clientId))
+          : eq(brandVoices.userId, ctx.user.id);
+        let brandVoiceRow = await db
           .select()
           .from(brandVoices)
-          .where(eq(brandVoices.userId, ctx.user.id))
+          .where(voiceWhere)
           .limit(1)
           .catch(() => []);
+        if (!brandVoiceRow[0] && campaign.clientId) {
+          brandVoiceRow = await db
+            .select()
+            .from(brandVoices)
+            .where(eq(brandVoices.userId, ctx.user.id))
+            .limit(1)
+            .catch(() => []);
+        }
         const brandVoice = brandVoiceRow[0]
           ? { tone: brandVoiceRow[0].tone, description: brandVoiceRow[0].description }
           : null;
