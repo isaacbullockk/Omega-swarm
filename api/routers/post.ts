@@ -56,7 +56,8 @@ async function getInstagramAccount() {
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown";
-    const safeMsg = msg.replace(INSTAGRAM_ACCESS_TOKEN, maskToken(INSTAGRAM_ACCESS_TOKEN));
+    // replaceAll: the token can appear more than once in an error payload
+    const safeMsg = msg.replaceAll(INSTAGRAM_ACCESS_TOKEN, maskToken(INSTAGRAM_ACCESS_TOKEN));
     return {
       connected: false,
       error: `API error: ${safeMsg}`,
@@ -128,15 +129,11 @@ export const postRouter = router({
     .mutation(async ({ ctx, input }) => {
       const appId = META_APP_ID;
       if (!appId) {
-        return {
-          error: "META_APP_ID not set in environment variables. Add it to exchange tokens.",
-        };
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "META_APP_ID not set in environment variables. Add it to exchange tokens." });
       }
       const appSecret = process.env.META_APP_SECRET;
       if (!appSecret) {
-        return {
-          error: "META_APP_SECRET not set in Railway. Add it to exchange tokens.",
-        };
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "META_APP_SECRET not set in Railway. Add it to exchange tokens." });
       }
       try {
         // URLSearchParams — token/secret may contain characters that break a
@@ -152,7 +149,7 @@ export const postRouter = router({
         const res = await fetch(exchangeUrl);
         const data = await res.json();
         if (data.error) {
-          return { error: data.error.message };
+          throw new TRPCError({ code: "BAD_REQUEST", message: `Facebook token exchange failed: ${data.error.message}` });
         }
 
         // Never return the raw long-lived token in a response body (token leak
@@ -160,7 +157,7 @@ export const postRouter = router({
         // connected social account.
         const longToken: string = data.access_token;
         if (!isPostgresAvailable() || !db) {
-          return { error: "Database not available — token not stored." };
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available — token not stored." });
         }
 
         // Derive the REAL Instagram Business account for THIS token — not an
@@ -199,10 +196,11 @@ export const postRouter = router({
           }
         }
         if (!pageId) {
-          return {
-            error:
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message:
               "Could not derive an Instagram Business account from this token. Make sure the token has pages_show_list + instagram_basic permissions and your IG is a Business/Creator account linked to a Facebook Page.",
-          };
+          });
         }
 
         const tokenExpiresAt =
@@ -249,9 +247,11 @@ export const postRouter = router({
           note: "Token exchanged and stored securely on your connected Instagram account — nothing to paste anywhere.",
         };
       } catch (e) {
-        return {
-          error: `Exchange failed: ${e instanceof Error ? e.message : "Unknown"}`,
-        };
+        if (e instanceof TRPCError) throw e;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Exchange failed: ${e instanceof Error ? e.message : "Unknown"}`,
+        });
       }
     }),
 
@@ -259,7 +259,7 @@ export const postRouter = router({
   create: rateLimitedProcedure
     .input(createPostSchema)
     .mutation(async ({ ctx, input }) => {
-      if (!isPostgresAvailable()) {
+      if (!isPostgresAvailable() || !db) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Database not available",
