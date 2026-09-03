@@ -9,6 +9,8 @@ import {
   Video,
   Globe,
   Share2,
+  Music,
+  AtSign,
   Link2,
   Unlink,
   CheckCircle2,
@@ -32,7 +34,9 @@ interface AccountCardProps {
 }
 
 /* ───────── Platform Config ───────── */
-const PLATFORM_CONFIG: Record<PlatformKey, { icon: typeof Camera; color: string; bgColor: string; borderColor: string; label: string }> = {
+// Covers the full DB enum (6 platforms); the connect modal only offers the
+// subset with a working publish path.
+const PLATFORM_CONFIG: Record<string, { icon: typeof Camera; color: string; bgColor: string; borderColor: string; label: string }> = {
   instagram: {
     icon: Camera,
     color: "#EC4899",
@@ -60,6 +64,22 @@ const PLATFORM_CONFIG: Record<PlatformKey, { icon: typeof Camera; color: string;
     bgColor: "bg-sky-500/10",
     borderColor: "border-sky-500/20",
     label: "LinkedIn",
+  },
+  // Display-only entries for legacy DB rows — these platforms have no
+  // publish path yet, so they are NOT offered in the connect modal
+  tiktok: {
+    icon: Music,
+    color: "#22D3EE",
+    bgColor: "bg-cyan-500/10",
+    borderColor: "border-cyan-500/20",
+    label: "TikTok",
+  },
+  twitter: {
+    icon: AtSign,
+    color: "#94A3B8",
+    bgColor: "bg-slate-500/10",
+    borderColor: "border-slate-500/20",
+    label: "X / Twitter",
   },
 };
 

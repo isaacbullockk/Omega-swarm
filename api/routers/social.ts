@@ -105,6 +105,15 @@ export const socialRouter = router({
           accountName = me.name ?? accountName;
           handle = me.email ? me.email.split("@")[0] : handle;
         }
+        // Instagram publishing targets the IG Business Account ID — connecting
+        // without it would "succeed" but every publish would fail to resolve.
+        if (input.platform === "instagram" && !pageId) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message:
+              "Instagram publishing needs your Instagram Business Account ID (the numeric ID, findable via graph.facebook.com/me/accounts). Paste it in the Page/Account ID field.",
+          });
+        }
 
         // Check if account already exists for this user.
         // LinkedIn matches on the STABLE person URN (pageId) — the derived
@@ -330,8 +339,8 @@ export const socialRouter = router({
       };
     }),
 
-  /* ─── Buffer: Get connected profiles (public, no user data) ─── */
-  bufferProfiles: publicProcedure.query(async () => {
+  /* ─── Buffer: Get connected profiles (auth required) ─── */
+  bufferProfiles: authedProcedure.query(async () => {
     if (!BUFFER_API_KEY) return { error: "No Buffer API key", profiles: [] };
     try {
       const data = await bufferApi("profiles/profiles");
