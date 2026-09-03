@@ -195,7 +195,9 @@ export default function MemoryBank() {
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "confidence" | "title">("date");
-  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  // Per-card delete state: the MemoryCard call site passes
+  // `deletingId === memory.id`, so only the targeted card spins.
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // ── Real data: PostgreSQL via trpc.memory.* (replaces the old mock array) ──
   const utils = trpc.useUtils();
@@ -215,7 +217,7 @@ export default function MemoryBank() {
   });
   const deleteMemory = trpc.memory.delete.useMutation({
     onSuccess: () => utils.memory.list.invalidate(),
-    onSettled: () => setIsDeleting(null),
+    onSettled: () => setDeletingId(null),
   });
   const importBriefing = trpc.memory.bulkCreate.useMutation({
     onSuccess: (data) => {
@@ -272,7 +274,7 @@ export default function MemoryBank() {
   const activeCategoryInfo = CATEGORIES.find((c) => c.id === activeCategory) || CATEGORIES[0];
 
   const handleDelete = (id: string) => {
-    setIsDeleting(id);
+    setDeletingId(id);
     deleteMemory.mutate({ id });
   };
 
@@ -472,7 +474,7 @@ export default function MemoryBank() {
                   key={memory.id}
                   memory={memory}
                   onDelete={handleDelete}
-                  isDeleting={isDeleting === memory.id}
+                  isDeleting={deletingId === memory.id}
                 />
               ))}
             </>
