@@ -200,7 +200,19 @@ function isPrivateIp(ip: string): boolean {
   );
 }
 
-async function assertPublicImageUrl(imageUrl: string): Promise<void> {
+interface ResolvedPublicUrl {
+  url: URL;
+  ip: string;
+  family: 4 | 6;
+}
+
+/**
+ * Validate a public https URL AND resolve its hostname once, returning a
+ * pinned IP. Callers that download server-side MUST connect through the
+ * pinned IP (downloadPinned) — a bare check followed by a fresh fetch()
+ * re-resolves DNS and is bypassable by DNS rebinding (TOCTOU).
+ */
+async function resolvePublicHttpsUrl(imageUrl: string): Promise<ResolvedPublicUrl> {
   let u: URL;
   try {
     u = new URL(imageUrl);
@@ -214,8 +226,6 @@ async function assertPublicImageUrl(imageUrl: string): Promise<void> {
   if (h === "localhost" || h.endsWith(".local") || h.endsWith(".internal") || isPrivateIp(h)) {
     throw new Error("Image URL points at a private/internal address — refused");
   }
-  // DNS-rebinding defense: resolve the hostname and validate EVERY returned
-  // IP — a hostname check alone can be bypassed by rebinding to 127.0.0.1.
   const { lookup } = await import("node:dns/promises");
   const addrs = await lookup(h, { all: true }).catch(() => {
     throw new Error("Image URL hostname does not resolve");
@@ -223,6 +233,71 @@ async function assertPublicImageUrl(imageUrl: string): Promise<void> {
   if (addrs.length === 0 || addrs.some((a) => isPrivateIp(a.address))) {
     throw new Error("Image URL resolves to a private/internal address — refused");
   }
+  return { url: u, ip: addrs[0].address, family: addrs[0].family as 4 | 6 };
+}
+
+/** Check-only validation (Instagram/Facebook: Meta fetches the URL, we don't). */
+async function assertPublicImageUrl(imageUrl: string): Promise<void> {
+  await resolvePublicHttpsUrl(imageUrl);
+}
+
+/**
+ * Download over a connection PINNED to the pre-validated IP (custom DNS
+ * lookup) — closes the check/use DNS-rebinding window. No redirects (a
+ * redirect target would be unvalidated), hard byte cap, hard timeout.
+ */
+function downloadPinned(target: ResolvedPublicUrl, timeoutMs: number, maxBytes: number): Promise<Buffer> {
+  return new Promise((resolvePromise, rejectPromise) => {
+    import("node:https").then((https) => {
+      const req = https.request(
+        {
+          hostname: target.url.hostname, // SNI/Host stay the real hostname
+          path: target.url.pathname + target.url.search,
+          port: 443,
+          method: "GET",
+          // TOCTOU defense: dial only the IP we already validated
+          lookup: (_hostname, _opts, cb) => cb(null, target.ip, target.family),
+          timeout: timeoutMs,
+          headers: { "User-Agent": "OmegaSwarm/5.1 (+https://ndeku.com)" },
+        },
+        (res) => {
+          const status = res.statusCode ?? 0;
+          if (status >= 300 && status < 400) {
+            res.resume();
+            rejectPromise(new Error(`redirect refused (HTTP ${status})`));
+            return;
+          }
+          if (status !== 200) {
+            res.resume();
+            rejectPromise(new Error(`HTTP ${status}`));
+            return;
+          }
+          const declared = Number(res.headers["content-length"] ?? 0);
+          if (declared > maxBytes) {
+            req.destroy();
+            rejectPromise(new Error("image exceeds size limit"));
+            return;
+          }
+          const chunks: Buffer[] = [];
+          let total = 0;
+          res.on("data", (chunk: Buffer) => {
+            total += chunk.length;
+            if (total > maxBytes) {
+              req.destroy();
+              rejectPromise(new Error("image exceeds size limit"));
+              return;
+            }
+            chunks.push(chunk);
+          });
+          res.on("end", () => resolvePromise(Buffer.concat(chunks, total)));
+          res.on("error", rejectPromise);
+        }
+      );
+      req.on("timeout", () => req.destroy(new Error(`download timed out (${timeoutMs / 1000}s)`)));
+      req.on("error", rejectPromise);
+      req.end();
+    }).catch(rejectPromise);
+  });
 }
 
 /* ─── LinkedIn ─── */
@@ -275,44 +350,15 @@ async function publishLinkedIn(
       return { success: false, platform: "linkedin", error: "LinkedIn image posts need a public image URL (this post's image is not web-hosted)." };
     }
     // 1. Download the image (LinkedIn requires binary upload, not a URL).
-    //    SSRF-guarded (public https only), 15s timeout, 10MB cap.
-    await assertPublicImageUrl(imageUrl);
+    //    DNS resolved once, connection PINNED to the validated IP (no TOCTOU
+    //    rebinding window), no redirects, 15s timeout, 10MB cap.
     const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // LinkedIn image upload limit
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
     let imgBytes: Buffer;
     try {
-      const imgRes = await fetch(imageUrl, { signal: controller.signal });
-      if (!imgRes.ok) {
-        return { success: false, platform: "linkedin", error: `Could not download image for LinkedIn upload (HTTP ${imgRes.status})` };
-      }
-      // Pre-check Content-Length, then stream with a hard cap — never buffer
-      // an unbounded response into memory
-      const declared = Number(imgRes.headers.get("content-length") ?? 0);
-      if (declared > MAX_IMAGE_BYTES) {
-        controller.abort();
-        return { success: false, platform: "linkedin", error: "Image exceeds LinkedIn's 10MB upload limit" };
-      }
-      const chunks: Buffer[] = [];
-      let total = 0;
-      const reader = (imgRes.body as unknown as ReadableStream<Uint8Array>).getReader();
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        total += value.byteLength;
-        if (total > MAX_IMAGE_BYTES) {
-          controller.abort();
-          return { success: false, platform: "linkedin", error: "Image exceeds LinkedIn's 10MB upload limit" };
-        }
-        chunks.push(Buffer.from(value));
-      }
-      imgBytes = Buffer.concat(chunks, total);
+      const resolved = await resolvePublicHttpsUrl(imageUrl);
+      imgBytes = await downloadPinned(resolved, 15000, MAX_IMAGE_BYTES);
     } catch (err) {
-      if ((err as Error).message?.includes("10MB")) throw err;
-      const reason = (err as Error).name === "AbortError" ? "image download timed out (15s)" : (err as Error).message;
-      return { success: false, platform: "linkedin", error: `Could not download image for LinkedIn upload: ${reason}` };
-    } finally {
-      clearTimeout(timeoutId);
+      return { success: false, platform: "linkedin", error: `Could not download image for LinkedIn upload: ${(err as Error).message}` };
     }
 
     // 2. Register the upload
