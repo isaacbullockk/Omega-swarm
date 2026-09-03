@@ -188,7 +188,10 @@ const MIGRATIONS = [
   `ALTER TABLE generated_videos ADD COLUMN IF NOT EXISTS provider VARCHAR(50);`,
   `ALTER TABLE generated_videos ALTER COLUMN video_url DROP NOT NULL;`,
   `ALTER TABLE generated_videos ALTER COLUMN video_url SET DEFAULT '';`,
-  `ALTER TABLE generated_videos ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'ready';`,
+  // Use the video_status enum type (matches db/schema.ts) — not VARCHAR —
+  // so upgraded databases get the same type safety as fresh ones.
+  // (Pre-existing VARCHAR columns are left as-is: IF NOT EXISTS is a no-op.)
+  `ALTER TABLE generated_videos ADD COLUMN IF NOT EXISTS status video_status NOT NULL DEFAULT 'ready';`,
   `ALTER TABLE generated_videos ALTER COLUMN status SET DEFAULT 'ready';`,
   `ALTER TABLE generated_videos ADD COLUMN IF NOT EXISTS date TIMESTAMPTZ DEFAULT NOW();`,
   `ALTER TABLE generated_videos ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`,

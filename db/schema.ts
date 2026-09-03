@@ -334,7 +334,9 @@ export const generatedVideos = pgTable(
     clientId: uuid("client_id").references(() => clients.id, { onDelete: "cascade" }),
     title: varchar("title", { length: 255 }).notNull(),
     prompt: text("prompt").notNull(),
-    videoUrl: text("video_url").notNull(),
+    // Nullable-with-default matches migrate.ts (DROP NOT NULL / SET DEFAULT '')
+    // — rows are inserted with "" while generating, filled on completion
+    videoUrl: text("video_url").default(""),
     thumbnailUrl: text("thumbnail_url"),
     duration: integer("duration").notNull().default(0),
     aspectRatio: varchar("aspect_ratio", { length: 10 }).notNull().default("16:9"),
