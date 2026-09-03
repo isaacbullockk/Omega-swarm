@@ -128,7 +128,8 @@ export const socialRouter = router({
             .set({
               connected: true,
               accessToken: encryptToken(input.accessToken), // AES-256-GCM at rest
-              pageId: input.pageId ?? null,
+              pageId, // derived (LinkedIn person URN) or input.pageId
+              accountName,
               connectedAt: new Date(),
             })
             .where(eq(socialAccounts.id, existing[0].id))
