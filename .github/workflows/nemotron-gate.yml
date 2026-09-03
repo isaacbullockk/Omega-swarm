@@ -48,6 +48,7 @@ jobs:
 
       - name: Nemotron compliance review
         env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: node scripts/nemotron_gate.mjs
 

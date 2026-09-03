@@ -18,8 +18,28 @@
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
+// Provider priority: NVIDIA NIM direct (NVIDIA_API_KEY — no free-pool 429s,
+// first-party host for Nemotron) -> OpenRouter fallback.
+// Verified live 2026-08-31: integrate.api.nvidia.com hosts
+// nvidia/nemotron-3-ultra-550b-a55b, OpenAI-compatible /chat/completions.
+const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const MODEL = "nvidia/nemotron-3-ultra-550b-a55b";
+const PROVIDER = NVIDIA_API_KEY
+  ? {
+      name: "NVIDIA NIM",
+      url: "https://integrate.api.nvidia.com/v1/chat/completions",
+      key: NVIDIA_API_KEY,
+      model: "nvidia/nemotron-3-ultra-550b-a55b",
+      headers: {},
+    }
+  : {
+      name: "OpenRouter",
+      url: "https://openrouter.ai/api/v1/chat/completions",
+      key: OPENROUTER_API_KEY,
+      model: "nvidia/nemotron-3-ultra-550b-a55b",
+      headers: { "HTTP-Referer": "https://ndeku.com", "X-Title": "Omega Swarm CI Gate" },
+    };
+const MODEL = PROVIDER.model;
 const MAX_FILE_CHARS = 12000;
 const MAX_BUNDLE_CHARS = 70000;
 const SKIP_PATTERNS = /(^|\/)(dist|node_modules|\.github|uploads)\/|\.(png|jpg|jpeg|gif|webp|svg|ico|lock|map)$/;
@@ -51,40 +71,26 @@ async function callNemotron(messages, maxTokens = 16000) {
   // bundles legitimately take minutes; a short timeout would abort valid reviews
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 300000);
-  try {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const doFetch = () =>
+    fetch(PROVIDER.url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        "HTTP-Referer": "https://ndeku.com",
-        "X-Title": "Omega Swarm CI Gate",
+        Authorization: `Bearer ${PROVIDER.key}`,
+        ...PROVIDER.headers,
       },
       body: JSON.stringify({ model: MODEL, temperature: 0.0, max_tokens: maxTokens, messages }),
       signal: controller.signal,
     });
+  try {
+    const res = await doFetch();
     if (res.status === 429) {
-      // Free-pool congestion — retry once
-      const res2 = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-          "HTTP-Referer": "https://ndeku.com",
-          "X-Title": "Omega Swarm CI Gate",
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          temperature: 0.0,
-          max_tokens: maxTokens,
-          messages,
-        }),
-        signal: controller.signal,
-      });
-      if (!res2.ok) throw new Error(`OpenRouter retry failed: ${res2.status}`);
+      // Congestion (OpenRouter free pool or NIM rate limit) — retry once
+      const res2 = await doFetch();
+      if (!res2.ok) throw new Error(`${PROVIDER.name} retry failed: ${res2.status}`);
       return res2.json();
     }
-    if (!res.ok) throw new Error(`OpenRouter error: ${res.status}`);
+    if (!res.ok) throw new Error(`${PROVIDER.name} error: ${res.status}`);
     return res.json();
   } finally {
     clearTimeout(timeout);
@@ -92,10 +98,11 @@ async function callNemotron(messages, maxTokens = 16000) {
 }
 
 async function main() {
-  if (!OPENROUTER_API_KEY) {
-    console.error("GATE ERROR: OPENROUTER_API_KEY secret not set in CI");
+  if (!NVIDIA_API_KEY && !OPENROUTER_API_KEY) {
+    console.error("GATE ERROR: set NVIDIA_API_KEY (preferred) or OPENROUTER_API_KEY as a CI secret");
     process.exit(1);
   }
+  console.log(`[GATE] Provider: ${PROVIDER.name} (${MODEL})`);
 
   const files = changedFiles();
   console.log(`[GATE] Changed source files: ${files.length}`);
