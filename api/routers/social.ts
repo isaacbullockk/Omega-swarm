@@ -107,17 +107,24 @@ export const socialRouter = router({
         }
 
         // Check if account already exists for this user.
-        // Match on the DERIVED handle (LinkedIn handle comes from the token,
-        // not the form) so a reconnect updates instead of duplicating.
+        // LinkedIn matches on the STABLE person URN (pageId) — the derived
+        // handle can change (e.g. once the email scope is granted) and would
+        // cause duplicate rows. Other platforms match on the form handle.
         const existing = await db!
           .select()
           .from(socialAccounts)
           .where(
-            and(
-              eq(socialAccounts.userId, ctx.user.id),
-              eq(socialAccounts.handle, handle),
-              eq(socialAccounts.platform, input.platform)
-            )
+            input.platform === "linkedin" && pageId
+              ? and(
+                  eq(socialAccounts.userId, ctx.user.id),
+                  eq(socialAccounts.pageId, pageId),
+                  eq(socialAccounts.platform, "linkedin")
+                )
+              : and(
+                  eq(socialAccounts.userId, ctx.user.id),
+                  eq(socialAccounts.handle, handle),
+                  eq(socialAccounts.platform, input.platform)
+                )
           )
           .limit(1);
 

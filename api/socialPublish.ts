@@ -174,7 +174,21 @@ async function publishFacebook(
  * Only plain public https URLs — no localhost, private ranges, link-local,
  * cloud metadata endpoints, or non-http schemes.
  */
-function assertPublicImageUrl(imageUrl: string): void {
+function isPrivateIp(ip: string): boolean {
+  return (
+    ip === "127.0.0.1" || ip.startsWith("127.") ||
+    ip === "0.0.0.0" ||
+    ip.startsWith("10.") ||
+    ip.startsWith("192.168.") ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(ip) ||
+    ip.startsWith("169.254.") || // link-local + cloud metadata
+    ip === "::1" || ip === "::" ||
+    ip.toLowerCase().startsWith("fc") || ip.toLowerCase().startsWith("fd") || // IPv6 ULA
+    ip.toLowerCase().startsWith("fe80") // IPv6 link-local
+  );
+}
+
+async function assertPublicImageUrl(imageUrl: string): Promise<void> {
   let u: URL;
   try {
     u = new URL(imageUrl);
@@ -185,20 +199,17 @@ function assertPublicImageUrl(imageUrl: string): void {
     throw new Error("Image URL must be https");
   }
   const h = u.hostname.toLowerCase();
-  const blocked =
-    h === "localhost" ||
-    h.endsWith(".local") ||
-    h.endsWith(".internal") ||
-    h === "169.254.169.254" || // cloud metadata
-    /^10\./.test(h) ||
-    /^192\.168\./.test(h) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
-    /^127\./.test(h) ||
-    h === "0.0.0.0" ||
-    h === "::1" ||
-    h.startsWith("169.254.");
-  if (blocked) {
+  if (h === "localhost" || h.endsWith(".local") || h.endsWith(".internal") || isPrivateIp(h)) {
     throw new Error("Image URL points at a private/internal address — refused");
+  }
+  // DNS-rebinding defense: resolve the hostname and validate EVERY returned
+  // IP — a hostname check alone can be bypassed by rebinding to 127.0.0.1.
+  const { lookup } = await import("node:dns/promises");
+  const addrs = await lookup(h, { all: true }).catch(() => {
+    throw new Error("Image URL hostname does not resolve");
+  });
+  if (addrs.length === 0 || addrs.some((a) => isPrivateIp(a.address))) {
+    throw new Error("Image URL resolves to a private/internal address — refused");
   }
 }
 
@@ -251,7 +262,8 @@ async function publishLinkedIn(
     }
     // 1. Download the image (LinkedIn requires binary upload, not a URL).
     //    SSRF-guarded (public https only), 15s timeout, 10MB cap.
-    assertPublicImageUrl(imageUrl);
+    await assertPublicImageUrl(imageUrl);
+    const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // LinkedIn image upload limit
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
     let imgBytes: Buffer;
@@ -260,15 +272,33 @@ async function publishLinkedIn(
       if (!imgRes.ok) {
         return { success: false, platform: "linkedin", error: `Could not download image for LinkedIn upload (HTTP ${imgRes.status})` };
       }
-      imgBytes = Buffer.from(await imgRes.arrayBuffer());
+      // Pre-check Content-Length, then stream with a hard cap — never buffer
+      // an unbounded response into memory
+      const declared = Number(imgRes.headers.get("content-length") ?? 0);
+      if (declared > MAX_IMAGE_BYTES) {
+        controller.abort();
+        return { success: false, platform: "linkedin", error: "Image exceeds LinkedIn's 10MB upload limit" };
+      }
+      const chunks: Buffer[] = [];
+      let total = 0;
+      const reader = (imgRes.body as unknown as ReadableStream<Uint8Array>).getReader();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > MAX_IMAGE_BYTES) {
+          controller.abort();
+          return { success: false, platform: "linkedin", error: "Image exceeds LinkedIn's 10MB upload limit" };
+        }
+        chunks.push(Buffer.from(value));
+      }
+      imgBytes = Buffer.concat(chunks, total);
     } catch (err) {
+      if ((err as Error).message?.includes("10MB")) throw err;
       const reason = (err as Error).name === "AbortError" ? "image download timed out (15s)" : (err as Error).message;
       return { success: false, platform: "linkedin", error: `Could not download image for LinkedIn upload: ${reason}` };
     } finally {
       clearTimeout(timeoutId);
-    }
-    if (imgBytes.byteLength > 10 * 1024 * 1024) {
-      return { success: false, platform: "linkedin", error: "Image exceeds LinkedIn's 10MB upload limit" };
     }
 
     // 2. Register the upload

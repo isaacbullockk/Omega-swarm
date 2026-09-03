@@ -187,7 +187,8 @@ function ConnectModal({ defaultPlatform, onClose }: { defaultPlatform: PlatformK
         </div>
 
         <div className="flex gap-2">
-          {(Object.keys(PLATFORM_CONFIG) as PlatformKey[]).map((p) => {
+          {/* Only platforms with a real publish path are offered (YouTube is display-only until its integration ships) */}
+          {(["linkedin", "instagram", "facebook"] as PlatformKey[]).map((p) => {
             const cfg = PLATFORM_CONFIG[p];
             const Icon = cfg.icon;
             return (
