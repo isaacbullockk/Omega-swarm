@@ -90,7 +90,10 @@ export async function startVideoTask(params: {
   const duration = Math.max(2, Math.min(10, Math.round(params.duration)));
   const ratio = toRunwayRatio(params.aspectRatio);
 
-  const isImageToVideo = !!params.startImageUrl && !params.startImageUrl.startsWith("data:");
+  // Runway accepts BOTH https URLs and data URIs (data:image/png;base64,...)
+  // for promptImage — so user-uploaded library assets (stored as data URLs)
+  // work as first frames too.
+  const isImageToVideo = !!params.startImageUrl;
   const endpoint = isImageToVideo ? `${RUNWAY_BASE}/image_to_video` : `${RUNWAY_BASE}/text_to_video`;
 
   const body: Record<string, unknown> = {

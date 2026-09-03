@@ -193,6 +193,7 @@ const MIGRATIONS = [
   `ALTER TABLE generated_videos ADD COLUMN IF NOT EXISTS date TIMESTAMPTZ DEFAULT NOW();`,
   `ALTER TABLE generated_videos ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`,
   `ALTER TABLE generated_videos ADD COLUMN IF NOT EXISTS task_id TEXT;`,
+  `ALTER TABLE generated_videos ADD COLUMN IF NOT EXISTS failure_reason TEXT;`,
   // Defensive coverage for other pre-existing tables
   `ALTER TABLE brand_voices ADD COLUMN IF NOT EXISTS samples JSONB NOT NULL DEFAULT '[]'::jsonb;`,
   `ALTER TABLE brand_voices ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`,

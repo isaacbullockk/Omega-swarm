@@ -54,6 +54,7 @@ interface ContentItem {
   imageUrl?: string;
   thumbnailUrl?: string;
   videoUrl?: string;
+  failureReason?: string;
   instagramPostId?: string;
   duration?: number;
   likes?: number;
@@ -418,14 +419,20 @@ function ContentCard({ item, onView, onDelete, index }: {
               <Video className="size-12 opacity-20" style={{ color: config.color }} />
             )}
             {item.status === "generating" ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/50">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/50 px-3 text-center">
                 <Loader2 className="size-8 animate-spin" style={{ color: "#A855F7" }} />
                 <span className="text-[11px] font-bold" style={{ color: "var(--text-secondary)" }}>Rendering… ~1–2 min</span>
+                {item.failureReason && (
+                  <span className="text-[10px] leading-snug" style={{ color: "var(--text-muted)" }}>{item.failureReason}</span>
+                )}
               </div>
             ) : item.status === "failed" ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/50">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/50 px-3 text-center">
                 <X className="size-8" style={{ color: "#EF4444" }} />
                 <span className="text-[11px] font-bold" style={{ color: "#EF4444" }}>Render failed — delete & retry</span>
+                {item.failureReason && (
+                  <span className="text-[10px] leading-snug" style={{ color: "#FCA5A5" }}>{item.failureReason}</span>
+                )}
               </div>
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">
@@ -996,6 +1003,10 @@ export default function ContentLibrary() {
   // Runway for the result and writes the final video_url, then we invalidate
   // the list so the card flips from "Generating" to a playable video.
   const refreshVideos = trpc.video.refresh.useMutation({
+    onError: (err) => {
+      // A failed refresh must never silently freeze the "Rendering…" state
+      addToast(`Video status check failed: ${err.message}`, "error");
+    },
     onSuccess: (data) => {
       if ((data?.updated ?? 0) > 0 || (data?.failed ?? 0) > 0) {
         utils.video.list.invalidate();
@@ -1048,6 +1059,7 @@ export default function ContentLibrary() {
           date: v.date,
           videoUrl: v.videoUrl ?? undefined,
           thumbnailUrl: v.thumbnailUrl ?? undefined,
+          failureReason: v.failureReason ?? undefined,
           duration: v.duration ?? undefined,
         });
       }

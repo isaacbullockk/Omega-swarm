@@ -79,8 +79,10 @@ export const videoRouter = router({
           enrichedPrompt = `${input.prompt}. Style inspired by: ${refDesc}`;
         }
 
-        // 2. Optional first-frame image (public URL only — data URLs unsupported)
-        const startImage = input.referenceAssets.find((a) => a.url)?.url;
+        // 2. Optional first-frame image — Runway accepts https URLs AND data
+        // URIs for promptImage, so uploaded library assets (dataUrl) work too
+        const startAsset = input.referenceAssets.find((a) => a.url || a.dataUrl);
+        const startImage = startAsset?.url || startAsset?.dataUrl;
 
         // 3. Start the Runway task
         const model = input.model === "audio" ? RUNWAY_MODELS.AUDIO : RUNWAY_MODELS.QUALITY;
@@ -156,14 +158,22 @@ export const videoRouter = router({
     let stillGenerating = 0;
     let failed = 0;
 
+    // Stuck-task timeout: Runway renders in ~1–2 min. If a task is still
+    // "generating" after 30 minutes it is never coming back (abandoned queue,
+    // exhausted plan quota, dead task) — mark it failed with the last known
+    // reason instead of spinning "Rendering…" in the UI forever.
+    const STUCK_TIMEOUT_MS = 30 * 60 * 1000;
+
     // Poll with limited concurrency (4 at a time) — sequential polling is too
     // slow for users with many rendering videos
     async function pollOne(video: (typeof generating)[number]): Promise<void> {
+      const ageMs = Date.now() - new Date(video.createdAt).getTime();
+
       if (!video.taskId) {
         // Legacy row without a task id — mark failed so it stops polling
         await db!
           .update(generatedVideos)
-          .set({ status: "failed" })
+          .set({ status: "failed", failureReason: "No provider task id recorded (legacy row)" })
           .where(eq(generatedVideos.id, video.id));
         failed++;
         return;
@@ -173,7 +183,7 @@ export const videoRouter = router({
         if (task.status === "SUCCEEDED" && task.output?.[0]) {
           await db!
             .update(generatedVideos)
-            .set({ status: "ready", videoUrl: task.output[0] })
+            .set({ status: "ready", videoUrl: task.output[0], failureReason: null })
             .where(eq(generatedVideos.id, video.id));
           updated++;
 
@@ -187,21 +197,60 @@ export const videoRouter = router({
             agentName: "Vision",
           });
         } else if (task.status === "FAILED" || task.status === "CANCELLED") {
+          const reason = task.failure || task.failureCode || `Runway task ${task.status.toLowerCase()}`;
           await db!
             .update(generatedVideos)
-            .set({ status: "failed" })
+            .set({ status: "failed", failureReason: reason })
             .where(eq(generatedVideos.id, video.id));
           failed++;
-          console.warn(`[Video] Task ${video.taskId} failed:`, task.failure ?? task.failureCode);
+          console.warn(`[Video] Task ${video.taskId} failed:`, reason);
         } else {
           // PENDING / RUNNING / THROTTLED — still in the queue
+          if (ageMs > STUCK_TIMEOUT_MS) {
+            await db!
+              .update(generatedVideos)
+              .set({
+                status: "failed",
+                failureReason: `Timed out after 30 min (last Runway status: ${task.status}). This usually means the Runway plan is out of credits or over its concurrency limit.`,
+              })
+              .where(eq(generatedVideos.id, video.id));
+            failed++;
+            console.warn(`[Video] Task ${video.taskId} stuck in ${task.status} for 30+ min — marked failed`);
+            return;
+          }
+          // Record the live provider status so the UI can show WHY it waits
+          const note =
+            task.status === "THROTTLED"
+              ? "Runway queue full — waiting for a slot (plan concurrency limit). It will start automatically."
+              : `Runway status: ${task.status.toLowerCase()}`;
+          if (video.failureReason !== note) {
+            await db!
+              .update(generatedVideos)
+              .set({ failureReason: note })
+              .where(eq(generatedVideos.id, video.id));
+          }
           if (task.status === "THROTTLED") {
             console.warn(`[Video] Task ${video.taskId} throttled by Runway (rate/tier limit)`);
           }
           stillGenerating++;
         }
       } catch (err) {
-        console.error(`[Video] Poll error for ${video.taskId}:`, (err as Error).message);
+        const msg = (err as Error).message;
+        console.error(`[Video] Poll error for ${video.taskId}:`, msg);
+        if (ageMs > STUCK_TIMEOUT_MS) {
+          await db!
+            .update(generatedVideos)
+            .set({ status: "failed", failureReason: `Polling failed for 30+ min: ${msg.slice(0, 300)}` })
+            .where(eq(generatedVideos.id, video.id));
+          failed++;
+          return;
+        }
+        if (video.failureReason !== msg) {
+          await db!
+            .update(generatedVideos)
+            .set({ failureReason: `Poll error (retrying): ${msg.slice(0, 300)}` })
+            .where(eq(generatedVideos.id, video.id));
+        }
         stillGenerating++;
       }
     }

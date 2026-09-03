@@ -341,6 +341,9 @@ export const generatedVideos = pgTable(
     provider: varchar("provider", { length: 50 }).notNull().default("pollinations"), // runway, pollinations, kling
     taskId: text("task_id"), // provider-side async task id (Runway)
     status: videoStatusEnum("status").notNull().default("ready"),
+    // Last known provider status/failure detail — surfaced in the UI so a
+    // stuck or failed render is never a silent mystery ("Rendering…" forever)
+    failureReason: text("failure_reason"),
     date: timestamp("date", { withTimezone: true }).notNull().defaultNow(),
     referenceAssets: jsonb("reference_assets").$type<
       Array<{ name: string; url?: string; dataUrl?: string; description?: string }>
