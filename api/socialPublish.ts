@@ -169,6 +169,39 @@ async function publishFacebook(
   return { success: true, platform: "facebook", postId };
 }
 
+/**
+ * SSRF guard for server-side image downloads (LinkedIn binary upload).
+ * Only plain public https URLs — no localhost, private ranges, link-local,
+ * cloud metadata endpoints, or non-http schemes.
+ */
+function assertPublicImageUrl(imageUrl: string): void {
+  let u: URL;
+  try {
+    u = new URL(imageUrl);
+  } catch {
+    throw new Error("Image URL is not a valid URL");
+  }
+  if (u.protocol !== "https:") {
+    throw new Error("Image URL must be https");
+  }
+  const h = u.hostname.toLowerCase();
+  const blocked =
+    h === "localhost" ||
+    h.endsWith(".local") ||
+    h.endsWith(".internal") ||
+    h === "169.254.169.254" || // cloud metadata
+    /^10\./.test(h) ||
+    /^192\.168\./.test(h) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
+    /^127\./.test(h) ||
+    h === "0.0.0.0" ||
+    h === "::1" ||
+    h.startsWith("169.254.");
+  if (blocked) {
+    throw new Error("Image URL points at a private/internal address — refused");
+  }
+}
+
 /* ─── LinkedIn ─── */
 
 const LINKEDIN_VERSION = process.env.LINKEDIN_API_VERSION ?? "202506";
@@ -216,7 +249,9 @@ async function publishLinkedIn(
     if (!/^https?:\/\//.test(imageUrl)) {
       return { success: false, platform: "linkedin", error: "LinkedIn image posts need a public image URL (this post's image is not web-hosted)." };
     }
-    // 1. Download the image (LinkedIn requires binary upload, not a URL)
+    // 1. Download the image (LinkedIn requires binary upload, not a URL).
+    //    SSRF-guarded: public https hosts only.
+    assertPublicImageUrl(imageUrl);
     const imgRes = await fetch(imageUrl);
     if (!imgRes.ok) {
       return { success: false, platform: "linkedin", error: `Could not download image for LinkedIn upload (HTTP ${imgRes.status})` };

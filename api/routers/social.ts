@@ -33,7 +33,15 @@ async function bufferApi(
       body: body ? JSON.stringify(body) : undefined,
     }
   );
-  return res.json();
+  const data = await res.json().catch(() => ({}));
+  // Buffer signals some failures with HTTP 200 + an error field — check both
+  if (!res.ok) {
+    throw new Error(`Buffer API HTTP ${res.status}: ${JSON.stringify(data).slice(0, 200)}`);
+  }
+  if (data && typeof data === "object" && (data.error || data.success === false)) {
+    throw new Error(`Buffer API error: ${String(data.error ?? "request failed").slice(0, 200)}`);
+  }
+  return data;
 }
 
 /* ─── Zod Schemas ─── */
@@ -98,14 +106,16 @@ export const socialRouter = router({
           handle = me.email ? me.email.split("@")[0] : handle;
         }
 
-        // Check if account already exists for this user
+        // Check if account already exists for this user.
+        // Match on the DERIVED handle (LinkedIn handle comes from the token,
+        // not the form) so a reconnect updates instead of duplicating.
         const existing = await db!
           .select()
           .from(socialAccounts)
           .where(
             and(
               eq(socialAccounts.userId, ctx.user.id),
-              eq(socialAccounts.handle, input.handle),
+              eq(socialAccounts.handle, handle),
               eq(socialAccounts.platform, input.platform)
             )
           )
