@@ -228,9 +228,11 @@ function ConnectModal({ defaultPlatform, onClose }: { defaultPlatform: PlatformK
 
         {platform === "linkedin" && (
           <p className="text-[11px] leading-relaxed rounded-lg p-3" style={{ background: "#0A66C215", color: "#7AB8F5" }}>
-            LinkedIn: create an app at developer.linkedin.com, request the scopes
-            <strong> openid, profile, w_member_social</strong>, generate a token, paste it below.
-            Your person URN is derived automatically.
+            LinkedIn: create an app at developer.linkedin.com, add the products
+            <strong> Sign In with LinkedIn using OpenID Connect</strong> and
+            <strong> Share on LinkedIn</strong> (scopes: openid, profile, email,
+            w_member_social), generate a token, paste it below. Tokens last ~60
+            days and cannot be refreshed — reconnect when one expires.
           </p>
         )}
         {platform === "instagram" && (

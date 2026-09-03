@@ -22,6 +22,9 @@ async function bufferApi(
   method = "GET",
   body?: Record<string, unknown>
 ) {
+  if (!BUFFER_API_KEY) {
+    throw new Error("BUFFER_API_KEY not configured");
+  }
   const res = await fetch(
     `https://api.bufferapp.com/1/${path}.json`,
     {
@@ -98,7 +101,7 @@ export const socialRouter = router({
             throw new TRPCError({
               code: "BAD_REQUEST",
               message:
-                "LinkedIn rejected this token. Create one with openid, profile and w_member_social scopes (LinkedIn Developer Portal → your app → Auth).",
+                "LinkedIn rejected this token. Create one with openid, profile, email and w_member_social scopes (LinkedIn Developer Portal → your app → Auth).",
             });
           }
           pageId = `urn:li:person:${me.sub}`;

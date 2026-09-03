@@ -96,6 +96,11 @@ async function publishInstagram(
   if (!/^https?:\/\//.test(imageUrl)) {
     return { success: false, platform: "instagram", error: "Instagram publishing requires a public image URL (this post's image is not web-hosted). Regenerate the post or use a hosted image." };
   }
+  try {
+    await assertPublicImageUrl(imageUrl);
+  } catch (err) {
+    return { success: false, platform: "instagram", error: `Image URL rejected: ${(err as Error).message}` };
+  }
   const base = `${GRAPH_BASE}/${target.accountId}`;
 
   // Step 1: create media container (token in POST body, never in URL)
@@ -143,6 +148,13 @@ async function publishFacebook(
 ): Promise<PublishResult> {
   if (imageUrl && !/^https?:\/\//.test(imageUrl)) {
     return { success: false, platform: "facebook", error: "Facebook photo publishing requires a public image URL (this post's image is not web-hosted). Regenerate the post or use a hosted image." };
+  }
+  if (imageUrl) {
+    try {
+      await assertPublicImageUrl(imageUrl);
+    } catch (err) {
+      return { success: false, platform: "facebook", error: `Image URL rejected: ${(err as Error).message}` };
+    }
   }
   const endpoint = imageUrl ? `${GRAPH_BASE}/${target.accountId}/photos` : `${GRAPH_BASE}/${target.accountId}/feed`;
 
@@ -215,7 +227,9 @@ async function assertPublicImageUrl(imageUrl: string): Promise<void> {
 
 /* ─── LinkedIn ─── */
 
-const LINKEDIN_VERSION = process.env.LINKEDIN_API_VERSION ?? "202506";
+// LinkedIn monthly API versions are supported for ~1-2 years then sunset.
+// 202608 = August 2026 (current). Override via LINKEDIN_API_VERSION in Railway.
+const LINKEDIN_VERSION = process.env.LINKEDIN_API_VERSION ?? "202608";
 
 function linkedinHeaders(token: string): Record<string, string> {
   return {
