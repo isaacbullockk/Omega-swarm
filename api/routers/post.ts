@@ -399,6 +399,81 @@ export const postRouter = router({
       }
     }),
 
+  /* ─── Generate a content calendar: many scheduled drafts in one call ───
+     Each item becomes a real AI-written post (Memory Bank context included)
+     stored as status "scheduled" with `date` = planned publish moment.
+     Nothing auto-publishes — the user reviews and publishes each post. */
+  generateCalendar: rateLimitedProcedure
+    .input(
+      z.object({
+        items: z
+          .array(
+            z.object({
+              date: z.string().datetime({ offset: true }).or(z.string().regex(/^\d{4}-\d{2}-\d{2}/)),
+              topic: z.string().min(1).max(500),
+              brandVoice: z.string().max(255).optional(),
+              withImage: z.boolean().default(true),
+            })
+          )
+          .min(1)
+          .max(14),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!isPostgresAvailable() || !db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      }
+      const memoryContext = await getMemoryContext(ctx.user.id);
+
+      const created: Array<{ id: string; date: string; ok: boolean; error?: string }> = [];
+      for (const item of input.items) {
+        try {
+          const caption = await generateCaption(item.topic, item.brandVoice, memoryContext);
+          // Public Pollinations URL so a later IG publish can actually fetch it
+          const imageUrl = item.withImage
+            ? `https://image.pollinations.ai/prompt/${encodeURIComponent(
+                `Instagram post: ${item.topic}. Professional marketing visual.`
+              )}?width=1024&height=1024&nologo=true&seed=${Math.floor(Math.random() * 1000000)}`
+            : null;
+          const [row] = await db!
+            .insert(contentPosts)
+            .values({
+              userId: ctx.user.id,
+              clientId: null,
+              title: item.topic.slice(0, 255),
+              caption,
+              type: "social",
+              status: "scheduled",
+              date: new Date(item.date),
+              imageUrl,
+              instagramPostId: null,
+              likes: 0,
+              comments: 0,
+              views: 0,
+              referenceAssets: [],
+            })
+            .returning({ id: contentPosts.id });
+          created.push({ id: row.id, date: item.date, ok: true });
+        } catch (err) {
+          // One bad item must not kill the whole calendar
+          console.error("[Calendar] Item failed:", item.topic, (err as Error).message);
+          created.push({ id: "", date: item.date, ok: false, error: (err as Error).message });
+        }
+      }
+
+      await db!.insert(analyticsEvents).values({
+        userId: ctx.user.id,
+        clientId: null,
+        type: "ai_generation",
+        title: "Content calendar generated",
+        description: `${created.filter((c) => c.ok).length}/${input.items.length} scheduled posts created from content plan`,
+        agentColor: "#A855F7",
+        agentName: "Planner",
+      });
+
+      return { created, total: input.items.length, succeeded: created.filter((c) => c.ok).length };
+    }),
+
   /* ─── List all posts for the authenticated user ─── */
   list: authedProcedure.query(async ({ ctx }) => {
     if (!isPostgresAvailable()) return [];

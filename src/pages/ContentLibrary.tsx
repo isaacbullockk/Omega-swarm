@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { toast as sonnerToast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import { CALENDAR_PLAN } from "@/data/masterBriefing";
 import {
   Video, ImageIcon, Plus, X, Sparkles, Camera, Loader2,
   Calendar, Eye, Heart, Trash2, ExternalLink, Check,
@@ -960,6 +961,8 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
 export default function ContentLibrary() {
   const [tab, setTab] = useState<TabKey>("all");
   const [showCreate, setShowCreate] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calendarRows, setCalendarRows] = useState<Array<{ date: string; topic: string; selected: boolean }>>([]);
   const [search, setSearch] = useState("");
   const [viewedItem, setViewedItem] = useState<ContentItem | null>(null);
   const [deleteItem, setDeleteItem] = useState<ContentItem | null>(null);
@@ -990,6 +993,30 @@ export default function ContentLibrary() {
     onSuccess: () => { utils.asset.list.invalidate(); addToast("Asset deleted", "success"); setDeleteItem(null); },
     onError: (err) => { addToast(err.message, "error"); setDeleteItem(null); },
   });
+
+  // ── 2026 content calendar: batch-generate scheduled DRAFT posts ──
+  // Nothing auto-publishes. Each row becomes a real AI-written post
+  // (Memory Bank context included) with status "scheduled" for review.
+  const generateCalendar = trpc.post.generateCalendar.useMutation({
+    onSuccess: (data) => {
+      utils.post.list.invalidate();
+      utils.content.list.invalidate();
+      utils.analytics.invalidate();
+      setShowCalendar(false);
+      if (data.succeeded === data.total) {
+        addToast(`Calendar created: ${data.succeeded} scheduled drafts ready for review`, "success");
+      } else {
+        addToast(`Calendar created with ${data.succeeded}/${data.total} posts — ${data.total - data.succeeded} failed`, "error");
+      }
+    },
+    onError: (err) => addToast(`Calendar failed: ${err.message}`, "error"),
+  });
+
+  const openCalendar = () => {
+    // Prefill from the Master Briefing plan; user can edit or deselect rows
+    setCalendarRows(CALENDAR_PLAN.map((p) => ({ date: p.date.slice(0, 10), topic: p.topic, selected: true })));
+    setShowCalendar(true);
+  };
 
   // Force re-render every 10s for polling
   useEffect(() => {
@@ -1146,6 +1173,11 @@ export default function ContentLibrary() {
                 {brandVoice.name}
               </div>
             )}
+            <button onClick={openCalendar} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:scale-105"
+              style={{ background: "var(--bg-elevated)", color: "var(--text-primary)", border: "1px solid var(--border-subtle)" }}
+              title="Generate scheduled draft posts from the 2026 plan">
+              <Calendar className="size-4" /> 2026 Calendar
+            </button>
             <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:scale-105"
               style={{ background: "linear-gradient(135deg, #F59E0B, #F97316)", color: "#0C0A09" }}>
               <Plus className="size-4" /> Create Content
@@ -1303,6 +1335,61 @@ export default function ContentLibrary() {
 
       {/* ── Modals ── */}
       {showCreate && <CreateModal onClose={() => setShowCreate(false)} onCreated={() => {}} />}
+
+      {/* ── 2026 Content Calendar modal ── */}
+      {showCalendar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+          onClick={() => setShowCalendar(false)}>
+          <div className="w-full max-w-2xl rounded-2xl p-6 space-y-4 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}
+            style={{ background: "var(--bg-card-solid)", border: "1px solid var(--border-subtle)" }}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>2026 Content Calendar</h2>
+              <button type="button" onClick={() => setShowCalendar(false)} aria-label="Close">
+                <X className="size-5" style={{ color: "var(--text-muted)" }} />
+              </button>
+            </div>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              From the Master Briefing plan. Each selected row becomes a real AI-written post in Isaac's voice, saved as a scheduled draft. Nothing auto-publishes: you review, then publish.
+            </p>
+            <div className="space-y-2">
+              {calendarRows.map((row, i) => (
+                <div key={i} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)" }}>
+                  <input type="checkbox" checked={row.selected} className="mt-1.5"
+                    onChange={(e) => setCalendarRows((rows) => rows.map((r, j) => (j === i ? { ...r, selected: e.target.checked } : r)))} />
+                  <input type="date" value={row.date}
+                    onChange={(e) => setCalendarRows((rows) => rows.map((r, j) => (j === i ? { ...r, date: e.target.value } : r)))}
+                    className="px-2 py-1.5 rounded-lg text-xs focus:outline-none"
+                    style={{ background: "var(--bg-card-solid)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)" }} />
+                  <textarea value={row.topic} rows={2}
+                    onChange={(e) => setCalendarRows((rows) => rows.map((r, j) => (j === i ? { ...r, topic: e.target.value } : r)))}
+                    className="flex-1 px-3 py-1.5 rounded-lg text-xs resize-none focus:outline-none"
+                    style={{ background: "var(--bg-card-solid)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)" }} />
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setShowCalendar(false)}
+                className="flex-1 py-3 rounded-xl text-sm font-bold"
+                style={{ background: "var(--bg-elevated)", color: "var(--text-muted)" }}>
+                Cancel
+              </button>
+              <button type="button"
+                disabled={generateCalendar.isPending || calendarRows.every((r) => !r.selected)}
+                onClick={() =>
+                  generateCalendar.mutate({
+                    items: calendarRows
+                      .filter((r) => r.selected && r.topic.trim())
+                      .map((r) => ({ date: `${r.date}T09:00:00+02:00`, topic: r.topic.trim(), withImage: true })),
+                  })
+                }
+                className="flex-1 py-3 rounded-xl text-sm font-bold transition-all hover:scale-[1.02] disabled:opacity-50"
+                style={{ background: "linear-gradient(135deg, #F59E0B, #F97316)", color: "#0C0A09" }}>
+                {generateCalendar.isPending ? "Writing posts… (~1 min)" : `Generate ${calendarRows.filter((r) => r.selected).length} drafts`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {deleteItem && (
         <DeleteConfirmDialog

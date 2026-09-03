@@ -23,6 +23,7 @@ import {
   Inbox,
 } from "lucide-react";
 import { EmptyState, ErrorState, Spinner } from "@/components/states";
+import { BRIEFING_MEMORIES } from "@/data/masterBriefing";
 import { trpc } from "@/lib/trpc";
 
 /* ─────────────────────────── Types ─────────────────────────── */
@@ -216,6 +217,14 @@ export default function MemoryBank() {
     onSuccess: () => utils.memory.list.invalidate(),
     onSettled: () => setIsDeleting(null),
   });
+  const importBriefing = trpc.memory.bulkCreate.useMutation({
+    onSuccess: (data) => {
+      utils.memory.list.invalidate();
+      setImportMsg(`Briefing imported: ${data.created} entries now teach every agent.`);
+    },
+    onError: (err) => setImportMsg(`Import failed: ${err.message}`),
+  });
+  const [importMsg, setImportMsg] = useState<string | null>(null);
 
   const KNOWLEDGE_TYPES: MemoryEntry["type"][] = ["insight", "fact", "strategy", "feedback"];
   const ALL_TYPES: MemoryEntry["type"][] = [...KNOWLEDGE_TYPES, "win", "loss", "pattern"];
@@ -309,6 +318,25 @@ export default function MemoryBank() {
               {stats.total} entries
             </span>
             <button
+              onClick={() => {
+                setImportMsg(null);
+                importBriefing.mutate({
+                  entries: BRIEFING_MEMORIES.map((e) => ({ ...e, source: "master-briefing" })),
+                });
+              }}
+              disabled={importBriefing.isPending}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:scale-105 disabled:opacity-50"
+              style={{
+                background: "var(--bg-elevated)",
+                color: "var(--text-primary)",
+                border: "1px solid var(--border-subtle)",
+              }}
+              title="Import Isaac's Master Briefing: facts, voice rules, and the 2026 plan"
+            >
+              <Sparkles className="size-4" />
+              {importBriefing.isPending ? "Importing…" : "Import Master Briefing"}
+            </button>
+            <button
               onClick={() => setShowAdd(true)}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:scale-105"
               style={{
@@ -321,6 +349,19 @@ export default function MemoryBank() {
             </button>
           </div>
         </div>
+
+        {importMsg && (
+          <div
+            className="px-4 py-3 rounded-xl text-sm"
+            style={{
+              background: importMsg.startsWith("Import failed") ? "rgba(239,68,68,0.1)" : "rgba(34,197,94,0.1)",
+              color: importMsg.startsWith("Import failed") ? "#EF4444" : "#22C55E",
+              border: "1px solid var(--border-subtle)",
+            }}
+          >
+            {importMsg}
+          </div>
+        )}
 
         {/* ═══ Stats Row ═══ */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

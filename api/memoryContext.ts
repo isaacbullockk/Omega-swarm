@@ -14,8 +14,11 @@ import { db, isPostgresAvailable } from "../db/connection";
 import { memories } from "../db/schema";
 import { eq, desc } from "drizzle-orm";
 
-const MAX_ENTRIES = 8;
-const MAX_CHARS = 2000;
+// Raised from 8/2000: a full brand briefing (facts + voice rules + plan)
+// needs more room to actually steer the copywriter. Still capped so prompts
+// stay lean.
+const MAX_ENTRIES = 12;
+const MAX_CHARS = 3000;
 
 export async function getMemoryContext(userId: string): Promise<string> {
   if (!isPostgresAvailable() || !db) return "";

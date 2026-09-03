@@ -73,6 +73,31 @@ export const memoryRouter = router({
       return row;
     }),
 
+  /* ─── Bulk create (one-click briefing import — teach the swarm at once) ─── */
+  bulkCreate: authedProcedure
+    .input(z.object({ entries: z.array(createSchema).min(1).max(50) }))
+    .mutation(async ({ ctx, input }) => {
+      if (!isPostgresAvailable() || !db) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      }
+      const rows = await db
+        .insert(memories)
+        .values(
+          input.entries.map((e) => ({
+            userId: ctx.user.id,
+            clientId: e.clientId ?? null,
+            title: e.title,
+            content: e.content,
+            type: e.type,
+            tags: e.tags,
+            source: e.source,
+            confidence: 90,
+          }))
+        )
+        .returning({ id: memories.id });
+      return { created: rows.length };
+    }),
+
   /* ─── Delete a memory (ownership-checked) ─── */
   delete: authedProcedure
     .input(z.object({ id: z.string().uuid() }))
