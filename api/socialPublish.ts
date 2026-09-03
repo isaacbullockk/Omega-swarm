@@ -250,13 +250,26 @@ async function publishLinkedIn(
       return { success: false, platform: "linkedin", error: "LinkedIn image posts need a public image URL (this post's image is not web-hosted)." };
     }
     // 1. Download the image (LinkedIn requires binary upload, not a URL).
-    //    SSRF-guarded: public https hosts only.
+    //    SSRF-guarded (public https only), 15s timeout, 10MB cap.
     assertPublicImageUrl(imageUrl);
-    const imgRes = await fetch(imageUrl);
-    if (!imgRes.ok) {
-      return { success: false, platform: "linkedin", error: `Could not download image for LinkedIn upload (HTTP ${imgRes.status})` };
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    let imgBytes: Buffer;
+    try {
+      const imgRes = await fetch(imageUrl, { signal: controller.signal });
+      if (!imgRes.ok) {
+        return { success: false, platform: "linkedin", error: `Could not download image for LinkedIn upload (HTTP ${imgRes.status})` };
+      }
+      imgBytes = Buffer.from(await imgRes.arrayBuffer());
+    } catch (err) {
+      const reason = (err as Error).name === "AbortError" ? "image download timed out (15s)" : (err as Error).message;
+      return { success: false, platform: "linkedin", error: `Could not download image for LinkedIn upload: ${reason}` };
+    } finally {
+      clearTimeout(timeoutId);
     }
-    const imgBytes = Buffer.from(await imgRes.arrayBuffer());
+    if (imgBytes.byteLength > 10 * 1024 * 1024) {
+      return { success: false, platform: "linkedin", error: "Image exceeds LinkedIn's 10MB upload limit" };
+    }
 
     // 2. Register the upload
     const initRes = await fetch("https://api.linkedin.com/rest/images?action=initializeUpload", {
