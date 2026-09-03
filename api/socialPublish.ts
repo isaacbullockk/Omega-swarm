@@ -16,9 +16,9 @@ const GRAPH_BASE = "https://graph.facebook.com/v21.0";
 
 export interface PublishTarget {
   accessToken: string;
-  /** Instagram Business account id OR Facebook Page id */
+  /** Instagram Business account id, Facebook Page id, OR LinkedIn person URN (urn:li:person:…) */
   accountId: string;
-  platform: "instagram" | "facebook";
+  platform: "instagram" | "facebook" | "linkedin";
   handle: string;
 }
 
@@ -47,7 +47,7 @@ function sanitizeError(msg: string, token: string): string {
  */
 export async function resolveTarget(
   userId: string,
-  opts: { accountId?: string; platform?: "instagram" | "facebook" }
+  opts: { accountId?: string; platform?: "instagram" | "facebook" | "linkedin" }
 ): Promise<PublishTarget | null> {
   if (isPostgresAvailable() && db) {
     const conditions = [eq(socialAccounts.userId, userId), eq(socialAccounts.connected, true)];
@@ -61,11 +61,15 @@ export async function resolveTarget(
       .limit(1);
 
     const acc = rows[0];
-    if (acc?.accessToken && acc.pageId && (acc.platform === "instagram" || acc.platform === "facebook")) {
+    if (
+      acc?.accessToken &&
+      acc.pageId &&
+      (acc.platform === "instagram" || acc.platform === "facebook" || acc.platform === "linkedin")
+    ) {
       return {
         accessToken: decryptToken(acc.accessToken), // tokens are AES-256-GCM at rest
         accountId: acc.pageId,
-        platform: acc.platform as "instagram" | "facebook",
+        platform: acc.platform as "instagram" | "facebook" | "linkedin",
         handle: acc.handle,
       };
     }
@@ -165,6 +169,114 @@ async function publishFacebook(
   return { success: true, platform: "facebook", postId };
 }
 
+/* ─── LinkedIn ─── */
+
+const LINKEDIN_VERSION = process.env.LINKEDIN_API_VERSION ?? "202506";
+
+function linkedinHeaders(token: string): Record<string, string> {
+  return {
+    Authorization: `Bearer ${token}`,
+    "LinkedIn-Version": LINKEDIN_VERSION,
+    "X-Restli-Protocol-Version": "2.0.0",
+    "Content-Type": "application/json",
+  };
+}
+
+/**
+ * Resolve the author person URN. Stored in social_accounts.page_id at connect
+ * time (derived from OpenID userinfo `sub`). Falls back to a live lookup for
+ * rows connected before the derivation existed.
+ */
+async function linkedinAuthorUrn(target: PublishTarget): Promise<string> {
+  if (target.accountId.startsWith("urn:li:person:")) return target.accountId;
+  const res = await fetch("https://api.linkedin.com/v2/userinfo", {
+    headers: { Authorization: `Bearer ${target.accessToken}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.sub) {
+    throw new Error(`LinkedIn userinfo failed ${res.status} — reconnect the account with openid + profile + w_member_social scopes`);
+  }
+  return `urn:li:person:${data.sub}`;
+}
+
+/**
+ * LinkedIn Posts API. Text-only or single-image post.
+ * Image flow: download the public image → initializeUpload → PUT binary →
+ * attach the image URN to the post. LinkedIn cannot fetch remote URLs itself.
+ */
+async function publishLinkedIn(
+  target: PublishTarget,
+  text: string,
+  imageUrl?: string
+): Promise<PublishResult> {
+  const author = await linkedinAuthorUrn(target);
+
+  let imageUrn: string | undefined;
+  if (imageUrl) {
+    if (!/^https?:\/\//.test(imageUrl)) {
+      return { success: false, platform: "linkedin", error: "LinkedIn image posts need a public image URL (this post's image is not web-hosted)." };
+    }
+    // 1. Download the image (LinkedIn requires binary upload, not a URL)
+    const imgRes = await fetch(imageUrl);
+    if (!imgRes.ok) {
+      return { success: false, platform: "linkedin", error: `Could not download image for LinkedIn upload (HTTP ${imgRes.status})` };
+    }
+    const imgBytes = Buffer.from(await imgRes.arrayBuffer());
+
+    // 2. Register the upload
+    const initRes = await fetch("https://api.linkedin.com/rest/images?action=initializeUpload", {
+      method: "POST",
+      headers: linkedinHeaders(target.accessToken),
+      body: JSON.stringify({ initializeUploadRequest: { owner: author } }),
+    });
+    const initData = await initRes.json().catch(() => ({}));
+    const uploadUrl = initData?.value?.uploadUrl;
+    imageUrn = initData?.value?.image;
+    if (!initRes.ok || !uploadUrl || !imageUrn) {
+      return { success: false, platform: "linkedin", error: `LinkedIn image upload init failed ${initRes.status}: ${JSON.stringify(initData).slice(0, 200)}` };
+    }
+
+    // 3. PUT the binary to the signed upload URL
+    const putRes = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${target.accessToken}`, "Content-Type": "application/octet-stream" },
+      body: imgBytes,
+    });
+    if (!putRes.ok) {
+      return { success: false, platform: "linkedin", error: `LinkedIn image binary upload failed ${putRes.status}` };
+    }
+  }
+
+  const body: Record<string, unknown> = {
+    author,
+    commentary: text,
+    visibility: "PUBLIC",
+    distribution: {
+      feedDistribution: "MAIN_FEED",
+      targetEntities: [],
+      thirdPartyDistributionChannels: [],
+    },
+    lifecycleState: "PUBLISHED",
+    isReshareDisabledByAuthor: false,
+  };
+  if (imageUrn) {
+    body.content = { media: { id: imageUrn } };
+  }
+
+  const res = await fetch("https://api.linkedin.com/rest/posts", {
+    method: "POST",
+    headers: linkedinHeaders(target.accessToken),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    return { success: false, platform: "linkedin", error: `LinkedIn publish failed ${res.status}: ${sanitizeError(errText.slice(0, 300), target.accessToken)}` };
+  }
+  // The post URN comes back in the x-restli-id header
+  const postId = res.headers.get("x-restli-id") ?? undefined;
+  return { success: true, platform: "linkedin", postId };
+}
+
 /**
  * Full publish flow: safety gate → platform publish.
  * Instagram requires imageUrl (Graph API limitation).
@@ -195,6 +307,9 @@ export async function publishPost(
         return { success: false, platform: "instagram", error: "Instagram requires a public image URL (data URLs not supported)" };
       }
       return await publishInstagram(target, text, imageUrl);
+    }
+    if (target.platform === "linkedin") {
+      return await publishLinkedIn(target, text, imageUrl);
     }
     return await publishFacebook(target, text, imageUrl);
   } catch (err) {

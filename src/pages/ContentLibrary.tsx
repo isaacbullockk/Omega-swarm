@@ -9,7 +9,7 @@ import {
   ArrowUpRight, Layers, RefreshCw, Download, Play,
   AtSign, Info, UploadCloud, FileImage, Link2, Music,
   Volume2, CheckSquare, Square, ChevronLeft, ChevronRight,
-  Hash, GripVertical, Lightbulb
+  Hash, GripVertical, Lightbulb, Send, Share2
 } from "lucide-react";
 import {
   AlertDialog,
@@ -391,8 +391,8 @@ function DeleteConfirmDialog({ open, itemTitle, onConfirm, onCancel, isDeleting 
 }
 
 /* ── Content Card ── */
-function ContentCard({ item, onView, onDelete, index }: {
-  item: ContentItem; onView: (item: ContentItem) => void; onDelete: (item: ContentItem) => void; index: number;
+function ContentCard({ item, onView, onDelete, onPublish, index }: {
+  item: ContentItem; onView: (item: ContentItem) => void; onDelete: (item: ContentItem) => void; onPublish: (item: ContentItem) => void; index: number;
 }) {
   const config = TYPE_CONFIG[item.type] || TYPE_CONFIG.social;
   const Icon = config.icon;
@@ -482,6 +482,11 @@ function ContentCard({ item, onView, onDelete, index }: {
               style={{ background: "rgba(34,197,94,0.8)" }}
             >
               <Download className="size-5 text-white" />
+            </button>
+          )}
+          {item.type === "social" && !item.instagramPostId && (
+            <button onClick={() => onPublish(item)} title="Publish to a connected account" className="p-3 rounded-xl transition-all hover:scale-110" style={{ background: "rgba(59,130,246,0.85)" }}>
+              <Send className="size-5 text-white" />
             </button>
           )}
           <button onClick={() => onDelete(item)} className="p-3 rounded-xl transition-all hover:scale-110" style={{ background: "rgba(239,68,68,0.8)" }}>
@@ -963,6 +968,7 @@ export default function ContentLibrary() {
   const [showCreate, setShowCreate] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [calendarRows, setCalendarRows] = useState<Array<{ date: string; topic: string; selected: boolean }>>([]);
+  const [publishItem, setPublishItem] = useState<ContentItem | null>(null);
   const [search, setSearch] = useState("");
   const [viewedItem, setViewedItem] = useState<ContentItem | null>(null);
   const [deleteItem, setDeleteItem] = useState<ContentItem | null>(null);
@@ -1017,6 +1023,20 @@ export default function ContentLibrary() {
     setCalendarRows(CALENDAR_PLAN.map((p) => ({ date: p.date.slice(0, 10), topic: p.topic, selected: true })));
     setShowCalendar(true);
   };
+
+  // ── Publish a draft to a connected account (IG / FB / LinkedIn) ──
+  const publishNow = trpc.social.publish.useMutation({
+    onSuccess: (data) => {
+      utils.post.list.invalidate();
+      utils.content.list.invalidate();
+      utils.analytics.invalidate();
+      setPublishItem(null);
+      addToast(`Published to ${data.platform} (${data.handle})`, "success");
+    },
+    onError: (err) => {
+      addToast(err.message, "error");
+    },
+  });
 
   // Force re-render every 10s for polling
   useEffect(() => {
@@ -1309,7 +1329,7 @@ export default function ContentLibrary() {
             {/* Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filtered.map((item, i) => (
-                <ContentCard key={item.id} item={item} index={i} onView={handleView} onDelete={(item) => setDeleteItem(item)} />
+                <ContentCard key={item.id} item={item} index={i} onView={handleView} onDelete={(item) => setDeleteItem(item)} onPublish={(item) => setPublishItem(item)} />
               ))}
             </div>
 
@@ -1335,6 +1355,59 @@ export default function ContentLibrary() {
 
       {/* ── Modals ── */}
       {showCreate && <CreateModal onClose={() => setShowCreate(false)} onCreated={() => {}} />}
+
+      {/* ── Publish modal: pick a connected platform ── */}
+      {publishItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+          onClick={() => setPublishItem(null)}>
+          <div className="w-full max-w-md rounded-2xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}
+            style={{ background: "var(--bg-card-solid)", border: "1px solid var(--border-subtle)" }}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Publish post</h2>
+              <button type="button" onClick={() => setPublishItem(null)} aria-label="Close">
+                <X className="size-5" style={{ color: "var(--text-muted)" }} />
+              </button>
+            </div>
+            <p className="text-xs leading-relaxed p-3 rounded-lg" style={{ background: "var(--bg-elevated)", color: "var(--text-secondary)" }}>
+              {(publishItem.caption || publishItem.title).slice(0, 180)}{(publishItem.caption || publishItem.title).length > 180 ? "…" : ""}
+            </p>
+            <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+              This posts immediately to the connected account you choose. Review the caption first: once it is live, it is live.
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { key: "linkedin" as const, label: "LinkedIn", icon: Share2, color: "#0A66C2" },
+                { key: "instagram" as const, label: "Instagram", icon: Camera, color: "#EC4899" },
+                { key: "facebook" as const, label: "Facebook", icon: ExternalLink, color: "#3B82F6" },
+              ]).map((p) => (
+                <button key={p.key} type="button"
+                  disabled={publishNow.isPending || (p.key === "instagram" && !publishItem.imageUrl)}
+                  onClick={() =>
+                    publishNow.mutate({
+                      platform: p.key,
+                      text: publishItem.caption || publishItem.title,
+                      imageUrl: publishItem.imageUrl,
+                      title: publishItem.title,
+                    })
+                  }
+                  className="flex flex-col items-center gap-1.5 py-3 rounded-xl text-xs font-bold transition-all hover:scale-[1.03] disabled:opacity-40"
+                  style={{ background: `${p.color}20`, color: p.color, border: `1px solid ${p.color}50` }}>
+                  <p.icon className="size-5" />
+                  {p.label}
+                  {p.key === "instagram" && !publishItem.imageUrl && (
+                    <span className="text-[9px] font-normal" style={{ color: "var(--text-muted)" }}>needs image</span>
+                  )}
+                </button>
+              ))}
+            </div>
+            {publishNow.isPending && (
+              <p className="text-xs text-center" style={{ color: "var(--text-muted)" }}>
+                <Loader2 className="size-3.5 inline animate-spin mr-1" /> Publishing…
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── 2026 Content Calendar modal ── */}
       {showCalendar && (

@@ -76,6 +76,28 @@ export const socialRouter = router({
         });
       }
       try {
+        // LinkedIn: verify the token and derive the person URN (publish author)
+        // from OpenID userinfo, so the user never has to find it manually.
+        let pageId = input.pageId ?? null;
+        let accountName = input.accountName;
+        let handle = input.handle;
+        if (input.platform === "linkedin") {
+          const meRes = await fetch("https://api.linkedin.com/v2/userinfo", {
+            headers: { Authorization: `Bearer ${input.accessToken}` },
+          });
+          const me = await meRes.json().catch(() => ({}));
+          if (!meRes.ok || !me.sub) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "LinkedIn rejected this token. Create one with openid, profile and w_member_social scopes (LinkedIn Developer Portal → your app → Auth).",
+            });
+          }
+          pageId = `urn:li:person:${me.sub}`;
+          accountName = me.name ?? accountName;
+          handle = me.email ? me.email.split("@")[0] : handle;
+        }
+
         // Check if account already exists for this user
         const existing = await db!
           .select()
@@ -111,11 +133,11 @@ export const socialRouter = router({
             userId: ctx.user.id,
             clientId: input.clientId ?? null,
             platform: input.platform,
-            accountName: input.accountName,
-            handle: input.handle,
+            accountName,
+            handle,
             connected: true,
             accessToken: encryptToken(input.accessToken), // AES-256-GCM at rest
-            pageId: input.pageId ?? null,
+            pageId,
             connectedAt: new Date(),
           })
           .returning();
@@ -210,7 +232,7 @@ export const socialRouter = router({
     .input(
       z.object({
         accountId: z.string().uuid().optional(),
-        platform: z.enum(["instagram", "facebook"]).optional(),
+        platform: z.enum(["instagram", "facebook", "linkedin"]).optional(),
         clientId: z.string().uuid().optional(),
         text: z.string().min(1).max(2200),
         imageUrl: z.string().url().optional(),
@@ -226,7 +248,7 @@ export const socialRouter = router({
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message:
-            "No connected Instagram/Facebook account found. Connect one first (social.connect) or set INSTAGRAM_ACCESS_TOKEN + INSTAGRAM_ACCOUNT_ID in Railway.",
+            "No connected account found for that platform. Connect one on the Social Connections page (or set INSTAGRAM_ACCESS_TOKEN + INSTAGRAM_ACCOUNT_ID in Railway for Instagram).",
         });
       }
 
@@ -259,7 +281,9 @@ export const socialRouter = router({
           await db.insert(analyticsEvents).values({
             userId: ctx.user.id,
             clientId: input.clientId ?? null,
-            type: result.success ? "instagram_published" : "post_created",
+            // instagram_published is the only platform-specific event type in the
+            // enum; LinkedIn/Facebook successes use post_created with a clear title
+            type: result.success && result.platform === "instagram" ? "instagram_published" : "post_created",
             title: result.success ? `Published to ${result.platform}` : `Publish failed on ${result.platform}`,
             description: result.success
               ? `Post published to ${target.handle} (${result.postId})`
