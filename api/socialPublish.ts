@@ -87,6 +87,11 @@ async function publishInstagram(
   caption: string,
   imageUrl: string
 ): Promise<PublishResult> {
+  // The Graph API downloads the image itself — it must be a public http(s) URL.
+  // Fail fast with a clear message instead of an opaque Graph error.
+  if (!/^https?:\/\//.test(imageUrl)) {
+    return { success: false, platform: "instagram", error: "Instagram publishing requires a public image URL (this post's image is not web-hosted). Regenerate the post or use a hosted image." };
+  }
   const base = `${GRAPH_BASE}/${target.accountId}`;
 
   // Step 1: create media container (token in POST body, never in URL)
@@ -132,6 +137,9 @@ async function publishFacebook(
   text: string,
   imageUrl?: string
 ): Promise<PublishResult> {
+  if (imageUrl && !/^https?:\/\//.test(imageUrl)) {
+    return { success: false, platform: "facebook", error: "Facebook photo publishing requires a public image URL (this post's image is not web-hosted). Regenerate the post or use a hosted image." };
+  }
   const endpoint = imageUrl ? `${GRAPH_BASE}/${target.accountId}/photos` : `${GRAPH_BASE}/${target.accountId}/feed`;
 
   const body = new URLSearchParams();

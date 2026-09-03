@@ -123,7 +123,7 @@ Generate your deliverables. Be thorough and specific.`;
 
   try {
     if (client.type === "openrouter") {
-      const out = await callViaOpenRouter(systemPrompt, userPrompt, MODELS.PLANNER, 0.8, 2000);
+      const out = await callViaOpenRouter(systemPrompt, userPrompt, MODELS.PLANNER, 0.8, 16384);
       return out || fallbackAgentOutput(agentName, campaignObjective);
     }
     if (client.type === "groq") {
@@ -140,7 +140,7 @@ Generate your deliverables. Be thorough and specific.`;
             { role: "user", content: userPrompt },
           ],
           temperature: 0.8,
-          max_tokens: 2000,
+          max_tokens: 16384,
         }),
       });
       if (!res.ok) {
@@ -162,7 +162,7 @@ Generate your deliverables. Be thorough and specific.`;
         { role: "user", content: userPrompt },
       ],
       temperature: 0.8,
-      max_tokens: 2000,
+      max_tokens: 16384,
     });
     return response.choices[0]?.message?.content || fallbackAgentOutput(agentName, campaignObjective);
   } catch (err) {
@@ -184,6 +184,15 @@ export async function generateImage(prompt: string, provider?: "pollinations" | 
       n: 1,
     });
     return response.data[0]?.url || "";
+  }
+
+  // Premium without an OpenAI key: route through the consolidated OpenRouter
+  // key (verified live: POST /api/v1/images returns b64_json). May return a
+  // data: URL — callers that publish to Instagram must fall back to a public
+  // URL (Pollinations), because the Graph API fetches media over HTTP.
+  if (provider === "openai" && openrouterKey) {
+    const { generateImageOpenRouter } = await import("./openrouter");
+    return generateImageOpenRouter(prompt, "quality");
   }
 
   // Free fallback: Pollinations.ai — slow (~15-30s), no API key
@@ -221,7 +230,7 @@ export async function generateCaption(topic: string, brandVoice?: string, memory
         `Write an Instagram caption about: ${topic}`,
         MODELS.COPYWRITER,
         0.9,
-        1500
+        16384
       );
       return out || fallbackCaption(topic, brandVoice);
     }
@@ -239,7 +248,7 @@ export async function generateCaption(topic: string, brandVoice?: string, memory
             { role: "user", content: `Write an Instagram caption about: ${topic}` },
           ],
           temperature: 0.9,
-          max_tokens: 1500,
+          max_tokens: 16384,
         }),
       });
       if (!res.ok) {
@@ -261,7 +270,7 @@ export async function generateCaption(topic: string, brandVoice?: string, memory
         { role: "user", content: `Write an Instagram caption about: ${topic}` },
       ],
       temperature: 0.9,
-      max_tokens: 1500,
+      max_tokens: 16384,
     });
     return response.choices[0]?.message?.content || fallbackCaption(topic, brandVoice);
   } catch (err) {
@@ -292,7 +301,7 @@ export async function chatWithAgent(
 
   try {
     if (client.type === "openrouter") {
-      const out = await callViaOpenRouter(systemPrompt, userPrompt, MODELS.COPYWRITER, 0.8, 1500);
+      const out = await callViaOpenRouter(systemPrompt, userPrompt, MODELS.COPYWRITER, 0.8, 16384);
       return out || fallbackChat(agentName, userMessage);
     }
     if (client.type === "groq") {
@@ -309,7 +318,7 @@ export async function chatWithAgent(
             { role: "user", content: userPrompt },
           ],
           temperature: 0.8,
-          max_tokens: 1500,
+          max_tokens: 16384,
         }),
       });
       if (!res.ok) {
@@ -331,7 +340,7 @@ export async function chatWithAgent(
         { role: "user", content: userPrompt },
       ],
       temperature: 0.8,
-      max_tokens: 1500,
+      max_tokens: 16384,
     });
     return response.choices[0]?.message?.content || fallbackChat(agentName, userMessage);
   } catch (err) {

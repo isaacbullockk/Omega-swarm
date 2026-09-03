@@ -302,8 +302,15 @@ export const postRouter = router({
           try {
             imageUrl = await generateImage(imagePromptBase, "openai");
           } catch (e) {
-            console.log("DALL-E image failed:", e);
+            console.log("Premium image failed:", e);
           }
+        }
+        // Instagram's Graph API fetches media over HTTP — a data: URL is
+        // unpublishable. Premium providers (OpenRouter images) return base64
+        // data URLs, so for posts we fall back to a public Pollinations URL.
+        if (imageUrl && imageUrl.startsWith("data:")) {
+          console.log("[post.create] Premium image returned a data URL — using public Pollinations URL for publishability");
+          imageUrl = null;
         }
         if (!imageUrl) {
           const encoded = encodeURIComponent(imagePromptBase);

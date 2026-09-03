@@ -65,7 +65,7 @@ export async function callOpenRouter(
 
   const model = options.model || MODELS.FALLBACK;
   const temperature = options.temperature ?? 0.7;
-  const maxTokens = options.maxTokens ?? 4096;
+  const maxTokens = options.maxTokens ?? 16384;
 
   const body: Record<string, unknown> = {
     model,
@@ -218,7 +218,7 @@ export async function kimiCopywriter(params: {
   const response = await callOpenRouter(messages, {
     model: MODELS.COPYWRITER,
     temperature: 0.8,
-    maxTokens: 2048,
+    maxTokens: 16384,
     responseFormat: { type: "json_object" },
   });
 

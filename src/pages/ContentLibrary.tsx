@@ -585,7 +585,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
   const [assetDesc, setAssetDesc] = useState("");
   const [assetTags, setAssetTags] = useState("");
   const [imageProvider, setImageProvider] = useState<"pollinations" | "openai">("pollinations");
-  const [videoProvider, setVideoProvider] = useState<"pollinations" | "kling">("pollinations");
+  const [videoModel, setVideoModel] = useState<"quality" | "audio">("quality");
   const [brandVoice, setBrandVoice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set());
@@ -674,7 +674,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
       } else if (mode === "video") {
         await createVideo.mutateAsync({
           prompt: prompt || "Creative video content",
-          provider: videoProvider,
+          model: videoModel,
           duration: 5,
           aspectRatio: "9:16",
           referenceAssets: selectedAssets,
@@ -817,11 +817,11 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
                   <div className="flex gap-2">
                     <button type="button" onClick={() => setImageProvider("pollinations")} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${imageProvider === "pollinations" ? "ring-1" : ""}`}
                       style={{ background: imageProvider === "pollinations" ? "var(--bg-elevated)" : "transparent", color: imageProvider === "pollinations" ? "var(--text-primary)" : "var(--text-muted)", border: "1px solid var(--border-subtle)" }}>
-                      Pollinations (Free)
+                      Standard (Publishable)
                     </button>
                     <button type="button" onClick={() => setImageProvider("openai")} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${imageProvider === "openai" ? "ring-1" : ""}`}
                       style={{ background: imageProvider === "openai" ? "var(--bg-elevated)" : "transparent", color: imageProvider === "openai" ? "var(--text-primary)" : "var(--text-muted)", border: "1px solid var(--border-subtle)" }}>
-                      OpenAI DALL-E (Fast)
+                      Premium AI (HQ)
                     </button>
                   </div>
                 </div>
@@ -836,15 +836,15 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
                     style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)" }} required />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>Video Provider</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>Video Model</label>
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => setVideoProvider("pollinations")} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${videoProvider === "pollinations" ? "ring-1" : ""}`}
-                      style={{ background: videoProvider === "pollinations" ? "var(--bg-elevated)" : "transparent", color: videoProvider === "pollinations" ? "var(--text-primary)" : "var(--text-muted)", border: "1px solid var(--border-subtle)" }}>
-                      Pollinations (Free)
+                    <button type="button" onClick={() => setVideoModel("quality")} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${videoModel === "quality" ? "ring-1" : ""}`}
+                      style={{ background: videoModel === "quality" ? "var(--bg-elevated)" : "transparent", color: videoModel === "quality" ? "var(--text-primary)" : "var(--text-muted)", border: "1px solid var(--border-subtle)" }}>
+                      Runway Gen-4.5 (Quality)
                     </button>
-                    <button type="button" onClick={() => setVideoProvider("kling")} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${videoProvider === "kling" ? "ring-1" : ""}`}
-                      style={{ background: videoProvider === "kling" ? "var(--bg-elevated)" : "transparent", color: videoProvider === "kling" ? "var(--text-primary)" : "var(--text-muted)", border: "1px solid var(--border-subtle)" }}>
-                      Kling AI (Premium)
+                    <button type="button" onClick={() => setVideoModel("audio")} className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${videoModel === "audio" ? "ring-1" : ""}`}
+                      style={{ background: videoModel === "audio" ? "var(--bg-elevated)" : "transparent", color: videoModel === "audio" ? "var(--text-primary)" : "var(--text-muted)", border: "1px solid var(--border-subtle)" }}>
+                      Veo 3.1 Fast (Audio)
                     </button>
                   </div>
                 </div>
