@@ -979,8 +979,12 @@ export default function ContentLibrary() {
   const utils = trpc.useUtils();
 
   // Queries
-  const { data: socialStatus } = trpc.social.status.useQuery({ platform: "instagram" }, { retry: false });
-  const isInstagramConnected = (socialStatus?.connected ?? 0) > 0;
+  // Live Instagram status: post.instagramStatus actually CALLS Meta with the
+  // stored/env token — it reflects reality (expired tokens show their real
+  // error), unlike a raw count of DB rows.
+  const { data: igStatus } = trpc.post.instagramStatus.useQuery(undefined, { retry: false });
+  const isInstagramConnected = !!igStatus?.connected;
+  const igStatusError = !igStatus?.connected && igStatus && "error" in igStatus ? (igStatus as { error?: string }).error : undefined;
 
   const { data: posts, isLoading: postsLoading } = trpc.post.list.useQuery(undefined, { refetchOnMount: true, staleTime: 0 });
   const { data: videos, isLoading: videosLoading } = trpc.video.list.useQuery(undefined, { refetchOnMount: true, staleTime: 0 });
@@ -1174,8 +1178,8 @@ export default function ContentLibrary() {
                 color: isInstagramConnected ? "#22C55E" : "#EF4444",
                 border: `1px solid ${isInstagramConnected ? "rgba(34,197,94,0.25)" : "rgba(239,68,68,0.25)"}`,
               }}
-              onClick={() => !isInstagramConnected && addToast("Go to Settings to connect your Instagram account", "info")}
-              title={isInstagramConnected ? "Instagram connected — ready to post" : "Instagram not connected — posts will be saved for manual download"}
+              onClick={() => !isInstagramConnected && addToast(igStatusError ?? "Go to Social Connections to link Instagram", "info")}
+              title={isInstagramConnected ? `Instagram connected${igStatus?.username ? ` as @${igStatus.username}` : ""} — ready to post` : igStatusError ? `Instagram: ${igStatusError}` : "Instagram not connected — connect via Social Connections"}
             >
               <div
                 className="size-2 rounded-full"
@@ -1184,7 +1188,7 @@ export default function ContentLibrary() {
                   boxShadow: isInstagramConnected ? "0 0 6px #22C55E" : "0 0 6px #EF4444",
                 }}
               />
-              {isInstagramConnected ? "Instagram Connected" : "Not Connected"}
+              {isInstagramConnected ? (igStatus?.username ? `@${igStatus.username}` : "Instagram Connected") : "Not Connected"}
             </div>
 
             {brandVoice && (
