@@ -178,15 +178,23 @@ function SmartImage({ src, alt, className }: { src?: string; alt: string; classN
     setStatus("loading");
     clearTimers();
 
+    // Detach the PREVIOUS attempt's handlers first — a late-firing stale
+    // Image would otherwise clear the new attempt's timeout and corrupt state
+    if (imgRef.current) {
+      imgRef.current.onload = null;
+      imgRef.current.onerror = null;
+    }
     const img = new Image();
     imgRef.current = img;
 
     img.onload = () => {
+      if (imgRef.current !== img) return; // stale attempt — ignore
       clearTimers();
       setStatus("success");
     };
 
     img.onerror = () => {
+      if (imgRef.current !== img) return; // stale attempt — ignore
       clearTimers();
       const currentRetry = retryCountRef.current;
       if (currentRetry < MAX_RETRIES) {
@@ -204,6 +212,7 @@ function SmartImage({ src, alt, className }: { src?: string; alt: string; classN
     img.src = src;
 
     timeoutRef.current = setTimeout(() => {
+      if (imgRef.current !== img) return; // stale attempt — ignore
       if (!img.complete || img.naturalWidth === 0) {
         const currentRetry = retryCountRef.current;
         if (currentRetry < MAX_RETRIES) {
