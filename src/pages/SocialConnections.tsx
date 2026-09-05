@@ -255,7 +255,7 @@ function ConnectModal({ defaultPlatform, onClose }: { defaultPlatform: PlatformK
           className="w-full px-3 py-2.5 rounded-lg text-sm resize-none focus:outline-none font-mono"
           style={{ background: "#010409", border: "1px solid #21262D", color: "#F0F6FC" }} />
         {platform !== "linkedin" && (
-          <input type="text" placeholder="Page / Account ID (optional)" value={pageId} onChange={(e) => setPageId(e.target.value)}
+          <input type="text" placeholder={platform === "instagram" ? "Instagram Business Account ID (required)" : "Page / Account ID (optional)"} value={pageId} onChange={(e) => setPageId(e.target.value)}
             className="w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none"
             style={{ background: "#010409", border: "1px solid #21262D", color: "#F0F6FC" }} />
         )}

@@ -42,18 +42,32 @@ async function refreshOne(row: {
   handle: string;
   accessToken: string | null;
   tokenExpiresAt: Date | null;
-}): Promise<"refreshed" | "failed" | "disconnected" | "skipped"> {
-  if (!row.accessToken) return "skipped";
+}): Promise<"refreshed" | "failed" | "disconnected"> {
+  if (!row.accessToken) {
+    console.error(`[TokenRefresh] ${row.platform}/${row.handle}: accessToken null despite query filter — treating as failed`);
+    return "failed";
+  }
 
   const plain = decryptToken(row.accessToken);
   if (!plain) {
-    console.error(`[TokenRefresh] ${row.platform}/${row.handle}: decrypt failed — skipping`);
+    console.error(`[TokenRefresh] ${row.platform}/${row.handle}: decrypt failed — treating as failed`);
     return "failed";
   }
 
   const appId = process.env.META_APP_ID;
   const appSecret = process.env.META_APP_SECRET;
-  if (!appId || !appSecret) return "skipped";
+  if (!appId || !appSecret) {
+    console.error(`[TokenRefresh] ${row.platform}/${row.handle}: META_APP_ID/SECRET missing mid-run — treating as failed`);
+    return "failed";
+  }
+
+  // Snapshot db once: connection could drop between the caller's availability
+  // check and the writes below — never crash the daily loop on that race.
+  const database = db;
+  if (!database) {
+    console.error(`[TokenRefresh] ${row.platform}/${row.handle}: db connection lost — treating as failed`);
+    return "failed";
+  }
 
   try {
     // URLSearchParams — token/secret may contain URL-breaking characters
@@ -76,7 +90,7 @@ async function refreshOne(row: {
       const code = data.error.code;
       if (code === 190) {
         // Token already invalid/expired — refresh impossible. Flag for re-auth.
-        await db!
+        await database
           .update(socialAccounts)
           .set({ connected: false })
           .where(and(eq(socialAccounts.id, row.id), eq(socialAccounts.userId, row.userId)));
@@ -95,7 +109,7 @@ async function refreshOne(row: {
     const expiresAt =
       typeof data.expires_in === "number" ? new Date(Date.now() + data.expires_in * 1000) : null;
 
-    await db!
+    await database
       .update(socialAccounts)
       .set({
         accessToken: encryptToken(data.access_token),

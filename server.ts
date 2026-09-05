@@ -39,7 +39,13 @@ const server = serve(
               "generated_videos", "content_posts", "campaigns", "assets", "clients"
             ];
             for (const t of tables) {
-              await client.query(`DELETE FROM ${t} WHERE user_id IN (SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW())`);
+              // Per-table isolation: one failing DELETE (e.g. schema drift)
+              // must not abort the purge for the remaining tables.
+              try {
+                await client.query(`DELETE FROM ${t} WHERE user_id IN (SELECT id FROM users WHERE is_guest = true AND guest_expires_at < NOW())`);
+              } catch (e) {
+                console.error(`[GDPR] Purge error on ${t}:`, (e as Error).message);
+              }
             }
             const r = await client.query("DELETE FROM users WHERE is_guest = true AND guest_expires_at < NOW()");
             if (r.rowCount) console.log(`[GDPR] Purged ${r.rowCount} guest(s)`);
