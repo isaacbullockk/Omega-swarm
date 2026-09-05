@@ -29,7 +29,11 @@ import { decryptToken, encryptToken } from "./tokenCrypto";
 const REFRESH_WINDOW_DAYS = 14; // renew when <14 days remain
 const RUN_INTERVAL_MS = 24 * 60 * 60 * 1000; // daily
 const INITIAL_DELAY_MS = 15 * 1000; // after migrations on boot
-const META_GRAPH = "https://graph.facebook.com/v18.0";
+// Graph API version: v18/v19 are deprecated (EOL May 2025 / May 2026).
+// Default to v25.0 (current as of Sept 2026, ~2yr support window);
+// env-overridable for future bumps without a redeploy of this constant.
+export const META_GRAPH_VERSION = process.env.META_GRAPH_VERSION || "v25.0";
+const META_GRAPH = `https://graph.facebook.com/${META_GRAPH_VERSION}`;
 
 let running = false; // in-process reentrancy guard (daily tick vs slow run)
 
@@ -70,19 +74,21 @@ async function refreshOne(row: {
   }
 
   try {
-    // URLSearchParams — token/secret may contain URL-breaking characters
-    const url =
-      `${META_GRAPH}/oauth/access_token?` +
-      new URLSearchParams({
+    // POST with form-encoded body — client_secret/fb_exchange_token must NOT
+    // travel in a URL query string (secrets end up in server/proxy/CDN logs).
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    const res = await fetch(`${META_GRAPH}/oauth/access_token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
         grant_type: "fb_exchange_token",
         client_id: appId,
         client_secret: appSecret,
         fb_exchange_token: plain,
-      }).toString();
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000);
-    const res = await fetch(url, { signal: controller.signal });
+      }).toString(),
+      signal: controller.signal,
+    });
     clearTimeout(timer);
     const data = await res.json();
 

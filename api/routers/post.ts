@@ -16,6 +16,7 @@ import { contentPosts, analyticsEvents, socialAccounts } from "../../db/schema";
 import { eq, and } from "drizzle-orm";
 import { resolveTarget, publishPost } from "../socialPublish";
 import { encryptToken, decryptToken } from "../tokenCrypto";
+import { META_GRAPH_VERSION } from "../tokenRefresh";
 
 const INSTAGRAM_ACCESS_TOKEN = process.env.INSTAGRAM_ACCESS_TOKEN;
 const INSTAGRAM_ACCOUNT_ID = process.env.INSTAGRAM_ACCOUNT_ID;
@@ -136,17 +137,22 @@ export const postRouter = router({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "META_APP_SECRET not set in Railway. Add it to exchange tokens." });
       }
       try {
-        // URLSearchParams — token/secret may contain characters that break a
-        // template-literal URL (would cause runtime exchange failures)
-        const exchangeUrl =
-          "https://graph.facebook.com/v18.0/oauth/access_token?" +
-          new URLSearchParams({
-            grant_type: "fb_exchange_token",
-            client_id: appId,
-            client_secret: appSecret,
-            fb_exchange_token: input.shortToken,
-          }).toString();
-        const res = await fetch(exchangeUrl);
+        // POST with form-encoded body — client_secret/fb_exchange_token must
+        // NOT travel in a URL query string (secrets end up in server/proxy/
+        // CDN logs). URLSearchParams also handles token/secret characters.
+        const res = await fetch(
+          `https://graph.facebook.com/${META_GRAPH_VERSION}/oauth/access_token`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              grant_type: "fb_exchange_token",
+              client_id: appId,
+              client_secret: appSecret,
+              fb_exchange_token: input.shortToken,
+            }).toString(),
+          }
+        );
         const data = await res.json();
         if (data.error) {
           throw new TRPCError({ code: "BAD_REQUEST", message: `Facebook token exchange failed: ${data.error.message}` });
