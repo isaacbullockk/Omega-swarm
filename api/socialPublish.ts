@@ -103,10 +103,10 @@ async function publishInstagram(
   caption: string,
   imageUrl: string
 ): Promise<PublishResult> {
-  // The Graph API downloads the image itself — it must be a public http(s) URL.
+  // The Graph API downloads the image itself — it must be a public HTTPS URL (Meta refuses http).
   // Fail fast with a clear message instead of an opaque Graph error.
-  if (!/^https?:\/\//.test(imageUrl)) {
-    return { success: false, platform: "instagram", error: "Instagram publishing requires a public image URL (this post's image is not web-hosted). Regenerate the post or use a hosted image." };
+  if (!/^https:\/\//.test(imageUrl)) {
+    return { success: false, platform: "instagram", error: "Instagram publishing requires a public HTTPS image URL (this post's image is not web-hosted). Regenerate the post or use a hosted image." };
   }
   try {
     await assertPublicImageUrl(imageUrl);
@@ -158,8 +158,8 @@ async function publishFacebook(
   text: string,
   imageUrl?: string
 ): Promise<PublishResult> {
-  if (imageUrl && !/^https?:\/\//.test(imageUrl)) {
-    return { success: false, platform: "facebook", error: "Facebook photo publishing requires a public image URL (this post's image is not web-hosted). Regenerate the post or use a hosted image." };
+  if (imageUrl && !/^https:\/\//.test(imageUrl)) {
+    return { success: false, platform: "facebook", error: "Facebook photo publishing requires a public HTTPS image URL (this post's image is not web-hosted). Regenerate the post or use a hosted image." };
   }
   if (imageUrl) {
     try {
@@ -358,7 +358,7 @@ async function publishLinkedIn(
 
   let imageUrn: string | undefined;
   if (imageUrl) {
-    if (!/^https?:\/\//.test(imageUrl)) {
+    if (!/^https:\/\//.test(imageUrl)) {
       return { success: false, platform: "linkedin", error: "LinkedIn image posts need a public image URL (this post's image is not web-hosted)." };
     }
     // 1. Download the image (LinkedIn requires binary upload, not a URL).

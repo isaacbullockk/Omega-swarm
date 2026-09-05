@@ -1,7 +1,9 @@
 import { serve } from "@hono/node-server";
 import app from "./api";
 
-const PORT = 3000; // Domain target port — do not use env here
+// Railway injects a dynamic PORT; health checks fail if we ignore it.
+// Fall back to 3000 for local dev.
+const PORT = Number(process.env.PORT) || 3000;
 
 console.log("[SERVER] Starting Omega Swarm v5.1.0...");
 console.log("[SERVER] PORT:", PORT);
