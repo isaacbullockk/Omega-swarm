@@ -69,12 +69,21 @@ export async function resolveTarget(
       acc.pageId &&
       (acc.platform === "instagram" || acc.platform === "facebook" || acc.platform === "linkedin")
     ) {
-      return {
-        accessToken: decryptToken(acc.accessToken), // tokens are AES-256-GCM at rest
-        accountId: acc.pageId,
-        platform: acc.platform as "instagram" | "facebook" | "linkedin",
-        handle: acc.handle,
-      };
+      const plainToken = decryptToken(acc.accessToken); // tokens are AES-256-GCM at rest
+      if (!plainToken) {
+        // Decryption failure (key rotation, corrupted row) — never hand a
+        // garbage token to the Meta API. Fall through to env fallback / null.
+        console.warn(
+          `[resolveTarget] ${acc.platform}/${acc.handle}: decryptToken returned empty — treating account as unavailable`
+        );
+      } else {
+        return {
+          accessToken: plainToken,
+          accountId: acc.pageId,
+          platform: acc.platform as "instagram" | "facebook" | "linkedin",
+          handle: acc.handle,
+        };
+      }
     }
   }
 
