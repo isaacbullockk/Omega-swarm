@@ -52,6 +52,15 @@ const server = serve(
   } catch (e) {
     console.error("[GDPR] Setup failed:", (e as Error).message);
   }
+
+  // Meta long-lived token auto-refresh (daily; no-ops without META_APP_ID/SECRET)
+  try {
+    const { startTokenRefreshLoop } = await import("./api/tokenRefresh");
+    startTokenRefreshLoop();
+    console.log("[TOKEN-REFRESH] Daily Meta token refresh loop started");
+  } catch (e) {
+    console.error("[TOKEN-REFRESH] Setup failed:", (e as Error).message);
+  }
 })();
 
 // Graceful shutdown

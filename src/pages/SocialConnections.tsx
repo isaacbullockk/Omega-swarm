@@ -239,7 +239,9 @@ function ConnectModal({ defaultPlatform, onClose }: { defaultPlatform: PlatformK
           <p className="text-[11px] leading-relaxed rounded-lg p-3" style={{ background: "#EC489915", color: "#F9A8D4" }}>
             Instagram: paste a long-lived Meta token and your IG Business account ID
             (or use the token exchange in Settings). IG must be a Business/Creator
-            account linked to a Facebook Page.
+            account linked to a Facebook Page. Connect once — the app renews the
+            token automatically before its 60-day expiry (needs META_APP_ID +
+            META_APP_SECRET in the server environment).
           </p>
         )}
 
