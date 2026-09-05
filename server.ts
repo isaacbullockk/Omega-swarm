@@ -39,6 +39,9 @@ const server = serve(
               "generated_videos", "content_posts", "campaigns", "assets", "clients"
             ];
             for (const t of tables) {
+              // Defense-in-depth: table names are interpolated into raw SQL,
+              // so re-validate against the hardcoded whitelist before use.
+              if (!tables.includes(t)) continue;
               // Per-table isolation: one failing DELETE (e.g. schema drift)
               // must not abort the purge for the remaining tables.
               try {

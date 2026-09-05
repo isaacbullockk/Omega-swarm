@@ -36,7 +36,7 @@ async function getInstagramAccount() {
   try {
     // Use Authorization header for GET instead of query param
     const res = await fetch(
-      `https://graph.facebook.com/v18.0/${INSTAGRAM_ACCOUNT_ID}?fields=username,media_count`,
+      `https://graph.facebook.com/${META_GRAPH_VERSION}/${INSTAGRAM_ACCOUNT_ID}?fields=username,media_count`,
       {
         headers: {
           Authorization: `Bearer ${INSTAGRAM_ACCESS_TOKEN}`,
@@ -103,8 +103,14 @@ export const postRouter = router({
         const acc = rows[0];
         if (acc?.accessToken && acc.pageId) {
           const plainToken = decryptToken(acc.accessToken); // AES-256-GCM at rest
+          if (!plainToken) {
+            // Decryption failed (key rotated?) — never send a garbage token to
+            // Meta. Fall back to the env-var status check instead.
+            console.warn("[Post] instagramStatus: decryptToken returned empty — falling back to env check");
+            return getInstagramAccount();
+          }
           const res = await fetch(
-            `https://graph.facebook.com/v18.0/${acc.pageId}?fields=username,media_count`,
+            `https://graph.facebook.com/${META_GRAPH_VERSION}/${acc.pageId}?fields=username,media_count`,
             { headers: { Authorization: `Bearer ${plainToken}` } }
           );
           const data = await res.json();
@@ -173,7 +179,7 @@ export const postRouter = router({
         let handle = "instagram";
         try {
           const pagesRes = await fetch(
-            `https://graph.facebook.com/v18.0/me/accounts?fields=id,name,instagram_business_account{id,username}`,
+            `https://graph.facebook.com/${META_GRAPH_VERSION}/me/accounts?fields=id,name,instagram_business_account{id,username}`,
             { headers: { Authorization: `Bearer ${longToken}` } }
           );
           const pagesData = await pagesRes.json();
@@ -185,22 +191,10 @@ export const postRouter = router({
             handle = page.instagram_business_account.username ?? page.name ?? handle;
           }
         } catch {
-          // non-fatal — env fallback below
+          // non-fatal — handled by the !pageId guard below
         }
-        // Env fallback (single-brand deployments) — only if derivation failed
-        if (!pageId && INSTAGRAM_ACCOUNT_ID) {
-          pageId = INSTAGRAM_ACCOUNT_ID;
-          try {
-            const me = await fetch(
-              `https://graph.facebook.com/v18.0/${pageId}?fields=username`,
-              { headers: { Authorization: `Bearer ${longToken}` } }
-            );
-            const meData = await me.json();
-            if (meData.username) handle = meData.username;
-          } catch {
-            // keep default handle
-          }
-        }
+        // No env fallback here: binding every user to INSTAGRAM_ACCOUNT_ID
+        // would wire all accounts to one IG profile (multi-tenancy violation).
         if (!pageId) {
           throw new TRPCError({
             code: "PRECONDITION_FAILED",

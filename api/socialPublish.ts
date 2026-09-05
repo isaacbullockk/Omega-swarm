@@ -11,8 +11,11 @@ import { socialAccounts } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { checkContentSafety } from "./openrouter";
 import { decryptToken } from "./tokenCrypto";
+import { META_GRAPH_VERSION } from "./tokenRefresh";
 
-const GRAPH_BASE = "https://graph.facebook.com/v21.0";
+// Shared Graph API version (v18/v19 deprecated; v20 expires Sept 2026).
+// Env-overridable via META_GRAPH_VERSION so bumps need no redeploy.
+const GRAPH_BASE = `https://graph.facebook.com/${META_GRAPH_VERSION}`;
 
 export interface PublishTarget {
   accessToken: string;
