@@ -17,7 +17,7 @@
  *   - Timezone-aware: Isaac runs Europe/Amsterdam; other users may override.
  */
 
-import { eq, and, lte, sql } from "drizzle-orm";
+import { eq, and, lte, sql, inArray } from "drizzle-orm";
 import { db, isPostgresAvailable } from "../db/connection";
 import { contentPosts, automationSettings, socialAccounts, analyticsEvents } from "../db/schema";
 import { resolveTarget, publishPost } from "./socialPublish";
@@ -84,24 +84,20 @@ function makeTimeInTimezone(date: Date, hour: number, minute: number, tz: string
 }
 
 /** Publish a single scheduled post to every connected platform the user wants */
-async function publishScheduledPost(post: {
-  id: string;
-  userId: string;
-  caption: string;
-  imageUrl: string | null;
-  title: string;
-}): Promise<{ published: number; errors: string[] }> {
+async function publishScheduledPost(
+  post: {
+    id: string;
+    userId: string;
+    caption: string;
+    imageUrl: string | null;
+    title: string;
+  },
+  settings: { platforms: unknown }
+): Promise<{ published: number; errors: string[] }> {
   const result = { published: 0, errors: [] as string[] };
-
-  // Load this user's automation settings to know which platforms to target
   if (!db) return result;
-  const settingsRows = await db
-    .select()
-    .from(automationSettings)
-    .where(eq(automationSettings.userId, post.userId))
-    .limit(1);
-  const settings = settingsRows[0];
-  const targetPlatforms = (settings?.platforms as string[] | undefined) ?? ["instagram", "facebook", "linkedin"];
+
+  const targetPlatforms = (settings.platforms as string[] | undefined) ?? ["instagram", "facebook", "linkedin"];
 
   for (const platform of targetPlatforms) {
     if (platform !== "instagram" && platform !== "facebook" && platform !== "linkedin") continue;
@@ -112,7 +108,6 @@ async function publishScheduledPost(post: {
         console.log(`[Scheduler] ${post.id}: no connected ${platform} account — skipping`);
         continue;
       }
-      // Instagram requires an image URL
       if (platform === "instagram" && !post.imageUrl) {
         result.errors.push("Instagram requires an image URL");
         continue;
@@ -121,7 +116,6 @@ async function publishScheduledPost(post: {
       const pub = await publishPost(target, post.caption, post.imageUrl ?? undefined);
       if (pub.success) {
         result.published++;
-        // Stamp platform-specific post id when available
         if (platform === "instagram" && pub.postId) {
           await db
             .update(contentPosts)
@@ -152,7 +146,6 @@ export async function runPublishTick(userId?: string): Promise<{
 
   const now = new Date();
 
-  // Find posts that are scheduled and whose date has arrived
   const whereClause = userId
     ? and(eq(contentPosts.status, "scheduled"), lte(contentPosts.date, now), eq(contentPosts.userId, userId))
     : and(eq(contentPosts.status, "scheduled"), lte(contentPosts.date, now));
@@ -173,72 +166,85 @@ export async function runPublishTick(userId?: string): Promise<{
   result.checked = duePosts.length;
   if (duePosts.length === 0) return result;
 
+  // Group posts by user to load settings once per user (N+1 fix)
+  const postsByUser = new Map<string, typeof duePosts>();
   for (const post of duePosts) {
-    try {
-      // Load user's automation settings
-      const settingsRows = await db
-        .select()
-        .from(automationSettings)
-        .where(eq(automationSettings.userId, post.userId))
-        .limit(1);
-      const settings = settingsRows[0];
+    const arr = postsByUser.get(post.userId) ?? [];
+    arr.push(post);
+    postsByUser.set(post.userId, arr);
+  }
 
-      // If automation is off entirely, leave as scheduled (user hasn't opted in)
-      if (!settings?.enabled) {
-        console.log(`[Scheduler] ${post.id}: automation disabled for user — leaving scheduled`);
-        continue;
-      }
+  for (const [uid, posts] of postsByUser) {
+    const settingsRows = await db
+      .select()
+      .from(automationSettings)
+      .where(eq(automationSettings.userId, uid))
+      .limit(1);
+    const settings = settingsRows[0];
 
-      const tz = settings.timezone || "Europe/Amsterdam";
-      const { dayName, hour } = localDayAndHour(now, tz);
-      const preferredDays = (settings.preferredDays as string[] | undefined) ?? ["tuesday", "wednesday", "thursday"];
-      const inPreferredDay = preferredDays.includes(dayName);
-      const inWindow = hour >= settings.timeWindowStart && hour <= settings.timeWindowEnd;
-
-      if (settings.autoPublish && inPreferredDay && inWindow) {
-        // Auto-publish path
-        const pub = await publishScheduledPost(post);
-        if (pub.published > 0) {
-          await db
-            .update(contentPosts)
-            .set({ status: "published" })
-            .where(eq(contentPosts.id, post.id));
-          result.published++;
-
-          await db.insert(analyticsEvents).values({
-            userId: post.userId,
-            clientId: null,
-            type: "ai_generation",
-            title: "Auto-published",
-            description: `"${post.title}" published to ${pub.published} platform(s)`,
-            agentColor: "#10B981",
-            agentName: "Autopilot",
-          });
-        } else {
-          // Publish attempted but every platform failed — leave as draft for user to fix
-          await db
-            .update(contentPosts)
-            .set({ status: "draft" })
-            .where(eq(contentPosts.id, post.id));
-          result.drafted++;
-          console.warn(`[Scheduler] ${post.id}: auto-publish failed on all platforms — moved to draft`, pub.errors);
-        }
-      } else {
-        // Review mode (or outside day/window): flip to draft
+    // Automation disabled: move overdue posts to draft so they stop re-appearing
+    if (!settings?.enabled) {
+      for (const post of posts) {
         await db
           .update(contentPosts)
           .set({ status: "draft" })
           .where(eq(contentPosts.id, post.id));
         result.drafted++;
-        console.log(`[Scheduler] ${post.id}: moved to draft (review mode or outside ${dayName} ${hour}h window)`);
+        console.log(`[Scheduler] ${post.id}: automation disabled — moved to draft`);
       }
-    } catch (err) {
-      result.failed++;
-      console.error(`[Scheduler] ${post.id}: tick error:`, (err as Error).message);
+      continue;
+    }
+
+    const tz = settings.timezone || "Europe/Amsterdam";
+    const { dayName, hour } = localDayAndHour(now, tz);
+    const preferredDays = (settings.preferredDays as string[] | undefined) ?? ["tuesday", "wednesday", "thursday"];
+    const inPreferredDay = preferredDays.includes(dayName);
+    const inWindow = hour >= settings.timeWindowStart && hour <= settings.timeWindowEnd;
+
+    for (const post of posts) {
+      try {
+        if (settings.autoPublish && inPreferredDay && inWindow) {
+          const pub = await publishScheduledPost(post, settings);
+          if (pub.published > 0) {
+            await db
+              .update(contentPosts)
+              .set({ status: "published" })
+              .where(eq(contentPosts.id, post.id));
+            result.published++;
+
+            await db.insert(analyticsEvents).values({
+              userId: post.userId,
+              clientId: null,
+              type: "ai_generation",
+              title: "Auto-published",
+              description: `"${post.title}" published to ${pub.published} platform(s)`,
+              agentColor: "#10B981",
+              agentName: "Autopilot",
+            });
+          } else {
+            await db
+              .update(contentPosts)
+              .set({ status: "draft" })
+              .where(eq(contentPosts.id, post.id));
+            result.drafted++;
+            console.warn(`[Scheduler] ${post.id}: auto-publish failed on all platforms — moved to draft`, pub.errors);
+          }
+        } else {
+          await db
+            .update(contentPosts)
+            .set({ status: "draft" })
+            .where(eq(contentPosts.id, post.id));
+          result.drafted++;
+          console.log(`[Scheduler] ${post.id}: moved to draft (review mode or outside ${dayName} ${hour}h window)`);
+        }
+      } catch (err) {
+        result.failed++;
+        console.error(`[Scheduler] ${post.id}: tick error:`, (err as Error).message);
+      }
     }
   }
 
-  // Record last run (per-user when scoped, else global heuristic)
+  // Record last run only for users who actually had posts processed
   try {
     if (userId) {
       await db
@@ -246,9 +252,13 @@ export async function runPublishTick(userId?: string): Promise<{
         .set({ lastRunAt: now })
         .where(eq(automationSettings.userId, userId));
     } else {
-      await db.execute(
-        sql`UPDATE automation_settings SET last_run_at = NOW() WHERE last_run_at IS NULL OR last_run_at < NOW() - INTERVAL '1 hour'`
-      );
+      const processedUserIds = Array.from(postsByUser.keys());
+      if (processedUserIds.length) {
+        await db
+          .update(automationSettings)
+          .set({ lastRunAt: now })
+          .where(inArray(automationSettings.userId, processedUserIds));
+      }
     }
   } catch {
     // non-fatal
