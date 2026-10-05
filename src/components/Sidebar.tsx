@@ -49,7 +49,7 @@ const NAV_ITEMS: NavItem[] = [
 
 const BOTTOM_ITEMS: NavItem[] = [
   { icon: HelpCircle, label: "Documentation", path: "/documentation" },
-  { icon: Eye, label: "Vision Statement", path: "/vision-statement" },
+  { icon: Eye, label: "Vision Statement", path: "/vision" },
   { icon: Play, label: "Replays", path: "/replays" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
