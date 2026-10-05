@@ -48,6 +48,41 @@ function localDayAndHour(date: Date, tz: string): { dayName: string; hour: numbe
   return { dayName, hour };
 }
 
+/**
+ * Build a UTC Date that represents `hour:minute` in the target timezone on
+ * the same calendar day as `date`. Brute-forces standard offsets (-12..+14)
+ * so it works regardless of DST transitions.
+ */
+function makeTimeInTimezone(date: Date, hour: number, minute: number, tz: string): Date {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = dtf.formatToParts(date);
+  const year = parseInt(parts.find((p) => p.type === "year")!.value, 10);
+  const month = parseInt(parts.find((p) => p.type === "month")!.value, 10);
+  const day = parseInt(parts.find((p) => p.type === "day")!.value, 10);
+
+  for (let offset = -12; offset <= 14; offset++) {
+    const candidate = new Date(Date.UTC(year, month - 1, day, hour - offset, minute));
+    const checkParts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour: "numeric",
+      minute: "numeric",
+      hour12: false,
+    }).formatToParts(candidate);
+    const checkHour = parseInt(checkParts.find((p) => p.type === "hour")!.value, 10);
+    const checkMinute = parseInt(checkParts.find((p) => p.type === "minute")!.value, 10);
+    if (checkHour === hour && checkMinute === minute) {
+      return candidate;
+    }
+  }
+  // Fallback (should never hit for valid IANA zones)
+  return new Date(Date.UTC(year, month - 1, day, hour, minute));
+}
+
 /** Publish a single scheduled post to every connected platform the user wants */
 async function publishScheduledPost(post: {
   id: string;
@@ -106,7 +141,7 @@ async function publishScheduledPost(post: {
 }
 
 /** Core publish tick: scheduled → published (auto) or draft (review) */
-export async function runPublishTick(): Promise<{
+export async function runPublishTick(userId?: string): Promise<{
   checked: number;
   published: number;
   drafted: number;
@@ -118,6 +153,10 @@ export async function runPublishTick(): Promise<{
   const now = new Date();
 
   // Find posts that are scheduled and whose date has arrived
+  const whereClause = userId
+    ? and(eq(contentPosts.status, "scheduled"), lte(contentPosts.date, now), eq(contentPosts.userId, userId))
+    : and(eq(contentPosts.status, "scheduled"), lte(contentPosts.date, now));
+
   const duePosts = await db
     .select({
       id: contentPosts.id,
@@ -128,7 +167,7 @@ export async function runPublishTick(): Promise<{
       date: contentPosts.date,
     })
     .from(contentPosts)
-    .where(and(eq(contentPosts.status, "scheduled"), lte(contentPosts.date, now)))
+    .where(whereClause)
     .orderBy(contentPosts.date);
 
   result.checked = duePosts.length;
@@ -199,11 +238,18 @@ export async function runPublishTick(): Promise<{
     }
   }
 
-  // Record last run
+  // Record last run (per-user when scoped, else global heuristic)
   try {
-    await db.execute(
-      sql`UPDATE automation_settings SET last_run_at = NOW() WHERE last_run_at IS NULL OR last_run_at < NOW() - INTERVAL '1 hour'`
-    );
+    if (userId) {
+      await db
+        .update(automationSettings)
+        .set({ lastRunAt: now })
+        .where(eq(automationSettings.userId, userId));
+    } else {
+      await db.execute(
+        sql`UPDATE automation_settings SET last_run_at = NOW() WHERE last_run_at IS NULL OR last_run_at < NOW() - INTERVAL '1 hour'`
+      );
+    }
   } catch {
     // non-fatal
   }
@@ -212,7 +258,7 @@ export async function runPublishTick(): Promise<{
 }
 
 /** Weekly draft generation: create scheduled posts for the next 7 days */
-export async function runGenerationTick(): Promise<{
+export async function runGenerationTick(userId?: string): Promise<{
   generated: number;
   failed: number;
 }> {
@@ -222,6 +268,10 @@ export async function runGenerationTick(): Promise<{
   const now = new Date();
 
   // Find users with automation enabled whose nextGenAt is due
+  const whereClause = userId
+    ? and(eq(automationSettings.enabled, true), eq(automationSettings.userId, userId))
+    : eq(automationSettings.enabled, true);
+
   const users = await db
     .select({
       userId: automationSettings.userId,
@@ -230,7 +280,7 @@ export async function runGenerationTick(): Promise<{
       nextGenAt: automationSettings.nextGenAt,
     })
     .from(automationSettings)
-    .where(eq(automationSettings.enabled, true));
+    .where(whereClause);
 
   for (const cfg of users) {
     // Gate: only generate once per week (or if never generated)
@@ -302,13 +352,8 @@ function generateWeeklyTopics(now: Date, tz: string): Array<{ date: Date; topic:
 
   for (let i = 1; i <= 7; i++) {
     const d = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
-    // Set to 9:30 AM in user's timezone as a sensible default post time
-    const dateStr = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
-    const scheduled = new Date(`${dateStr}T09:30:00`);
-    // Adjust if timezone offset makes it invalid — fall back to UTC
-    if (isNaN(scheduled.getTime())) {
-      scheduled.setTime(d.getTime() + 9.5 * 60 * 60 * 1000);
-    }
+    // Build a timezone-aware Date at 09:30 in the user's timezone
+    const scheduled = makeTimeInTimezone(d, 9, 30, tz);
 
     const template = templates[(i - 1) % templates.length];
     topics.push({ date: scheduled, topic: template });

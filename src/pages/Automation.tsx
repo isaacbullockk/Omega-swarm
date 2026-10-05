@@ -10,7 +10,7 @@
  *   - Manual triggers: generate drafts now, run publish tick now
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
@@ -75,19 +75,21 @@ export default function Automation() {
     brandVoice: "",
   });
 
-  // Hydrate form when settings load
-  if (settings && !update.isPending && form.enabled === false && settings.enabled) {
-    setForm({
-      enabled: settings.enabled,
-      autoPublish: settings.autoPublish,
-      preferredDays: (settings.preferredDays as string[]) ?? ["tuesday", "wednesday", "thursday"],
-      timeWindowStart: settings.timeWindowStart,
-      timeWindowEnd: settings.timeWindowEnd,
-      timezone: settings.timezone,
-      platforms: (settings.platforms as string[]) ?? ["instagram", "facebook", "linkedin"],
-      brandVoice: settings.brandVoice ?? "",
-    });
-  }
+  // Hydrate form when settings load (runs once on mount / settings change)
+  useEffect(() => {
+    if (settings) {
+      setForm({
+        enabled: settings.enabled,
+        autoPublish: settings.autoPublish,
+        preferredDays: (settings.preferredDays as string[]) ?? ["tuesday", "wednesday", "thursday"],
+        timeWindowStart: settings.timeWindowStart,
+        timeWindowEnd: settings.timeWindowEnd,
+        timezone: settings.timezone,
+        platforms: (settings.platforms as string[]) ?? ["instagram", "facebook", "linkedin"],
+        brandVoice: settings.brandVoice ?? "",
+      });
+    }
+  }, [settings]);
 
   const toggleDay = (day: string) => {
     setForm((prev) => ({

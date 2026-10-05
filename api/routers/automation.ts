@@ -124,7 +124,7 @@ export const automationRouter = router({
       throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Automation must be enabled first" });
     }
 
-    const r = await runGenerationTick();
+    const r = await runGenerationTick(ctx.user.id);
 
     await db.insert(analyticsEvents).values({
       userId: ctx.user.id,
@@ -153,7 +153,7 @@ export const automationRouter = router({
       throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Automation must be enabled first" });
     }
 
-    const r = await runPublishTick();
+    const r = await runPublishTick(ctx.user.id);
 
     await db.insert(analyticsEvents).values({
       userId: ctx.user.id,
