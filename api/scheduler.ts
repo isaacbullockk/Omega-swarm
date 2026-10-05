@@ -257,8 +257,12 @@ export async function runPublishTick(userId?: string): Promise<{
   return result;
 }
 
-/** Weekly draft generation: create scheduled posts for the next 7 days */
-export async function runGenerationTick(userId?: string): Promise<{
+/**
+ * Weekly draft generation: create scheduled posts for the next 7 days.
+ * @param userId — scope to one user (manual trigger) or all enabled users (cron)
+ * @param force — bypass the weekly nextGenAt gate (used by manual "Generate Now")
+ */
+export async function runGenerationTick(userId?: string, force = false): Promise<{
   generated: number;
   failed: number;
 }> {
@@ -283,9 +287,9 @@ export async function runGenerationTick(userId?: string): Promise<{
     .where(whereClause);
 
   for (const cfg of users) {
-    // Gate: only generate once per week (or if never generated)
+    // Gate: only generate once per week (or if never generated) — unless forced
     const nextGen = cfg.nextGenAt ? new Date(cfg.nextGenAt) : null;
-    if (nextGen && nextGen > now) continue; // not yet
+    if (!force && nextGen && nextGen > now) continue; // not yet
 
     try {
       const memoryContext = await getMemoryContext(cfg.userId);

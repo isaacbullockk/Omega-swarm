@@ -69,6 +69,13 @@ export const automationRouter = router({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
       }
 
+      // Validate IANA timezone before storing
+      try {
+        new Intl.DateTimeFormat("en-US", { timeZone: input.timezone });
+      } catch {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid timezone" });
+      }
+
       const existing = await db
         .select()
         .from(automationSettings)
@@ -124,7 +131,7 @@ export const automationRouter = router({
       throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Automation must be enabled first" });
     }
 
-    const r = await runGenerationTick(ctx.user.id);
+    const r = await runGenerationTick(ctx.user.id, true);
 
     await db.insert(analyticsEvents).values({
       userId: ctx.user.id,
