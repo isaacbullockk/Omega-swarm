@@ -23,6 +23,7 @@ import { leadRouter } from "./routers/lead";
 import { codegenRouter } from "./routers/codegen";
 import { marketingRouter } from "./routers/marketing";
 import { memoryRouter } from "./routers/memory";
+import { automationRouter } from "./routers/automation";
 
 export const appRouter = router({
   agent: agentRouter,
@@ -46,6 +47,7 @@ export const appRouter = router({
   codegen: codegenRouter,
   marketing: marketingRouter,
   memory: memoryRouter,
+  automation: automationRouter,
 });
 
 export type AppRouter = typeof appRouter;

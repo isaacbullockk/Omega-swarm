@@ -413,6 +413,34 @@ export const socialAccounts = pgTable(
   ]
 );
 
+/* ─── Automation Settings ─── */
+
+export const automationSettings = pgTable(
+  "automation_settings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    enabled: boolean("enabled").notNull().default(false),
+    autoPublish: boolean("auto_publish").notNull().default(false),
+    preferredDays: jsonb("preferred_days").$type<string[]>().default(["tuesday", "wednesday", "thursday"]),
+    timeWindowStart: integer("time_window_start").notNull().default(9),
+    timeWindowEnd: integer("time_window_end").notNull().default(11),
+    timezone: varchar("timezone", { length: 50 }).notNull().default("Europe/Amsterdam"),
+    platforms: jsonb("platforms").$type<string[]>().default(["instagram", "facebook", "linkedin"]),
+    brandVoice: varchar("brand_voice", { length: 255 }).default(""),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+    nextGenAt: timestamp("next_gen_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("automation_settings_user_id_idx").on(table.userId),
+    uniqueIndex("automation_settings_user_id_unique").on(table.userId),
+  ]
+);
+
 /* ─── Bookings ─── */
 
 export const bookings = pgTable(

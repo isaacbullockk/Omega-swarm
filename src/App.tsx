@@ -25,6 +25,7 @@ const VoiceStudio = lazy(() => import("@/pages/VoiceStudio"));
 const Documentation = lazy(() => import("@/pages/Documentation"));
 const VisionStatement = lazy(() => import("@/pages/VisionStatement"));
 const Replays = lazy(() => import("@/pages/Replays"));
+const Automation = lazy(() => import("@/pages/Automation"));
 
 /* ── Shared fallback for lazy pages ── */
 function PageSkeleton() {
@@ -64,6 +65,7 @@ const ROUTES = [
   { path: "/vision", element: <VisionStatement />, withBoundary: true },
   { path: "/lead-nurturing", element: <LeadNurturing />, withBoundary: true },
   { path: "/replays", element: <Replays />, withBoundary: true },
+  { path: "/automation", element: <Automation />, withBoundary: true },
 ] as const;
 
 export default function App() {

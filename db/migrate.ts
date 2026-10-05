@@ -647,6 +647,30 @@ END $$;`,
   `CREATE INDEX IF NOT EXISTS leads_email_idx ON leads(email);`,
   `CREATE INDEX IF NOT EXISTS leads_status_idx ON leads(status);`,
   `CREATE INDEX IF NOT EXISTS leads_score_idx ON leads(score);`,
+
+  // Automation settings (content scheduler + autopilot)
+  `CREATE TABLE IF NOT EXISTS automation_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    auto_publish BOOLEAN NOT NULL DEFAULT FALSE,
+    preferred_days JSONB DEFAULT '["tuesday","wednesday","thursday"]'::jsonb,
+    time_window_start INTEGER NOT NULL DEFAULT 9,
+    time_window_end INTEGER NOT NULL DEFAULT 11,
+    timezone VARCHAR(50) NOT NULL DEFAULT 'Europe/Amsterdam',
+    platforms JSONB DEFAULT '["instagram","facebook","linkedin"]'::jsonb,
+    brand_voice VARCHAR(255) DEFAULT '',
+    last_run_at TIMESTAMPTZ,
+    next_gen_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );`,
+  `CREATE INDEX IF NOT EXISTS automation_settings_user_id_idx ON automation_settings(user_id);`,
+  `DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'automation_settings_user_id_unique') THEN
+      CREATE UNIQUE INDEX automation_settings_user_id_unique ON automation_settings(user_id);
+    END IF;
+  END $$;`,
 ];
 
 export async function runMigrations() {

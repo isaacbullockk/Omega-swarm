@@ -20,6 +20,7 @@ import {
   Zap,
   LogOut,
   Users,
+  Bot,
 } from "lucide-react";
 
 /* ─────────────────────────── Types ─────────────────────────── */
@@ -34,6 +35,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: BookOpen, label: "Content Library", path: "/content-library" },
+  { icon: Bot, label: "Autopilot", path: "/automation" },
   { icon: Brain, label: "AI Agents", path: "/agents" },
   { icon: Database, label: "Memory Bank", path: "/memory-bank" },
   { icon: Briefcase, label: "Projects", path: "/projects" },

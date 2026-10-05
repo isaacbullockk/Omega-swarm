@@ -72,6 +72,15 @@ const server = serve(
   } catch (e) {
     console.error("[TOKEN-REFRESH] Setup failed:", (e as Error).message);
   }
+
+  // Content scheduler autopilot (publish + draft generation)
+  try {
+    const { startScheduler } = await import("./api/scheduler");
+    startScheduler();
+    console.log("[SCHEDULER] Autopilot scheduler started");
+  } catch (e) {
+    console.error("[SCHEDULER] Setup failed:", (e as Error).message);
+  }
 })();
 
 // Graceful shutdown
