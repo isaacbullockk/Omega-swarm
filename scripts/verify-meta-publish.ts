@@ -16,8 +16,9 @@
  *   6. Rapporteert PASS of FAIL per stap
  */
 
-const META_GRAPH = "https://graph.facebook.com/v25.0";
-const TEST_IMAGE_URL = "https://via.placeholder.com/500x500/FF0000/FFFFFF?text=Omega+Swarm+Test";
+const META_GRAPH_VERSION = process.env.META_GRAPH_VERSION || "v20.0";
+const META_GRAPH = `https://graph.facebook.com/${META_GRAPH_VERSION}`;
+const TEST_IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/500px-PNG_transparency_demonstration_1.png";
 
 const FETCH_TIMEOUT_MS = 10_000;
 
@@ -86,8 +87,11 @@ async function main() {
 
   // ─── Stap 2: Resolve IG Business Account ───
   console.log("\nStap 2: IG Business Account resolutie...");
-  const meUrl = `${META_GRAPH}/me/accounts?fields=name,id,instagram_business_account&access_token=${token}`;
-  const me = await fetchJson(meUrl);
+  const me = await fetchJson(`${META_GRAPH}/me/accounts?fields=name,id,instagram_business_account`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ access_token: token }).toString(),
+  });
 
   if (!me.ok || me.data.error) {
     console.error("❌ FAIL: /me/accounts mislukt:", me.data.error?.message || me.data);
@@ -127,8 +131,11 @@ async function main() {
 
   // ─── Stap 3: IG account verify ───
   console.log("\nStap 3: IG account verificatie...");
-  const igUrl = `${META_GRAPH}/${igAccountId}?fields=username&access_token=${token}`;
-  const ig = await fetchJson(igUrl);
+  const ig = await fetchJson(`${META_GRAPH}/${igAccountId}?fields=username`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ access_token: token }).toString(),
+  });
   if (!ig.ok || ig.data.error) {
     console.error("❌ FAIL: Kan IG account niet lezen:", ig.data.error?.message || ig.data);
     process.exit(1);

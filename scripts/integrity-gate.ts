@@ -19,8 +19,9 @@
 
 import { writeFileSync } from "fs";
 
-const META_GRAPH = "https://graph.facebook.com/v25.0";
-const TEST_IMAGE = "https://picsum.photos/100/100";
+const META_GRAPH_VERSION = process.env.META_GRAPH_VERSION || "v20.0";
+const META_GRAPH = `https://graph.facebook.com/${META_GRAPH_VERSION}`;
+const TEST_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/100px-PNG_transparency_demonstration_1.png";
 const FETCH_TIMEOUT_MS = 10_000;
 
 interface IntegrityReport {
@@ -50,7 +51,11 @@ async function checkDatabase(): Promise<{ status: "PASS" | "FAIL"; detail: strin
     if (!dbUrl.startsWith("postgres")) return { status: "FAIL", detail: "DATABASE_URL is geen PostgreSQL URL" };
 
     const { Client } = await import("pg");
-    const client = new Client({ connectionString: dbUrl, connectionTimeoutMillis: 5000 });
+    const client = new Client({
+      connectionString: dbUrl,
+      connectionTimeoutMillis: 5000,
+      ssl: { rejectUnauthorized: false },
+    });
     await client.connect();
     await client.end();
     return { status: "PASS", detail: "Database bereikbaar (TCP connect OK)" };
@@ -97,8 +102,11 @@ async function checkTokenScopes(token: string): Promise<{ status: "PASS" | "FAIL
 }
 
 async function checkIgAccount(token: string, envAccountId: string) {
-  const url = `${META_GRAPH}/me/accounts?fields=name,id,instagram_business_account&access_token=${token}`;
-  const res = await fetchJson(url);
+  const res = await fetchJson(`${META_GRAPH}/me/accounts?fields=name,id,instagram_business_account`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ access_token: token }).toString(),
+  });
 
   if (!res.ok || res.data.error) {
     return { status: "FAIL" as const, detail: `/me/accounts mislukt: ${res.data.error?.message || "unknown"}` };
