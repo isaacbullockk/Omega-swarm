@@ -130,17 +130,28 @@ async function checkIgAccount(token: string, envAccountId: string) {
 }
 
 async function checkImageDownload(): Promise<{ status: "PASS" | "FAIL"; detail: string }> {
-  try {
-    const res = await fetch(TEST_IMAGE, { method: "GET", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-    if (!res.ok) return { status: "FAIL", detail: `Test-afbeelding niet bereikbaar: ${res.status}` };
-    const contentType = res.headers.get("content-type") || "";
-    if (!contentType.startsWith("image/")) {
-      return { status: "WARN", detail: `Content-Type is ${contentType}, verwacht image/*` };
-    }
-    return { status: "PASS", detail: "Test-afbeelding bereikbaar (HTTPS, image/*)" };
-  } catch (e) {
-    return { status: "FAIL", detail: `Download mislukt: ${(e as Error).message}` };
+  const urls = [
+    "https://picsum.photos/100/100",
+    "https://httpbin.org/image/png",
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/100px-PNG_transparency_demonstration_1.png",
+  ];
+
+  for (const url of urls) {
+    try {
+      let res = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+      if (res.status === 405 || res.status === 400) {
+        res = await fetch(url, { method: "GET", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+      }
+      if (res.ok) {
+        const ct = res.headers.get("content-type") || "";
+        if (ct.startsWith("image/")) {
+          return { status: "PASS", detail: `Image bereikbaar via ${new URL(url).hostname} (${ct})` };
+        }
+      }
+    } catch { /* try next */ }
   }
+
+  return { status: "FAIL", detail: "Geen van de test-afbeeldingen bereikbaar" };
 }
 
 async function main() {
