@@ -19,10 +19,18 @@
 const META_GRAPH = "https://graph.facebook.com/v25.0";
 const TEST_IMAGE_URL = "https://via.placeholder.com/500x500/FF0000/FFFFFF?text=Omega+Swarm+Test";
 
+const FETCH_TIMEOUT_MS = 10_000;
+
 async function fetchJson(url: string, opts?: RequestInit) {
-  const res = await fetch(url, opts);
-  const data = await res.json();
-  return { ok: res.ok, status: res.status, data };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { ...opts, signal: controller.signal });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, data };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function main() {
@@ -49,8 +57,15 @@ async function main() {
   if (!appId || !appSecret) {
     console.warn("⚠️  META_APP_ID of META_APP_SECRET ontbreekt — debug_token kan niet (non-fatal)");
   } else {
-    const debugUrl = `${META_GRAPH}/debug_token?input_token=${token}&access_token=${appId}|${appSecret}`;
-    const debug = await fetchJson(debugUrl);
+    const debugBody = new URLSearchParams({
+      input_token: token,
+      access_token: `${appId}|${appSecret}`,
+    });
+    const debug = await fetchJson(`${META_GRAPH}/debug_token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: debugBody.toString(),
+    });
     if (!debug.ok || debug.data.error) {
       console.error("❌ FAIL: debug_token mislukt:", debug.data.error?.message || debug.data);
     } else {

@@ -20,7 +20,8 @@
 import { writeFileSync } from "fs";
 
 const META_GRAPH = "https://graph.facebook.com/v25.0";
-const TEST_IMAGE = "https://via.placeholder.com/100x100/FF0000/FFFFFF?text=Test";
+const TEST_IMAGE = "https://picsum.photos/100/100";
+const FETCH_TIMEOUT_MS = 10_000;
 
 interface IntegrityReport {
   timestamp: string;
@@ -31,21 +32,30 @@ interface IntegrityReport {
 }
 
 async function fetchJson(url: string, opts?: RequestInit) {
-  const res = await fetch(url, opts);
-  const data = await res.json();
-  return { ok: res.ok, status: res.status, data };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { ...opts, signal: controller.signal });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, data };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function checkDatabase(): Promise<{ status: "PASS" | "FAIL"; detail: string }> {
   try {
-    // We kunnen geen database importeren vanuit een standalone script zonder de hele app op te starten.
-    // In productie wordt dit vervangen door een echte db.ping().
     const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
     if (!dbUrl) return { status: "FAIL", detail: "DATABASE_URL ontbreekt" };
     if (!dbUrl.startsWith("postgres")) return { status: "FAIL", detail: "DATABASE_URL is geen PostgreSQL URL" };
-    return { status: "PASS", detail: "DATABASE_URL is gezet" };
+
+    const { Client } = await import("pg");
+    const client = new Client({ connectionString: dbUrl, connectionTimeoutMillis: 5000 });
+    await client.connect();
+    await client.end();
+    return { status: "PASS", detail: "Database bereikbaar (TCP connect OK)" };
   } catch (e) {
-    return { status: "FAIL", detail: (e as Error).message };
+    return { status: "FAIL", detail: `Database connectie mislukt: ${(e as Error).message}` };
   }
 }
 
@@ -56,8 +66,15 @@ async function checkTokenScopes(token: string): Promise<{ status: "PASS" | "FAIL
     return { status: "FAIL", detail: "META_APP_ID/SECRET ontbreekt — kan scopes niet verifiëren" };
   }
 
-  const url = `${META_GRAPH}/debug_token?input_token=${token}&access_token=${appId}|${appSecret}`;
-  const res = await fetchJson(url);
+  const body = new URLSearchParams({
+    input_token: token,
+    access_token: `${appId}|${appSecret}`,
+  });
+  const res = await fetchJson(`${META_GRAPH}/debug_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
 
   if (!res.ok || res.data.error) {
     return { status: "FAIL", detail: `debug_token mislukt: ${res.data.error?.message || "unknown"}` };
@@ -116,7 +133,7 @@ async function checkIgAccount(token: string, envAccountId: string) {
 
 async function checkImageDownload(): Promise<{ status: "PASS" | "FAIL"; detail: string }> {
   try {
-    const res = await fetch(TEST_IMAGE, { method: "HEAD" });
+    const res = await fetch(TEST_IMAGE, { method: "HEAD", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!res.ok) return { status: "FAIL", detail: `Test-afbeelding niet bereikbaar: ${res.status}` };
     const contentType = res.headers.get("content-type") || "";
     if (!contentType.startsWith("image/")) {
@@ -184,7 +201,7 @@ async function main() {
     report.canPublish = false;
   } else if (report.checks.some((c) => c.status === "WARN")) {
     report.overall = "DEGRADED";
-    report.canPublish = true; // waarschuwing maar niet blokkerend
+    report.canPublish = true;
   } else {
     report.overall = "PASS";
     report.canPublish = true;
@@ -210,7 +227,6 @@ async function main() {
 
   console.log("\n🎉 Integriteits-check geslaagd. De app kan publiceren.\n");
 
-  // Output als JSON voor de Autopilot
   const outputPath = "/tmp/integrity-report.json";
   writeFileSync(outputPath, JSON.stringify(report, null, 2));
   console.log(`Rapport opgeslagen naar: ${outputPath}\n`);
