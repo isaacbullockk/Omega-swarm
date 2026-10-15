@@ -54,7 +54,7 @@ async function checkDatabase(): Promise<{ status: "PASS" | "FAIL"; detail: strin
     const client = new Client({
       connectionString: dbUrl,
       connectionTimeoutMillis: 5000,
-      ssl: true,
+      ssl: { rejectUnauthorized: false },
     });
     await client.connect();
     await client.end();
@@ -131,7 +131,7 @@ async function checkIgAccount(token: string, envAccountId: string) {
 
 async function checkImageDownload(): Promise<{ status: "PASS" | "FAIL"; detail: string }> {
   try {
-    const res = await fetch(TEST_IMAGE, { method: "HEAD", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    const res = await fetch(TEST_IMAGE, { method: "GET", signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!res.ok) return { status: "FAIL", detail: `Test-afbeelding niet bereikbaar: ${res.status}` };
     const contentType = res.headers.get("content-type") || "";
     if (!contentType.startsWith("image/")) {
