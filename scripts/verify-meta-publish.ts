@@ -12,15 +12,18 @@
  *   2. Checkt /debug_token voor scopes (instagram_content_publish?)
  *   3. Resolveert het IG Business Account ID via /me/accounts
  *   4. Probeert een media container aan te maken (/me/media)
- *   5. Probeert de container te publiceren (/me/media_publish)
- *   6. Rapporteert PASS of FAIL per stap
+ *   5. WACHT op container status FINISHED
+ *   6. Probeert de container te publiceren (/me/media_publish)
+ *   7. Rapporteert PASS of FAIL per stap
  */
 
 const META_GRAPH_VERSION = process.env.META_GRAPH_VERSION || "v20.0";
 const META_GRAPH = `https://graph.facebook.com/${META_GRAPH_VERSION}`;
-const TEST_IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/500px-PNG_transparency_demonstration_1.png";
+const TEST_IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/1024px-PNG_transparency_demonstration_1.png";
 
-const FETCH_TIMEOUT_MS = 10_000;
+const FETCH_TIMEOUT_MS = 30_000;
+const POLL_INTERVAL_MS = 2_000;
+const MAX_POLL_ATTEMPTS = 30;
 
 async function fetchJson(url: string, opts?: RequestInit) {
   const controller = new AbortController();
@@ -32,6 +35,28 @@ async function fetchJson(url: string, opts?: RequestInit) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function pollContainerStatus(containerId: string, token: string): Promise<boolean> {
+  for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
+    const res = await fetchJson(`${META_GRAPH}/${containerId}?fields=status_code`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ access_token: token }).toString(),
+    });
+
+    const status = res.data.status_code;
+    console.log(`   Polling [${attempt + 1}/${MAX_POLL_ATTEMPTS}]: status=${status || "unknown"}`);
+
+    if (status === "FINISHED") return true;
+    if (status === "ERROR") {
+      console.error("   Container processing FAILED:", res.data);
+      return false;
+    }
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+  }
+  console.error("   TIMEOUT: Container bereikte nooit FINISHED status");
+  return false;
 }
 
 async function main() {
@@ -171,8 +196,17 @@ async function main() {
   const creationId = container.data.id;
   console.log(`   Container ID: ${creationId} ✅`);
 
-  // ─── Stap 5: Publish ───
-  console.log("\nStap 5: Container publiceren...");
+  // ─── Stap 5: Poll container status ───
+  console.log("\nStap 5: Container status polling...");
+  const finished = await pollContainerStatus(creationId, token);
+  if (!finished) {
+    console.error("❌ FAIL: Container processing mislukt of timeout.");
+    process.exit(1);
+  }
+  console.log(`   Container status: FINISHED ✅`);
+
+  // ─── Stap 6: Publish ───
+  console.log("\nStap 6: Container publiceren...");
   const publishBody = new URLSearchParams({
     creation_id: creationId,
     access_token: token,
@@ -191,8 +225,8 @@ async function main() {
   const mediaId = publish.data.id;
   console.log(`   Media ID: ${mediaId} ✅`);
 
-  // ─── Stap 6: Permalink ophalen (media_id ≠ shortcode) ───
-  console.log("\nStap 6: Permalink ophalen...");
+  // ─── Stap 7: Permalink ophalen (media_id ≠ shortcode) ───
+  console.log("\nStap 7: Permalink ophalen...");
   const permalinkRes = await fetchJson(`${META_GRAPH}/${mediaId}?fields=permalink,shortcode`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
