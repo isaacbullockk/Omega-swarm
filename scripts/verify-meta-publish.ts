@@ -188,10 +188,26 @@ async function main() {
     process.exit(1);
   }
 
-  const postId = publish.data.id;
-  console.log(`   Post ID: ${postId} ✅`);
+  const mediaId = publish.data.id;
+  console.log(`   Media ID: ${mediaId} ✅`);
+
+  // ─── Stap 6: Permalink ophalen (media_id ≠ shortcode) ───
+  console.log("\nStap 6: Permalink ophalen...");
+  const permalinkRes = await fetchJson(`${META_GRAPH}/${mediaId}?fields=permalink,shortcode`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ access_token: token }).toString(),
+  });
+
+  let postUrl = `https://instagram.com/p/${mediaId}`;
+  if (permalinkRes.ok && permalinkRes.data.permalink) {
+    postUrl = permalinkRes.data.permalink;
+  } else if (permalinkRes.ok && permalinkRes.data.shortcode) {
+    postUrl = `https://instagram.com/p/${permalinkRes.data.shortcode}/`;
+  }
+
   console.log(`\n🎉 SUCCESS: Post is LIVE op Instagram!`);
-  console.log(`   Check: https://instagram.com/p/${postId}`);
+  console.log(`   Check: ${postUrl}`);
   console.log(`\n   ⬆️  VERIFICATIE COMPLEET: Token + ID + permissions werken.`);
   console.log(`   De app kan nu daadwerkelijk publiceren.\n`);
 }
