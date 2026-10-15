@@ -19,7 +19,7 @@
 
 const META_GRAPH_VERSION = process.env.META_GRAPH_VERSION || "v20.0";
 const META_GRAPH = `https://graph.facebook.com/${META_GRAPH_VERSION}`;
-const TEST_IMAGE_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/1024px-PNG_transparency_demonstration_1.png";
+const TEST_IMAGE_URL = "https://picsum.photos/1080/1080";
 
 const FETCH_TIMEOUT_MS = 30_000;
 const POLL_INTERVAL_MS = 2_000;
@@ -167,12 +167,16 @@ async function main() {
 
   if (!container.ok || container.data.error) {
     console.error("❌ FAIL: Container creatie mislukt:", container.data.error?.message || container.data);
+    console.error("   Full error:", JSON.stringify(container.data.error, null, 2));
     console.error("   Dit betekent: je token kan GEEN media uploaden.");
     if (container.data.error?.code === 10) {
       console.error("   Error 10 = Permission denied. Token mist instagram_content_publish.");
     }
     if (container.data.error?.code === 2207007) {
       console.error("   Error 2207007 = Media download mislukt (URL niet publiek/bereikbaar).");
+    }
+    if (container.data.error?.code === 3501) {
+      console.error("   Error 3501 = De gebruiker heeft geen Instagram Business Account.");
     }
     process.exit(1);
   }
