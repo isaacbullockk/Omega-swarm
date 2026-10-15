@@ -54,7 +54,7 @@ async function checkDatabase(): Promise<{ status: "PASS" | "FAIL"; detail: strin
     const client = new Client({
       connectionString: dbUrl,
       connectionTimeoutMillis: 5000,
-      ssl: { rejectUnauthorized: false },
+      ssl: true,
     });
     await client.connect();
     await client.end();
