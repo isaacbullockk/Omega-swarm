@@ -123,8 +123,16 @@ async function main() {
   // ─── Stap 4: Media container aanmaken ───
   console.log("\nStap 4: Media container aanmaken...");
   const caption = "Omega Swarm smoke test — verifying publishing pipeline. #test";
-  const containerUrl = `${META_GRAPH}/${igAccountId}/media?image_url=${encodeURIComponent(TEST_IMAGE_URL)}&caption=${encodeURIComponent(caption)}&access_token=${token}`;
-  const container = await fetchJson(containerUrl, { method: "POST" });
+  const containerBody = new URLSearchParams({
+    image_url: TEST_IMAGE_URL,
+    caption,
+    access_token: token,
+  });
+  const container = await fetchJson(`${META_GRAPH}/${igAccountId}/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: containerBody.toString(),
+  });
 
   if (!container.ok || container.data.error) {
     console.error("❌ FAIL: Container creatie mislukt:", container.data.error?.message || container.data);
@@ -143,8 +151,15 @@ async function main() {
 
   // ─── Stap 5: Publish ───
   console.log("\nStap 5: Container publiceren...");
-  const publishUrl = `${META_GRAPH}/${igAccountId}/media_publish?creation_id=${creationId}&access_token=${token}`;
-  const publish = await fetchJson(publishUrl, { method: "POST" });
+  const publishBody = new URLSearchParams({
+    creation_id: creationId,
+    access_token: token,
+  });
+  const publish = await fetchJson(`${META_GRAPH}/${igAccountId}/media_publish`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: publishBody.toString(),
+  });
 
   if (!publish.ok || publish.data.error) {
     console.error("❌ FAIL: Publish mislukt:", publish.data.error?.message || publish.data);

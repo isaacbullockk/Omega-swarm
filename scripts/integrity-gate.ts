@@ -17,6 +17,8 @@
  * Als een check FAIL is, publiceer de Autopilot NIET — stop en waarschuw de gebruiker.
  */
 
+import { writeFileSync } from "fs";
+
 const META_GRAPH = "https://graph.facebook.com/v25.0";
 const TEST_IMAGE = "https://via.placeholder.com/100x100/FF0000/FFFFFF?text=Test";
 
@@ -210,7 +212,7 @@ async function main() {
 
   // Output als JSON voor de Autopilot
   const outputPath = "/tmp/integrity-report.json";
-  require("fs").writeFileSync(outputPath, JSON.stringify(report, null, 2));
+  writeFileSync(outputPath, JSON.stringify(report, null, 2));
   console.log(`Rapport opgeslagen naar: ${outputPath}\n`);
 }
 

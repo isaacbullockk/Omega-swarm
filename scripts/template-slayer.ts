@@ -11,6 +11,7 @@
  * Output: JSON array met posts die direct in de database kunnen.
  */
 
+import { writeFileSync } from "fs";
 import { BRIEFING_MEMORIES, CALENDAR_PLAN } from "../src/data/masterBriefing";
 
 interface RealPost {
@@ -114,7 +115,7 @@ function main() {
 
   // Output als importeerbaar JSON
   const outputPath = "/tmp/real-posts.json";
-  require("fs").writeFileSync(outputPath, JSON.stringify(posts, null, 2));
+  writeFileSync(outputPath, JSON.stringify(posts, null, 2));
   console.log(`\n✅ Output opgeslagen naar: ${outputPath}`);
   console.log(`   Kopieer deze naar de app om te importeren als scheduled posts.\n`);
 }
