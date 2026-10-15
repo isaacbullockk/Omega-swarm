@@ -39,11 +39,8 @@ async function fetchJson(url: string, opts?: RequestInit) {
 
 async function pollContainerStatus(containerId: string, token: string): Promise<boolean> {
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
-    const res = await fetchJson(`${META_GRAPH}/${containerId}?fields=status_code`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ access_token: token }).toString(),
-    });
+    const pollUrl = `${META_GRAPH}/${containerId}?fields=status_code&access_token=${encodeURIComponent(token)}`;
+    const res = await fetchJson(pollUrl);
 
     const status = res.data.status_code;
     console.log(`   Polling [${attempt + 1}/${MAX_POLL_ATTEMPTS}]: status=${status || "unknown"}`);
@@ -83,15 +80,8 @@ async function main() {
   if (!appId || !appSecret) {
     console.warn("⚠️  META_APP_ID of META_APP_SECRET ontbreekt — debug_token kan niet (non-fatal)");
   } else {
-    const debugBody = new URLSearchParams({
-      input_token: token,
-      access_token: `${appId}|${appSecret}`,
-    });
-    const debug = await fetchJson(`${META_GRAPH}/debug_token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: debugBody.toString(),
-    });
+    const debugUrl = `${META_GRAPH}/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(`${appId}|${appSecret}`)}`;
+    const debug = await fetchJson(debugUrl);
     if (!debug.ok || debug.data.error) {
       console.error("❌ FAIL: debug_token mislukt:", debug.data.error?.message || debug.data);
     } else {
@@ -112,11 +102,8 @@ async function main() {
 
   // ─── Stap 2: Resolve IG Business Account ───
   console.log("\nStap 2: IG Business Account resolutie...");
-  const me = await fetchJson(`${META_GRAPH}/me/accounts?fields=name,id,instagram_business_account`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ access_token: token }).toString(),
-  });
+  const meUrl = `${META_GRAPH}/me/accounts?fields=name,id,instagram_business_account&access_token=${encodeURIComponent(token)}`;
+  const me = await fetchJson(meUrl);
 
   if (!me.ok || me.data.error) {
     console.error("❌ FAIL: /me/accounts mislukt:", me.data.error?.message || me.data);
@@ -156,11 +143,8 @@ async function main() {
 
   // ─── Stap 3: IG account verify ───
   console.log("\nStap 3: IG account verificatie...");
-  const ig = await fetchJson(`${META_GRAPH}/${igAccountId}?fields=username`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ access_token: token }).toString(),
-  });
+  const igUrl = `${META_GRAPH}/${igAccountId}?fields=username&access_token=${encodeURIComponent(token)}`;
+  const ig = await fetchJson(igUrl);
   if (!ig.ok || ig.data.error) {
     console.error("❌ FAIL: Kan IG account niet lezen:", ig.data.error?.message || ig.data);
     process.exit(1);
@@ -227,11 +211,8 @@ async function main() {
 
   // ─── Stap 7: Permalink ophalen (media_id ≠ shortcode) ───
   console.log("\nStap 7: Permalink ophalen...");
-  const permalinkRes = await fetchJson(`${META_GRAPH}/${mediaId}?fields=permalink,shortcode`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ access_token: token }).toString(),
-  });
+  const permalinkUrl = `${META_GRAPH}/${mediaId}?fields=permalink,shortcode&access_token=${encodeURIComponent(token)}`;
+  const permalinkRes = await fetchJson(permalinkUrl);
 
   let postUrl = `https://instagram.com/p/${mediaId}`;
   if (permalinkRes.ok && permalinkRes.data.permalink) {

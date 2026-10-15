@@ -71,15 +71,8 @@ async function checkTokenScopes(token: string): Promise<{ status: "PASS" | "FAIL
     return { status: "FAIL", detail: "META_APP_ID/SECRET ontbreekt — kan scopes niet verifiëren" };
   }
 
-  const body = new URLSearchParams({
-    input_token: token,
-    access_token: `${appId}|${appSecret}`,
-  });
-  const res = await fetchJson(`${META_GRAPH}/debug_token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
-  });
+  const debugUrl = `${META_GRAPH}/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(`${appId}|${appSecret}`)}`;
+  const res = await fetchJson(debugUrl);
 
   if (!res.ok || res.data.error) {
     return { status: "FAIL", detail: `debug_token mislukt: ${res.data.error?.message || "unknown"}` };
@@ -102,11 +95,8 @@ async function checkTokenScopes(token: string): Promise<{ status: "PASS" | "FAIL
 }
 
 async function checkIgAccount(token: string, envAccountId: string) {
-  const res = await fetchJson(`${META_GRAPH}/me/accounts?fields=name,id,instagram_business_account`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ access_token: token }).toString(),
-  });
+  const url = `${META_GRAPH}/me/accounts?fields=name,id,instagram_business_account&access_token=${encodeURIComponent(token)}`;
+  const res = await fetchJson(url);
 
   if (!res.ok || res.data.error) {
     return { status: "FAIL" as const, detail: `/me/accounts mislukt: ${res.data.error?.message || "unknown"}` };
