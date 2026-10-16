@@ -333,6 +333,9 @@ function linkedinHeaders(token: string): Record<string, string> {
  * rows connected before the derivation existed.
  */
 async function linkedinAuthorUrn(target: PublishTarget): Promise<string> {
+  // Company page: urn:li:organization:143021938
+  if (target.accountId.startsWith("urn:li:organization:")) return target.accountId;
+  // Personal profile: urn:li:person:...
   if (target.accountId.startsWith("urn:li:person:")) return target.accountId;
   const res = await fetch("https://api.linkedin.com/v2/userinfo", {
     headers: { Authorization: `Bearer ${target.accessToken}` },

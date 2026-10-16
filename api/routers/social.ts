@@ -87,8 +87,9 @@ export const socialRouter = router({
         });
       }
       try {
-        // LinkedIn: verify the token and derive the person URN (publish author)
-        // from OpenID userinfo, so the user never has to find it manually.
+        // LinkedIn: verify the token and derive the author URN.
+        // Personal profile: auto-derived from OpenID userinfo.
+        // Company page: user provides urn:li:organization:ID in pageId field.
         let pageId = input.pageId ?? null;
         let accountName = input.accountName;
         let handle = input.handle;
@@ -101,12 +102,19 @@ export const socialRouter = router({
             throw new TRPCError({
               code: "BAD_REQUEST",
               message:
-                "LinkedIn rejected this token. Create one with openid, profile, email and w_member_social scopes (LinkedIn Developer Portal → your app → Auth).",
+                "LinkedIn rejected this token. Create one with openid, profile, email and w_member_social scopes (LinkedIn Developer Portal → your app → Auth). For company pages, also add w_organization_social.",
             });
           }
-          pageId = `urn:li:person:${me.sub}`;
-          accountName = me.name ?? accountName;
-          handle = me.email ? me.email.split("@")[0] : handle;
+          // If user provided an organization URN, use it for company page posting
+          if (pageId && pageId.startsWith("urn:li:organization:")) {
+            accountName = accountName || "LinkedIn Company Page";
+            handle = handle || pageId.replace("urn:li:organization:", "");
+          } else {
+            // Default to personal profile
+            pageId = `urn:li:person:${me.sub}`;
+            accountName = me.name ?? accountName;
+            handle = me.email ? me.email.split("@")[0] : handle;
+          }
         }
         // Instagram publishing targets the IG Business Account ID — connecting
         // without it would "succeed" but every publish would fail to resolve.
