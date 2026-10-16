@@ -10,7 +10,8 @@
     "dev": "vite",
     "verify:meta": "npx tsx scripts/verify-meta-publish.ts",
     "verify:integrity": "npx tsx scripts/integrity-gate.ts",
-    "slay:templates": "npx tsx scripts/template-slayer.ts"
+    "slay:templates": "npx tsx scripts/template-slayer.ts",
+    "mission:kyakuwa": "npx tsx scripts/mission-kyakuwa-wildnoff.ts"
   },
   "engines": {
     "node": ">=20.0.0"
