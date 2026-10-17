@@ -12,7 +12,8 @@
     "verify:integrity": "npx tsx scripts/integrity-gate.ts",
     "slay:templates": "npx tsx scripts/template-slayer.ts",
     "mission:kyakuwa": "npx tsx scripts/mission-kyakuwa-wildnoff.ts",
-    "mission:isaac": "npx tsx scripts/mission-isaac-bullock.ts"
+    "mission:isaac": "npx tsx scripts/mission-isaac-bullock.ts",
+    "fetch:fb-assets": "npx tsx scripts/fetch-facebook-assets.ts"
   },
   "engines": {
     "node": ">=20.0.0"
