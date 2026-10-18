@@ -55,33 +55,14 @@ function analyzePhotos(): VisualIdentity {
   // Extract visual patterns from captions and known content
   const allText = captions.join(" ").toLowerCase();
 
-  // Detect photographer credits
-  const photoCredits = [
-    "Paul Gabel",
-    "Edo Land",
-    "P60",
-    "Bimhuis",
-    "Paradiso",
-    "Concertgebouw",
-  ].filter((c) => allText.includes(c.toLowerCase()) || true); // always include known ones
-
-  // Detect venues from captions + known venues
-  const venues = [
-    "P60",
-    "Paradiso",
-    "Bimhuis",
-    "Concertgebouw",
-    "North Sea Jazz",
-    "Amsterdam",
-  ];
-
   // Build the visual identity based on real analysis + domain knowledge
+  // NO brand names, tags, or photographer credits in AI prompts
   const identity: VisualIdentity = {
     brandName: "Kyakuwa / WILDNOFF",
     analyzedAt: new Date().toISOString(),
     photoCount: photos.length,
 
-    // Extracted from real photo analysis
+    // Extracted from real photo analysis — described, not named
     dominantColors: [
       "Deep purple stage lighting",
       "Warm tungsten/orange rehearsal light",
@@ -114,7 +95,7 @@ function analyzePhotos(): VisualIdentity {
       "Isaac Bullock: charismatic frontman, expressive gestures, warm smile",
       "Band members: diverse, multi-ethnic, casual streetwear",
       "Live audiences: engaged, dancing, hands raised",
-      "Instruments: drums with 'P60' logo, electric guitar, keyboard",
+      "Instruments: drum kit with logo, electric guitar, keyboard",
       "Venues: professional stage with lighting rigs",
       "Rehearsal spaces: intimate, cluttered, authentic",
     ],
@@ -128,15 +109,13 @@ function analyzePhotos(): VisualIdentity {
       "Documentary realism over studio perfection",
     ],
 
-    photographerCredits: ["Paul Gabel", "Edo Land"],
-    venueSignatures: ["P60", "Paradiso", "Bimhuis"],
+    // Intentionally empty — no photographer or venue names in AI prompts
+    photographerCredits: [],
+    venueSignatures: [],
 
-    // Template for AI prompts that respects the brand identity
-    aiPromptTemplate: `Professional music photography in the style of {photographer}. 
-{subject} on stage at {venue}, {lighting}. 
-{mood}. {composition}. 
-Shot on {camera}. {color_grade}. 
-Documentary feel, not stock photo. Authentic moment captured live.`,
+    // Template for AI prompts — no brand names, no tags, no credits
+    aiPromptTemplate: `Professional music photography. {subject} on stage, {lighting}. {mood}. {composition}. Shot on {camera}. {color_grade}. Documentary feel, not stock photo. Authentic moment captured live. No text, no watermarks, no logos.`,
+
 
     examplePrompts: [],
   };
@@ -144,15 +123,15 @@ Documentary feel, not stock photo. Authentic moment captured live.`,
   // Generate 12 example prompts based on the visual identity
   const subjects = [
     "Isaac Bullock holding a microphone, expressive gesture, engaging the crowd",
-    "Full band performing, drummer with P60 logo visible, guitarist in yellow hoodie",
+    "Full band performing, drummer with logo visible on bass drum, guitarist in yellow hoodie",
     "Isaac Bullock smiling, blue cap, colorful geometric mural background",
     "Crowd from behind the band, hands raised, lens flares from purple stage lights",
     "Backstage corridor, musician walking toward stage, anticipation",
     "Close-up of hands playing bass guitar, warm tungsten light",
     "Group of 30+ musicians and fans on stage, arms raised, celebration",
-    "Isaac Bullock at TEDx, warm spotlight, speaking to audience",
+    "Isaac Bullock at a speaking event, warm spotlight, addressing audience",
     "Rehearsal studio, candid moment, musicians laughing between takes",
-    "Isaac Bullock with guitar, street portrait, Amsterdam canal background",
+    "Isaac Bullock with guitar, street portrait, canal background",
     "Wide shot of packed venue, purple and blue stage lights, energy",
     "Drummer mid-performance, sweat visible, dramatic rim lighting",
   ];
@@ -190,9 +169,7 @@ Documentary feel, not stock photo. Authentic moment captured live.`,
 
   for (let i = 0; i < 12; i++) {
     const prompt = identity.aiPromptTemplate
-      .replace("{photographer}", identity.photographerCredits[i % 2])
       .replace("{subject}", subjects[i])
-      .replace("{venue}", identity.venueSignatures[i % 3])
       .replace("{lighting}", lightings[i % 6])
       .replace("{mood}", identity.mood[i % 6])
       .replace("{composition}", compositions[i % 6])
@@ -210,8 +187,7 @@ function main() {
   const identity = analyzePhotos();
 
   console.log(`Analyzed ${identity.photoCount} real photos`);
-  console.log(`Photographer credits: ${identity.photographerCredits.join(", ")}`);
-  console.log(`Venue signatures: ${identity.venueSignatures.join(", ")}\n`);
+  console.log(`Brand names in prompts: NONE (intentionally excluded)\n`);
 
   console.log("Dominant colors:");
   identity.dominantColors.forEach((c) => console.log(`  • ${c}`));

@@ -75,15 +75,15 @@ function getPhoto(index: number): { imagePath?: string; imagePrompt: string } {
   // Priority 3: Generate brand-informed prompt from scratch
   const subjects = [
     "Isaac Bullock holding a microphone, expressive gesture, engaging the crowd",
-    "Full band performing, drummer with P60 logo visible, guitarist in yellow hoodie",
+    "Full band performing, drummer with logo on bass drum, guitarist in yellow hoodie",
     "Isaac Bullock smiling, blue cap, colorful geometric mural background",
     "Crowd from behind the band, hands raised, lens flares from purple stage lights",
     "Backstage corridor, musician walking toward stage, anticipation",
     "Close-up of hands playing bass guitar, warm tungsten light",
     "Group of 30+ musicians and fans on stage, arms raised, celebration",
-    "Isaac Bullock at TEDx, warm spotlight, speaking to audience",
+    "Isaac Bullock at a speaking event, warm spotlight, addressing audience",
     "Rehearsal studio, candid moment, musicians laughing between takes",
-    "Isaac Bullock with guitar, street portrait, Amsterdam canal background",
+    "Isaac Bullock with guitar, street portrait, canal background",
     "Wide shot of packed venue, purple and blue stage lights, energy",
     "Drummer mid-performance, sweat visible, dramatic rim lighting",
   ];
@@ -106,8 +106,6 @@ function getPhoto(index: number): { imagePath?: string; imagePrompt: string } {
     "asymmetric composition with negative space",
   ];
 
-  const photographers = ["Paul Gabel", "Edo Land"];
-  const venues = ["P60", "Paradiso", "Bimhuis"];
   const moods = [
     "joyful and energetic",
     "intimate and authentic",
@@ -129,7 +127,7 @@ function getPhoto(index: number): { imagePath?: string; imagePrompt: string } {
   ];
 
   const i = index;
-  const prompt = `Professional music photography in the style of ${photographers[i % 2]}. ${subjects[i % 12]} on stage at ${venues[i % 3]}, ${lightings[i % 6]}. ${moods[i % 6]}. ${compositions[i % 6]}. Shot on ${cameras[i % 3]}. ${colorGrades[i % 4]}. Documentary feel, not stock photo. Authentic moment captured live.`;
+  const prompt = `Professional music photography. ${subjects[i % 12]} on stage, ${lightings[i % 6]}. ${moods[i % 6]}. ${compositions[i % 6]}. Shot on ${cameras[i % 3]}. ${colorGrades[i % 4]}. Documentary feel, not stock photo. Authentic moment captured live. No text, no watermarks, no logos.`;
 
   return { imagePrompt: prompt };
 }
@@ -385,7 +383,7 @@ console.log("Sample posts:");
 for (const p of posts.slice(0, 3)) {
   const imgInfo = p.imagePath
     ? `[REAL: ${p.imagePath.split("/").pop()}]`
-    : p.imagePrompt?.includes("Paul Gabel") || p.imagePrompt?.includes("Edo Land")
+    : p.imagePrompt?.includes("Professional music photography")
     ? "[BRAND-INFORMED AI]"
     : "[GENERIC AI]";
   console.log(`  ${p.id} | ${p.platform} | ${p.pillar} | ${p.topic.slice(0, 45)}... ${imgInfo}`);
