@@ -5,7 +5,8 @@
  * Quipu and Ndeku are the proof. Every output pushes one name, not six logos.
  *
  * Uses REAL photos from Kyakuwa's Facebook Page when available.
- * Falls back to image prompts only if no real assets exist.
+ * When AI generation is needed, prompts are based on VISUAL IDENTITY analysis
+ * of real content — not generic stock photo descriptions.
  *
  * Usage:
  *   npx tsx scripts/mission-isaac-bullock.ts
@@ -13,7 +14,7 @@
  * Output: /tmp/mission-isaac-bullock.json — importable as scheduled posts.
  */
 
-import { writeFileSync, readdirSync, existsSync } from "fs";
+import { writeFileSync, readdirSync, existsSync, readFileSync } from "fs";
 
 interface MissionPost {
   id: string;
@@ -37,6 +38,8 @@ function isoDate(daysFromNow: number, hour: number, minute: number): string {
 
 // ─── Load real photos from Facebook fetch ───
 const FB_PHOTO_DIR = "/tmp/fb-assets/photos";
+const VISUAL_IDENTITY_FILE = "/tmp/visual-identity.json";
+
 let realPhotos: string[] = [];
 if (existsSync(FB_PHOTO_DIR)) {
   realPhotos = readdirSync(FB_PHOTO_DIR)
@@ -44,22 +47,91 @@ if (existsSync(FB_PHOTO_DIR)) {
     .map((f) => `${FB_PHOTO_DIR}/${f}`);
 }
 
+// ─── Load visual identity for brand-informed AI prompts ───
+let visualIdentity: any = null;
+let brandPrompts: string[] = [];
+if (existsSync(VISUAL_IDENTITY_FILE)) {
+  try {
+    visualIdentity = JSON.parse(readFileSync(VISUAL_IDENTITY_FILE, "utf-8"));
+    brandPrompts = visualIdentity.examplePrompts || [];
+  } catch {
+    // ignore
+  }
+}
+
 function getPhoto(index: number): { path?: string; prompt: string } {
+  // Priority 1: Real photo
   if (realPhotos.length > 0) {
     const photo = realPhotos[index % realPhotos.length];
     return { path: photo, prompt: "Use real photo from Kyakuwa archive" };
   }
-  const prompts = [
-    "Cinematic portrait of Isaac Bullock, warm golden light, Amsterdam background, 35mm film grain",
-    "Band performing on stage, dramatic lighting, crowd silhouettes, concert photography",
-    "Isaac Bullock at TEDx, speaking to audience, warm stage light, documentary style",
-    "WILDNOFF band members in rehearsal studio, candid moment, warm tungsten lighting",
-    "Isaac Bullock with guitar, street portrait, colorful mural background, natural light",
-    "Concert crowd with hands raised, lens flares, epic live atmosphere, wide angle",
-    "Backstage corridor leading to stage, musician from behind, anticipation and gravitas",
-    "Isaac Bullock at Accenture office, split composition with stage, editorial photography",
+
+  // Priority 2: Brand-informed AI prompt based on visual identity analysis
+  if (brandPrompts.length > 0) {
+    const prompt = brandPrompts[index % brandPrompts.length];
+    return { prompt };
+  }
+
+  // Priority 3: Generate brand-informed prompt from scratch
+  const subjects = [
+    "Isaac Bullock holding a microphone, expressive gesture, engaging the crowd",
+    "Full band performing, drummer with P60 logo visible, guitarist in yellow hoodie",
+    "Isaac Bullock smiling, blue cap, colorful geometric mural background",
+    "Crowd from behind the band, hands raised, lens flares from purple stage lights",
+    "Backstage corridor, musician walking toward stage, anticipation",
+    "Close-up of hands playing bass guitar, warm tungsten light",
+    "Group of 30+ musicians and fans on stage, arms raised, celebration",
+    "Isaac Bullock at TEDx, warm spotlight, speaking to audience",
+    "Rehearsal studio, candid moment, musicians laughing between takes",
+    "Isaac Bullock with guitar, street portrait, Amsterdam canal background",
+    "Wide shot of packed venue, purple and blue stage lights, energy",
+    "Drummer mid-performance, sweat visible, dramatic rim lighting",
   ];
-  return { prompt: prompts[index % prompts.length] };
+
+  const lightings = [
+    "dramatic purple and blue stage lighting with gels",
+    "warm tungsten spotlights creating golden highlights",
+    "cool blue LED wash with magenta accents",
+    "high-contrast concert lighting, dark background, lit subject",
+    "natural daylight streaming through windows",
+    "mixed color temperature: warm stage + cool ambient",
+  ];
+
+  const compositions = [
+    "wide angle, full stage visible",
+    "medium shot, 2-3 subjects, shallow depth of field",
+    "close-up, expressive face, emotional intensity",
+    "overhead angle, showing crowd density",
+    "low angle, looking up at performer, heroic framing",
+    "asymmetric composition with negative space",
+  ];
+
+  const photographers = ["Paul Gabel", "Edo Land"];
+  const venues = ["P60", "Paradiso", "Bimhuis"];
+  const moods = [
+    "joyful and energetic",
+    "intimate and authentic",
+    "professional but unpolished",
+    "community-focused",
+    "culturally rich African-European fusion",
+    "documentary realism over studio perfection",
+  ];
+  const cameras = [
+    "Canon EOS R5 with 24-70mm f/2.8",
+    "Sony A7III with 85mm f/1.4",
+    "Nikon D850 with 70-200mm f/2.8",
+  ];
+  const colorGrades = [
+    "warm cinematic color grade with lifted blacks",
+    "high contrast with crushed blacks and vivid highlights",
+    "natural documentary color, slight film grain",
+    "teal and orange split tone",
+  ];
+
+  const i = index;
+  const prompt = `Professional music photography in the style of ${photographers[i % 2]}. ${subjects[i % 12]} on stage at ${venues[i % 3]}, ${lightings[i % 6]}. ${moods[i % 6]}. ${compositions[i % 6]}. Shot on ${cameras[i % 3]}. ${colorGrades[i % 4]}. Documentary feel, not stock photo. Authentic moment captured live.`;
+
+  return { prompt };
 }
 
 const VOICE = `First person. Isaac Bullock's voice. English by default. Dutch only for Dutch audiences.
@@ -287,8 +359,8 @@ const output = {
   totalPosts: posts.length,
   photoPool: {
     realPhotos: realPhotos.length,
-    fallbackPrompts: realPhotos.length === 0 ? 8 : 0,
-    source: realPhotos.length > 0 ? FB_PHOTO_DIR : "AI-generated (fallback)",
+    brandInformedPrompts: brandPrompts.length,
+    source: realPhotos.length > 0 ? FB_PHOTO_DIR : brandPrompts.length > 0 ? VISUAL_IDENTITY_FILE : "generated-from-brand-dna",
   },
   schedule: posts,
 };
@@ -297,13 +369,25 @@ writeFileSync("/tmp/mission-isaac-bullock.json", JSON.stringify(output, null, 2)
 
 console.log(`\n=== MISSION: THE ISAAC BULLOCK ENGINE ===\n`);
 console.log(`Total posts: ${posts.length}`);
-console.log(`Real photos used: ${realPhotos.length} (${realPhotos.length > 0 ? "REAL" : "FALLBACK"})`);
+console.log(`Real photos available: ${realPhotos.length}`);
+console.log(`Brand-informed prompts: ${brandPrompts.length}`);
+
 if (realPhotos.length > 0) {
-  console.log(`Photo source: ${FB_PHOTO_DIR}`);
+  console.log(`Photo source: ${FB_PHOTO_DIR} (REAL)`);
+} else if (brandPrompts.length > 0) {
+  console.log(`Prompt source: ${VISUAL_IDENTITY_FILE} (BRAND-INFORMED)`);
+} else {
+  console.log(`Prompt source: Generated from brand DNA (FALLBACK)`);
 }
+
 console.log(`Output: /tmp/mission-isaac-bullock.json\n`);
 console.log("Sample posts:");
 for (const p of posts.slice(0, 3)) {
-  console.log(`  ${p.id} | ${p.platform} | ${p.pillar} | ${p.topic.slice(0, 50)}...${p.imagePath ? ` [REAL PHOTO: ${p.imagePath.split("/").pop()}]` : " [PROMPT]"}`);
+  const imgInfo = p.imagePath
+    ? `[REAL: ${p.imagePath.split("/").pop()}]`
+    : p.imagePrompt?.includes("Paul Gabel") || p.imagePrompt?.includes("Edo Land")
+    ? "[BRAND-INFORMED AI]"
+    : "[GENERIC AI]";
+  console.log(`  ${p.id} | ${p.platform} | ${p.pillar} | ${p.topic.slice(0, 45)}... ${imgInfo}`);
 }
 console.log("");

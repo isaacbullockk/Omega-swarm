@@ -13,7 +13,8 @@
     "slay:templates": "npx tsx scripts/template-slayer.ts",
     "mission:kyakuwa": "npx tsx scripts/mission-kyakuwa-wildnoff.ts",
     "mission:isaac": "npx tsx scripts/mission-isaac-bullock.ts",
-    "fetch:fb-assets": "npx tsx scripts/fetch-facebook-assets.ts"
+    "fetch:fb-assets": "npx tsx scripts/fetch-facebook-assets.ts",
+    "analyze:visual-id": "npx tsx scripts/analyze-visual-identity.ts"
   },
   "engines": {
     "node": ">=20.0.0"
