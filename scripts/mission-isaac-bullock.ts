@@ -59,17 +59,17 @@ if (existsSync(VISUAL_IDENTITY_FILE)) {
   }
 }
 
-function getPhoto(index: number): { path?: string; prompt: string } {
+function getPhoto(index: number): { imagePath?: string; imagePrompt: string } {
   // Priority 1: Real photo
   if (realPhotos.length > 0) {
     const photo = realPhotos[index % realPhotos.length];
-    return { path: photo, prompt: "Use real photo from Kyakuwa archive" };
+    return { imagePath: photo, imagePrompt: "Use real photo from Kyakuwa archive" };
   }
 
   // Priority 2: Brand-informed AI prompt based on visual identity analysis
   if (brandPrompts.length > 0) {
     const prompt = brandPrompts[index % brandPrompts.length];
-    return { prompt };
+    return { imagePrompt: prompt };
   }
 
   // Priority 3: Generate brand-informed prompt from scratch
@@ -131,7 +131,7 @@ function getPhoto(index: number): { path?: string; prompt: string } {
   const i = index;
   const prompt = `Professional music photography in the style of ${photographers[i % 2]}. ${subjects[i % 12]} on stage at ${venues[i % 3]}, ${lightings[i % 6]}. ${moods[i % 6]}. ${compositions[i % 6]}. Shot on ${cameras[i % 3]}. ${colorGrades[i % 4]}. Documentary feel, not stock photo. Authentic moment captured live.`;
 
-  return { prompt };
+  return { imagePrompt: prompt };
 }
 
 const VOICE = `First person. Isaac Bullock's voice. English by default. Dutch only for Dutch audiences.
