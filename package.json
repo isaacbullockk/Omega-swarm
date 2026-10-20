@@ -18,7 +18,8 @@
     "mission:load": "npx tsx scripts/mission-to-database.ts",
     "post:quick": "npx tsx scripts/quick-post.ts",
     "fix:time-window": "npx tsx scripts/fix-time-window.ts",
-    "post:now": "npx tsx scripts/post-now.ts"
+    "post:now": "npx tsx scripts/post-now.ts",
+    "post:reset": "npx tsx scripts/reset-and-post.ts"
   },
   "engines": {
     "node": ">=20.0.0"
