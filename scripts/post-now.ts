@@ -53,11 +53,14 @@ async function main() {
         continue;
       }
 
-      // Pollinations URLs are unreliable for Meta — use a stable public image instead
+      // Use real local photos when available, pass everything else as-is
       let imageUrl = post.imageUrl ?? undefined;
       if (imageUrl && imageUrl.includes("pollinations.ai")) {
-        console.log("   ⚠️  Pollinations URL unreliable — switching to stable test image");
-        imageUrl = "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=1080&h=1080&fit=crop";
+        console.log("   ⚠️  Pollinations URL detected — skipping image (Instagram will fail without real content)");
+        imageUrl = undefined;
+      }
+      if (imageUrl && imageUrl.startsWith("/")) {
+        console.log(`   📸 Using real photo: ${imageUrl.split("/").pop()}`);
       }
 
       const result = await publishPost(target, post.caption, imageUrl);

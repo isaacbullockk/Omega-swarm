@@ -6,6 +6,7 @@
  * Every post passes the Nemotron content-safety gate before publishing.
  */
 
+import { readFileSync } from "fs";
 import { db, isPostgresAvailable } from "../db/connection";
 import { socialAccounts } from "../db/schema";
 import { eq, and } from "drizzle-orm";
@@ -96,45 +97,74 @@ export async function resolveTarget(
   return null;
 }
 
-/** Instagram: two-step container → publish. Requires a PUBLIC image URL. */
+/** Instagram: two-step container → publish. Supports both public URLs and local files. */
 async function publishInstagram(
   target: PublishTarget,
   caption: string,
   imageUrl: string
 ): Promise<PublishResult> {
-  // The Graph API downloads the image itself — it must be a public HTTPS URL (Meta refuses http).
-  // Fail fast with a clear message instead of an opaque Graph error.
-  if (!/^https:\/\//.test(imageUrl)) {
-    return { success: false, platform: "instagram", error: "Instagram publishing requires a public HTTPS image URL (this post's image is not web-hosted). Regenerate the post or use a hosted image." };
-  }
-  try {
-    await assertPublicImageUrl(imageUrl);
-  } catch (err) {
-    return { success: false, platform: "instagram", error: `Image URL rejected: ${(err as Error).message}` };
-  }
   const base = `${GRAPH_BASE}/${target.accountId}`;
+  const isLocalFile = imageUrl.startsWith("/");
 
-  // Step 1: create media container (token in POST body, never in URL)
-  const createBody = new URLSearchParams();
-  createBody.append("caption", caption);
-  createBody.append("image_url", imageUrl);
-  createBody.append("access_token", target.accessToken);
+  let creationId: string;
 
-  const createRes = await fetch(`${base}/media`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: createBody.toString(),
-  });
-  const createData = await createRes.json();
-  if (createData.error) {
-    return { success: false, platform: "instagram", error: `IG container: ${sanitizeError(createData.error.message, target.accessToken)}` };
+  if (isLocalFile) {
+    // LOCAL FILE: upload via multipart/form-data (real photos from /tmp/fb-assets/photos/)
+    try {
+      const fileBuffer = readFileSync(imageUrl);
+      const form = new FormData();
+      form.append("caption", caption);
+      form.append("access_token", target.accessToken);
+      // Instagram expects the file field to be named "file"
+      form.append("file", new Blob([fileBuffer]), "photo.jpg");
+
+      const createRes = await fetch(`${base}/media`, {
+        method: "POST",
+        body: form,
+      });
+      const createData = await createRes.json();
+      if (createData.error) {
+        return { success: false, platform: "instagram", error: `IG container (local): ${sanitizeError(createData.error.message, target.accessToken)}` };
+      }
+      if (!createData.id) {
+        return { success: false, platform: "instagram", error: "IG returned no creation id for local file" };
+      }
+      creationId = createData.id;
+    } catch (err) {
+      return { success: false, platform: "instagram", error: `Local file upload failed: ${(err as Error).message}` };
+    }
+  } else {
+    // PUBLIC URL: standard image_url flow (for AI-generated or hosted images)
+    if (!/^https:\/\//.test(imageUrl)) {
+      return { success: false, platform: "instagram", error: "Instagram publishing requires a public HTTPS image URL or a local file path." };
+    }
+    try {
+      await assertPublicImageUrl(imageUrl);
+    } catch (err) {
+      return { success: false, platform: "instagram", error: `Image URL rejected: ${(err as Error).message}` };
+    }
+
+    const createBody = new URLSearchParams();
+    createBody.append("caption", caption);
+    createBody.append("image_url", imageUrl);
+    createBody.append("access_token", target.accessToken);
+
+    const createRes = await fetch(`${base}/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: createBody.toString(),
+    });
+    const createData = await createRes.json();
+    if (createData.error) {
+      return { success: false, platform: "instagram", error: `IG container: ${sanitizeError(createData.error.message, target.accessToken)}` };
+    }
+    if (!createData.id) {
+      return { success: false, platform: "instagram", error: "IG returned no creation id" };
+    }
+    creationId = createData.id;
   }
-  if (!createData.id) {
-    return { success: false, platform: "instagram", error: "IG returned no creation id" };
-  }
 
-  // Step 2: poll container status until ready (required for slow image URLs)
-  const creationId = createData.id;
+  // Step 2: poll container status until ready
   let ready = false;
   let statusData: any;
   for (let attempt = 0; attempt < 12; attempt++) {
@@ -153,7 +183,7 @@ async function publishInstagram(
     }
   }
   if (!ready) {
-    return { success: false, platform: "instagram", error: `IG container timeout. Status: ${statusData?.status_code || "unknown"}. The image URL may be unreachable by Meta's crawler.` };
+    return { success: false, platform: "instagram", error: `IG container timeout. Status: ${statusData?.status_code || "unknown"}.` };
   }
 
   // Step 3: publish
