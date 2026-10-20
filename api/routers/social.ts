@@ -153,7 +153,7 @@ export const socialRouter = router({
           const result = await db!
             .update(socialAccounts)
             .set({
-              connected: true,
+              connected: 1,
               accessToken: encryptToken(input.accessToken), // AES-256-GCM at rest
               pageId, // derived (LinkedIn person URN) or input.pageId
               accountName,
@@ -173,7 +173,7 @@ export const socialRouter = router({
             platform: input.platform,
             accountName,
             handle,
-            connected: true,
+            connected: 1,
             accessToken: encryptToken(input.accessToken), // AES-256-GCM at rest
             pageId,
             connectedAt: new Date(),

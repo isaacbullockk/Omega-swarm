@@ -120,7 +120,7 @@ async function refreshOne(row: {
       .set({
         accessToken: encryptToken(data.access_token),
         tokenExpiresAt: expiresAt,
-        connected: true,
+        connected: 1,
       })
       .where(and(eq(socialAccounts.id, row.id), eq(socialAccounts.userId, row.userId)));
 
@@ -156,7 +156,6 @@ export async function refreshExpiringTokens(): Promise<RefreshResult> {
     .where(
       and(
         inArray(socialAccounts.platform, ["instagram", "facebook"]),
-        eq(socialAccounts.connected, true),
         isNotNull(socialAccounts.accessToken)
       )
     );

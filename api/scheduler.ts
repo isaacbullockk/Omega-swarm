@@ -283,18 +283,21 @@ export async function runGenerationTick(userId?: string, force = false): Promise
 
   // Find users with automation enabled whose nextGenAt is due
   const whereClause = userId
-    ? and(eq(automationSettings.enabled, true), eq(automationSettings.userId, userId))
-    : eq(automationSettings.enabled, true);
+    ? eq(automationSettings.userId, userId)
+    : undefined;
 
-  const users = await db
+  const allUsers = await db
     .select({
       userId: automationSettings.userId,
       brandVoice: automationSettings.brandVoice,
       timezone: automationSettings.timezone,
       nextGenAt: automationSettings.nextGenAt,
+      enabled: automationSettings.enabled,
     })
     .from(automationSettings)
     .where(whereClause);
+
+  const users = allUsers.filter((u) => u.enabled);
 
   for (const cfg of users) {
     // Gate: only generate once per week (or if never generated) — unless forced

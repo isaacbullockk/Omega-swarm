@@ -397,7 +397,7 @@ export const socialAccounts = pgTable(
     platform: socialPlatformEnum("platform").notNull(),
     accountName: varchar("account_name", { length: 100 }).notNull(),
     handle: varchar("handle", { length: 50 }).notNull(),
-    connected: boolean("connected").notNull().default(false),
+    connected: integer("connected").notNull().default(0),
     accessToken: text("access_token"),
     pageId: varchar("page_id", { length: 100 }),
     connectedAt: timestamp("connected_at", { withTimezone: true }),

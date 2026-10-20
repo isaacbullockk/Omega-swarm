@@ -95,12 +95,11 @@ export const postRouter = router({
           .where(
             and(
               eq(socialAccounts.userId, ctx.user.id),
-              eq(socialAccounts.platform, "instagram"),
-              eq(socialAccounts.connected, true)
+              eq(socialAccounts.platform, "instagram")
             )
           )
           .limit(1);
-        const acc = rows[0];
+        const acc = rows.find((r) => r.connected);
         if (acc?.accessToken && acc.pageId) {
           const plainToken = decryptToken(acc.accessToken); // AES-256-GCM at rest
           if (!plainToken) {
@@ -221,7 +220,7 @@ export const postRouter = router({
               pageId,
               handle,
               accountName: handle,
-              connected: true,
+              connected: 1,
               connectedAt: new Date(),
               tokenExpiresAt,
             })
@@ -232,7 +231,7 @@ export const postRouter = router({
             platform: "instagram",
             accountName: handle,
             handle,
-            connected: true,
+            connected: 1,
             accessToken: encryptedToken,
             pageId,
             connectedAt: new Date(),
