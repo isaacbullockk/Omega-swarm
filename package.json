@@ -16,7 +16,8 @@
     "fetch:fb-assets": "npx tsx scripts/fetch-facebook-assets.ts",
     "analyze:visual-id": "npx tsx scripts/analyze-visual-identity.ts",
     "mission:load": "npx tsx scripts/mission-to-database.ts",
-    "post:quick": "npx tsx scripts/quick-post.ts"
+    "post:quick": "npx tsx scripts/quick-post.ts",
+    "fix:time-window": "npx tsx scripts/fix-time-window.ts"
   },
   "engines": {
     "node": ">=20.0.0"
