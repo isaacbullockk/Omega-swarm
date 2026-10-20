@@ -53,7 +53,14 @@ async function main() {
         continue;
       }
 
-      const result = await publishPost(target, post.caption, post.imageUrl ?? undefined);
+      // Pollinations URLs are unreliable for Meta — use a stable public image instead
+      let imageUrl = post.imageUrl ?? undefined;
+      if (imageUrl && imageUrl.includes("pollinations.ai")) {
+        console.log("   ⚠️  Pollinations URL unreliable — switching to stable test image");
+        imageUrl = "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=1080&h=1080&fit=crop";
+      }
+
+      const result = await publishPost(target, post.caption, imageUrl);
 
       if (result.success) {
         console.log(`   ✅ Published! ID: ${result.postId || "N/A"}`);

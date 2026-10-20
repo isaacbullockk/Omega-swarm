@@ -133,9 +133,32 @@ async function publishInstagram(
     return { success: false, platform: "instagram", error: "IG returned no creation id" };
   }
 
-  // Step 2: publish
+  // Step 2: poll container status until ready (required for slow image URLs)
+  const creationId = createData.id;
+  let ready = false;
+  let statusData: any;
+  for (let attempt = 0; attempt < 12; attempt++) {
+    await new Promise((r) => setTimeout(r, 5000));
+    const statusRes = await fetch(
+      `${base}/media?fields=status_code&access_token=${encodeURIComponent(target.accessToken)}`,
+      { method: "GET" }
+    );
+    statusData = await statusRes.json().catch(() => ({}));
+    if (statusData.status_code === "FINISHED") {
+      ready = true;
+      break;
+    }
+    if (statusData.status_code === "ERROR" || statusData.error) {
+      return { success: false, platform: "instagram", error: `IG container failed: ${sanitizeError(statusData.error?.message || statusData.status_code, target.accessToken)}` };
+    }
+  }
+  if (!ready) {
+    return { success: false, platform: "instagram", error: `IG container timeout. Status: ${statusData?.status_code || "unknown"}. The image URL may be unreachable by Meta's crawler.` };
+  }
+
+  // Step 3: publish
   const pubBody = new URLSearchParams();
-  pubBody.append("creation_id", createData.id);
+  pubBody.append("creation_id", creationId);
   pubBody.append("access_token", target.accessToken);
 
   const pubRes = await fetch(`${base}/media_publish`, {
