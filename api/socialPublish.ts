@@ -53,7 +53,7 @@ export async function resolveTarget(
   opts: { accountId?: string; platform?: "instagram" | "facebook" | "linkedin" }
 ): Promise<PublishTarget | null> {
   if (isPostgresAvailable() && db) {
-    const conditions = [eq(socialAccounts.userId, userId), eq(socialAccounts.connected, true)];
+    const conditions = [eq(socialAccounts.userId, userId)];
     if (opts.accountId) conditions.push(eq(socialAccounts.id, opts.accountId));
     if (opts.platform) conditions.push(eq(socialAccounts.platform, opts.platform));
 
@@ -61,12 +61,11 @@ export async function resolveTarget(
       .select()
       .from(socialAccounts)
       .where(and(...conditions))
-      .limit(1);
+      .limit(10);
 
-    const acc = rows[0];
+    const acc = rows.find((r) => r.connected && r.accessToken && r.pageId);
     if (
-      acc?.accessToken &&
-      acc.pageId &&
+      acc &&
       (acc.platform === "instagram" || acc.platform === "facebook" || acc.platform === "linkedin")
     ) {
       const plainToken = decryptToken(acc.accessToken); // tokens are AES-256-GCM at rest
