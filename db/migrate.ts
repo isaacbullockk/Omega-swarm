@@ -152,6 +152,27 @@ const MIGRATIONS = [
     connected_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );`,
+  `ALTER TABLE social_accounts ADD COLUMN IF NOT EXISTS connected BOOLEAN NOT NULL DEFAULT FALSE;`,
+  `DO $$
+  DECLARE connected_type TEXT;
+  BEGIN
+    SELECT data_type INTO connected_type
+    FROM information_schema.columns
+    WHERE table_schema = current_schema()
+      AND table_name = 'social_accounts'
+      AND column_name = 'connected';
+
+    IF connected_type IS NOT NULL AND connected_type <> 'boolean' THEN
+      ALTER TABLE social_accounts ALTER COLUMN connected DROP DEFAULT;
+      ALTER TABLE social_accounts
+        ALTER COLUMN connected TYPE BOOLEAN
+        USING lower(connected::text) IN ('1', 't', 'true');
+    END IF;
+
+    UPDATE social_accounts SET connected = FALSE WHERE connected IS NULL;
+    ALTER TABLE social_accounts ALTER COLUMN connected SET DEFAULT FALSE;
+    ALTER TABLE social_accounts ALTER COLUMN connected SET NOT NULL;
+  END $$;`,
   // OAuth token expiry for proactive refresh (runs after table exists)
   `ALTER TABLE social_accounts ADD COLUMN IF NOT EXISTS token_expires_at TIMESTAMPTZ;`,
 

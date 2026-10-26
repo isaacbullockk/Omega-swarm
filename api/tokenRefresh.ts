@@ -120,7 +120,7 @@ async function refreshOne(row: {
       .set({
         accessToken: encryptToken(data.access_token),
         tokenExpiresAt: expiresAt,
-        connected: 1,
+        connected: true,
       })
       .where(and(eq(socialAccounts.id, row.id), eq(socialAccounts.userId, row.userId)));
 

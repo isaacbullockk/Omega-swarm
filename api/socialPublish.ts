@@ -170,7 +170,7 @@ async function publishInstagram(
   for (let attempt = 0; attempt < 12; attempt++) {
     await new Promise((r) => setTimeout(r, 5000));
     const statusRes = await fetch(
-      `${base}/media?fields=status_code&access_token=${encodeURIComponent(target.accessToken)}`,
+      `${GRAPH_BASE}/${creationId}?fields=status_code&access_token=${encodeURIComponent(target.accessToken)}`,
       { method: "GET" }
     );
     statusData = await statusRes.json().catch(() => ({}));

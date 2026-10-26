@@ -220,7 +220,7 @@ export const postRouter = router({
               pageId,
               handle,
               accountName: handle,
-              connected: 1,
+              connected: true,
               connectedAt: new Date(),
               tokenExpiresAt,
             })
@@ -231,7 +231,7 @@ export const postRouter = router({
             platform: "instagram",
             accountName: handle,
             handle,
-            connected: 1,
+            connected: true,
             accessToken: encryptedToken,
             pageId,
             connectedAt: new Date(),

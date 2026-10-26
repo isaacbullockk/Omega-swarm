@@ -4,8 +4,8 @@
  * Runs on a 15-minute interval from server.ts. Two jobs:
  *   1. PUBLISH: Finds scheduled posts whose date has arrived. If the user has
  *      auto-publish ON and the local time matches their preferred day+window,
- *      publishes to all connected platforms. Otherwise flips to "draft" for
- *      manual review.
+ *      publishes to all connected platforms. Posts outside that window remain
+ *      scheduled for the next eligible window.
  *   2. GENERATE: Once per week, pre-creates AI-written drafts for the next
  *      7 days using the Master Briefing calendar and voice rules.
  *
@@ -134,7 +134,7 @@ async function publishScheduledPost(
   return result;
 }
 
-/** Core publish tick: scheduled → published (auto) or draft (review) */
+/** Publish due posts; preserve scheduled status when an automatic attempt is deferred or fails. */
 export async function runPublishTick(userId?: string): Promise<{
   checked: number;
   published: number;
@@ -222,20 +222,20 @@ export async function runPublishTick(userId?: string): Promise<{
               agentName: "Autopilot",
             });
           } else {
+            result.failed++;
+            console.warn(`[Scheduler] ${post.id}: auto-publish failed; remains scheduled for retry`, pub.errors);
+          }
+        } else {
+          if (!settings.autoPublish) {
             await db
               .update(contentPosts)
               .set({ status: "draft" })
               .where(eq(contentPosts.id, post.id));
             result.drafted++;
-            console.warn(`[Scheduler] ${post.id}: auto-publish failed on all platforms — moved to draft`, pub.errors);
+            console.log(`[Scheduler] ${post.id}: moved to draft (review mode)`);
+          } else {
+            console.log(`[Scheduler] ${post.id}: deferred until a preferred day and time window (${dayName} ${hour}h now)`);
           }
-        } else {
-          await db
-            .update(contentPosts)
-            .set({ status: "draft" })
-            .where(eq(contentPosts.id, post.id));
-          result.drafted++;
-          console.log(`[Scheduler] ${post.id}: moved to draft (review mode or outside ${dayName} ${hour}h window)`);
         }
       } catch (err) {
         result.failed++;
